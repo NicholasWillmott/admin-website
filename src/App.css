@@ -25,3 +25,46 @@
 .read-the-docs {
   color: #888;
 }
+
+.servers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.server-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  background: white;
+  color: #333;  /* Add this line */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.server-card h2 {
+  margin-top: 0;
+  color: #333;
+}
+
+.server-card p {
+  margin: 8px 0;
+}
+
+.flags {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  background-color: #e0e0e0;
+}
+
+.badge.success {
+  background-color: #4caf50;
+  color: white;
+}
