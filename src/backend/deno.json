@@ -5,7 +5,8 @@
   },
   "imports": {
     "hono": "npm:hono@4.10.5",
-    "node-ssh": "npm:node-ssh@13.1.0"
+    "node-ssh": "npm:node-ssh@13.1.0",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.5"
   },
   "tasks": {
     "start": "deno run --allow-net --allow-read --allow-env --allow-run server.ts",

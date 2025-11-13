@@ -1,4 +1,9 @@
 /// <reference lib="deno.ns" />
+import { load } from "@std/dotenv";
+
+// Load .env file at startup
+await load({ export: true });
+
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -33,6 +38,10 @@ app.post("/api/servers/:id/restart", async (c) => {
 
     const command = `wb restart ${serverId}`;
 
+    if(!isCommandAllowed(command)) {
+        return c.json({ error: "Command not allowed" }, 403);
+    }
+
     try{
         const result = await executeCommand(server.ip, command);
         return c.json({
@@ -57,6 +66,10 @@ app.post("/api/servers/:id/update", async (c) => {
     }
 
     const command = `wb c update ${serverId} --server ${version}`
+
+    if(!isCommandAllowed(command)) {
+        return c.json({ error: "Command not allowed" }, 403);
+    }
 
     // update server
     try{
