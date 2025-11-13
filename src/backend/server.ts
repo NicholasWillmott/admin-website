@@ -27,9 +27,6 @@ async function getServerInfo(serverId: string) {
   return servers.find((s: any) => s.id === serverId);
 }
 
-// Check server's status
-app.get("/", (c) => c.json({ status: "ok" }));
-
 // Restart individual server
 app.post("/api/servers/:id/restart", async (c) => {
     const serverId = c.req.param("id");
@@ -59,6 +56,57 @@ app.post("/api/servers/:id/restart", async (c) => {
     }
 });
 
+// Get the status and uptime of all server
+app.get("/api/servers/status", async (c) => {
+    const command = `docker ps --format '{"name":"{{.Names}}","status":"{{.Status}}"}'`;
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+
+        if (!result.success) {
+            return c.json({ error: result.stderr }, 500);
+        }
+
+        // Parse each line of stdout as JSON
+        const lines = result.stdout.trim().split('\n').filter(line => line.length > 0);
+        const containers = lines.map(line => {
+            try {
+                return JSON.parse(line);
+            } catch (e) {
+                console.error('Failed to parse line:', line);
+                return null;
+            }
+        }).filter(item => item !== null);
+
+        // Group containers by server
+        const serverStatuses: Record<string, any> = {};
+
+        containers.forEach((container: any) => {
+            const name = container.name;
+
+            // Skip postgres and admin containers
+            if (name.endsWith('-postgres') || name.endsWith('-admin')) {
+                return;
+            }
+
+            // Extract uptime by removing "Up " prefix
+            const status = container.status;
+            const uptime = status.startsWith('Up ') ? status.substring(3) : status;
+
+            serverStatuses[name] = {
+                online: true,
+                uptime: uptime,
+            };
+        });
+
+        return c.json({
+            success: true,
+            statuses: serverStatuses
+        });
+    }catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
 // update server version (need to run restart api after)
 app.post("/api/servers/:id/update", async (c) => {
     const serverId = c.req.param("id");
