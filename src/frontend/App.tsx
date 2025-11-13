@@ -1,5 +1,5 @@
 import { createResource, createSignal, For } from 'solid-js'
-import './App.css'
+import './css/App.css'
 
 async function fetchServerData() {
   const response = await fetch('https://central.fastr-analytics.org/servers.json');

@@ -1,0 +1,14 @@
+{
+  "nodeModulesDir": "auto",
+  "compilerOptions": {
+    "lib": ["deno.ns", "deno.window"]
+  },
+  "imports": {
+    "hono": "npm:hono@4.10.5",
+    "node-ssh": "npm:node-ssh@13.1.0"
+  },
+  "tasks": {
+    "start": "deno run --allow-net --allow-read --allow-env --allow-run server.ts",
+    "dev": "deno run --watch --allow-net --allow-read --allow-env --allow-run server.ts"
+  }
+}
