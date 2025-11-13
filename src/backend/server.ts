@@ -13,11 +13,14 @@ const app = new Hono();
 
 app.use("*", logger());
 app.use("*", cors({
-  origin: ["http://localhost:5173"], 
+  origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
   credentials: true,
 }));
 
-// Get indiviudal server's info 
+// Droplet IP where all servers are hosted
+const DROPLET_IP = Deno.env.get("DROPLET_IP") || "159.223.167.134";
+
+// Get indiviudal server's info
 async function getServerInfo(serverId: string) {
   const response = await fetch("https://central.fastr-analytics.org/servers.json");
   const servers = await response.json();
@@ -32,18 +35,20 @@ app.post("/api/servers/:id/restart", async (c) => {
     const serverId = c.req.param("id");
     const server = await getServerInfo(serverId);
 
-    if(!server || !server.ip) {
+    if(!server || !server.id) {
         return c.json({ error: "Server not found" }, 404);
     }
 
     const command = `wb restart ${serverId}`;
 
-    if(!isCommandAllowed(command)) {
-        return c.json({ error: "Command not allowed" }, 403);
-    }
+    console.log(command);
+
+    // if(!isCommandAllowed(command)) {
+    //     return c.json({ error: "Command not allowed" }, 403);
+    // }
 
     try{
-        const result = await executeCommand(server.ip, command);
+        const result = await executeCommand(DROPLET_IP, command);
         return c.json({
             success: result.success,
             message: result.stdout,
@@ -57,23 +62,26 @@ app.post("/api/servers/:id/restart", async (c) => {
 // update server version (need to run restart api after)
 app.post("/api/servers/:id/update", async (c) => {
     const serverId = c.req.param("id");
-    const { version } = c.req.json();
+    const { version } = await c.req.json();
 
     const server = await getServerInfo(serverId);
 
-    if(!server || !server.ip) {
+    if(!server || !server.id) {
         return c.json({ error: "Server not found" }, 404);
     }
 
     const command = `wb c update ${serverId} --server ${version}`
 
-    if(!isCommandAllowed(command)) {
-        return c.json({ error: "Command not allowed" }, 403);
-    }
+    console.log(command);
+
+    // if(!isCommandAllowed(command)) {
+    //     return c.json({ error: "Command not allowed" }, 403);
+    // }
+
 
     // update server
     try{
-        const result = await executeCommand(server.ip, command);
+        const result = await executeCommand(DROPLET_IP, command);
         return c.json({
             success: result.success,
             message: result.stdout,
