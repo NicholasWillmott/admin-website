@@ -1,6 +1,4 @@
-// SSH command executor
-import { NodeSSH } from "node-ssh";
-
+// SSH command executor using native Deno
 export interface CommandResult {
     success: boolean;
     stdout: string;
@@ -13,29 +11,41 @@ export async function executeCommand(
     command: string,
     privateKeyPath?: string
 ): Promise<CommandResult> {
-    const ssh = new NodeSSH();
+    let keyPath = privateKeyPath || Deno.env.get("SSH_KEY_PATH") || "~/.ssh/id_rsa";
 
-    try{
-        await ssh.connect({
-            host: host,
-            username: "root",
-            privateKeyPath: privateKeyPath || Deno.env.get("SSH_KEY_PATH")
-        });
-
-        console.log(`Executing on ${host}: ${command}`);
-        const result = await ssh.execCommand(command);
-        ssh.dispose();
-
-        return{
-            success: result.code === 0,
-            stdout: result.stdout,
-            stderr: result.stderr,
-            code: result.code,
-        };
-    } catch (error) {
-        ssh.dispose();
-        throw error;
+    // Expand ~ to home directory
+    if (keyPath.startsWith("~")) {
+        const home = Deno.env.get("HOME") || "/home/nicho";
+        keyPath = keyPath.replace("~", home);
     }
+
+    console.log(`Executing on ${host}: ${command}`);
+
+    // Use native SSH command via Deno
+    const sshCommand = new Deno.Command("ssh", {
+        args: [
+            "-i", keyPath,
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            `root@${host}`,
+            command
+        ],
+        stdout: "piped",
+        stderr: "piped",
+    });
+
+    const process = sshCommand.spawn();
+    const { code, stdout, stderr } = await process.output();
+
+    const stdoutText = new TextDecoder().decode(stdout);
+    const stderrText = new TextDecoder().decode(stderr);
+
+    return {
+        success: code === 0,
+        stdout: stdoutText,
+        stderr: stderrText,
+        code: code,
+    };
 }
 
 // Whitelist of allowed commands to prevent command injection
