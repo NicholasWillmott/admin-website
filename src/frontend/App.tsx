@@ -128,13 +128,6 @@ function App() {
                   {isExpanded() && (
                     <div class="expanded-content" onClick={(e) => e.stopPropagation()}>
                       <hr/>
-                      {/* Server Details */}
-                      <div class="details-section">
-                        <h3>Details</h3>
-                        <p><strong>ID:</strong> {server.id}</p>
-                        {server.instanceDir && <p><strong>Instance Dir:</strong> {server.instanceDir}</p>}
-                        {server.adminVersion && <p><strong>Admin Version:</strong> {server.adminVersion}</p>}
-                      </div>
 
                       {/* Version Control */}
                       <div class="control-section">
