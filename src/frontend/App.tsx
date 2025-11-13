@@ -3,57 +3,96 @@ import './css/App.css'
 
 const API_BASE = "http://localhost:3001";
 
-async function fetchServerData() {
+interface Server {
+  id: string;
+  label: string;
+  port: number;
+  serverVersion: string;
+  instanceDir?: string;
+  adminVersion?: string;
+  french?: boolean;
+  ethiopian?: boolean;
+  openAccess?: boolean;
+}
+
+async function fetchServerData(): Promise<Server[]> {
   const response = await fetch('https://central.fastr-analytics.org/servers.json');
   return response.json()
 }
 
-const restartServer = async (ServerId: string) => {
-  try{
-    const response = await fetch(`${API_BASE}/api/servers/${ServerId}/restart`, {
-      method: 'POST',
-    });
-    const result = await response.json();
-    if (result.success) {
-      alert(`Server ${ServerId} restarted successfully.`);
-    } else {
-      alert(`Failed to restart server ${ServerId}: ${result.error}`);
-    }
-  } catch (error) {
-    alert(`Error restarting server ${ServerId}: ${error}`);
-  }
+async function fetchServerStatuses() {
+  const response = await fetch(`${API_BASE}/api/servers/status`);
+  const data = await response.json();
+  return data.statuses;
 }
 
-const updateServerVersion = async (serverId: string, version: string) => {
-  try{
-    const response = await fetch(`${API_BASE}/api/servers/${serverId}/update`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ version }),
-    });
-    const result = await response.json();
-    if (result.success) {
-      alert(`Server updated: ${result.output}`);
-    } else {
-      alert(`Error: ${result.error}`);
-    }
-  } catch (error) {
-    alert(`Failed to update server: ${error}`);
-  }
-}
 
 function App() {
   // get server data
-  const [servers] = createResource(fetchServerData)
+  const [servers, { mutate }] = createResource(fetchServerData)
+
+  // get server statuses
+  // and uptime
+  const [statuses] = createResource(fetchServerStatuses);
 
   // track expanded card
   const [expandedId, setExpandedId] = createSignal<string | null>(null)
 
+  // toggle card
   const toggleCard = (id: string) => {
     setExpandedId(expandedId() === id ? null : id)
   }
+
+  // update server version
+  const updateServerVersion = async (serverId: string, version: string) => {
+    try{
+      const response = await fetch(`${API_BASE}/api/servers/${serverId}/update`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ version }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert(`${serverId} Server updated successfully to version ${version}.`);
+
+        // Update the local data without refetching (prevents scroll jump)
+        const currentServers = servers();
+        if (currentServers) {
+          const updatedServers = currentServers.map((server) =>
+            server.id === serverId
+              ? { ...server, serverVersion: version }
+              : server
+          );
+          mutate(updatedServers);
+        }
+
+      } else {
+        alert(`Error: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Failed to update server: ${error}`);
+    }
+  }
+
+  // restart server
+  const restartServer = async (ServerId: string) => {
+    try{
+      const response = await fetch(`${API_BASE}/api/servers/${ServerId}/restart`, {
+        method: 'POST',
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert(`Server ${ServerId} restarted successfully.`);
+      } else {
+        alert(`Failed to restart server ${ServerId}: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Error restarting server ${ServerId}: ${error}`);
+    }
+  }
+
 
   return (
     <>
@@ -129,7 +168,9 @@ function App() {
                           </div>
                           <div class="stat-item">
                             <span class="stat-label">Uptime:</span>
-                            <span class="stat-value">-</span>
+                            <span class="stat-value">
+                              {statuses()?.[server.id]?.uptime || 'N/A'}
+                            </span>
                           </div>
                           <div class="stat-item">
                             <span class="stat-label">Last Updated:</span>
@@ -137,7 +178,9 @@ function App() {
                           </div>
                           <div class="stat-item">
                             <span class="stat-label">Status:</span>
-                            <span class="stat-value status-online">Online</span>
+                            <span class={`stat-value ${statuses()?.[server.id]?.online ? 'status-online' : 'status-offline'}`}>
+                              {statuses()?.[server.id]?.online ? 'Online' : 'Offline'}
+                            </span>
                           </div>
                         </div>
                       </div>

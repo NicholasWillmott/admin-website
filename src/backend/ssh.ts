@@ -86,6 +86,7 @@ const ALLOWED_COMMANDS = [
   // OTHER
   /^wb help$/,
   /^docker ps$/,
+  /^docker ps --format .+$/,
 ];
 
 export function isCommandAllowed(command: string): boolean {
