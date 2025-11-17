@@ -308,8 +308,8 @@ function App() {
                           <div class="stat-item">
                             <span class="stat-label">Uptime:</span>
                             <span class="stat-value">
-                              {statuses()?.[server.id]?.uptimeMs 
-                                ? formatUptime(statuses()?.[server.id]!.uptimeMs) 
+                              {statuses()?.[server.id]?.uptimeMs
+                                ? formatUptime(statuses()![server.id]!.uptimeMs)
                                 : 'N/A'}
                             </span>
                           </div>
