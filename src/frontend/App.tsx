@@ -1,4 +1,4 @@
-import { createResource, createSignal, For } from 'solid-js'
+import { createResource, createSignal, For, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
 
 const API_BASE = "http://localhost:3001";
@@ -15,36 +15,166 @@ interface Server {
   openAccess?: boolean;
 }
 
-async function fetchServerData(): Promise<Server[]> {
+interface ServerLogs {
+  success: boolean;
+  logs: string;
+  error: string;
+}
+
+// Health check response structure for the server status api call
+interface HealthCheckResponse {
+  running: boolean;
+  instanceName: string;
+  serverVersion: string;
+  environment: string;
+  startTime: string;
+  currentTime: string;
+  uptimeMs: number;
+  calendar: string;
+  language: string;
+  databaseFolder: string;
+  totalUsers: number;
+  adminUsers: string[];
+  projects: string[];
+  datasets: {
+    hmis: { versionId: number } | null;
+    hfa: any;
+  };
+}
+
+// stores all the servers HealthCheckResponses
+interface ServerStatuses {
+  [serverId: string]: HealthCheckResponse | null;
+}
+
+type serverVersions = string[];
+
+function formatUptime(ms: number): string {
+  const minutes = Math.floor(ms / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days >= 1) {
+    return `${days} day${days === 1 ? '' : 's'}`;
+  } else if (hours >= 1) {
+    return `${hours} hour${hours === 1 ? '' : 's'}`;
+  } else {
+    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  }
+}
+
+async function fetchServerCardData(): Promise<Server[]> {
   const response = await fetch('https://central.fastr-analytics.org/servers.json');
   return response.json()
 }
 
-async function fetchServerStatuses() {
-  const response = await fetch(`${API_BASE}/api/servers/status`);
-  const data = await response.json();
-  return data.statuses;
+async function fetchServerLogs(serverId: string): Promise<ServerLogs | null> {
+  try{
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/logs`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error(`failed to fetch server logs for ${serverId}: `, error);
+    return null;
+  }
+}
+
+async function fetchServerVersions() {
+  const response = await fetch(`${API_BASE}/api/versions`);
+  const data: { versions: serverVersions } = await response.json();
+  return data.versions;
+}
+
+async function fetchServerStatus(serverId: string): Promise<HealthCheckResponse | null> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/status`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error(`Failed to fetch status for ${serverId}:`, error);
+    return null;
+  }
+}
+
+async function fetchAllServerStatuses(servers: Server[]): Promise<ServerStatuses> {
+  const statusPromises = servers.map(async (server) => ({
+    id: server.id,
+    status: await fetchServerStatus(server.id),
+  }));
+  
+  const results = await Promise.all(statusPromises);
+  
+  return results.reduce((acc, { id, status }) => {
+    acc[id] = status;
+    return acc;
+  }, {} as ServerStatuses);
 }
 
 
 function App() {
   // get server data
-  const [servers, { mutate }] = createResource(fetchServerData)
+  const [servers, { mutate }] = createResource(fetchServerCardData)
 
-  // get server statuses
-  // and uptime
-  const [statuses] = createResource(fetchServerStatuses);
+  // get server status, total users, uptime, etc
+  const [statuses, { refetch: refetchStatuses }] = createResource(
+    servers,
+    (serverList) => fetchAllServerStatuses(serverList)
+  );
+
+  // get server versions
+  const [serverVersions] = createResource(fetchServerVersions);
 
   // track expanded card
   const [expandedId, setExpandedId] = createSignal<string | null>(null)
+  
+  // track which server's logs to show in modal
+  const [logsModalServerId, setLogsModalServerId] = createSignal<string | null>(null);
+  const [modalLogs, setModalLogs] = createSignal<string>('');
+  const [logsLoading, setLogsLoading] = createSignal<boolean>(false);
+
+  // track when updating server and restarting server ids are loading 
+  const [updatingServerId, setUpdatingServerId] = createSignal<string | null>(null);
+  const [restartingServerId, setRestartingServerId] = createSignal<string | null>(null);
+
+  // Auto-refresh statuses every 60 seconds
+  createEffect(() => {
+    const interval = setInterval(() => {
+      refetchStatuses();
+    }, 60000); // 60 seconds
+
+    onCleanup(() => clearInterval(interval));
+  });
 
   // toggle card
   const toggleCard = (id: string) => {
     setExpandedId(expandedId() === id ? null : id)
   }
 
+  // open logs modal
+  const openLogsModal = async (serverId: string) => {
+    setLogsModalServerId(serverId);
+    setLogsLoading(true);
+    
+    const result = await fetchServerLogs(serverId);
+    
+    if (result?.success) {
+      setModalLogs(result.logs);
+    } else {
+      setModalLogs(`Error: ${result?.error || 'Failed to fetch logs'}`);
+    }
+    
+    setLogsLoading(false);
+  };
+
+  // close logs modal
+  const closeLogsModal = () => {
+    setLogsModalServerId(null);
+    setModalLogs('');
+  };
+
   // update server version
   const updateServerVersion = async (serverId: string, version: string) => {
+    setUpdatingServerId(serverId);
     try{
       const response = await fetch(`${API_BASE}/api/servers/${serverId}/update`, {
         method: 'POST',
@@ -68,16 +198,22 @@ function App() {
           mutate(updatedServers);
         }
 
+        // restart server after update
+        restartServer(serverId);
+
       } else {
         alert(`Error: ${result.error}`);
       }
     } catch (error) {
       alert(`Failed to update server: ${error}`);
+    } finally {
+      setUpdatingServerId(null);
     }
   }
 
   // restart server
   const restartServer = async (ServerId: string) => {
+    setRestartingServerId(ServerId);
     try{
       const response = await fetch(`${API_BASE}/api/servers/${ServerId}/restart`, {
         method: 'POST',
@@ -90,6 +226,8 @@ function App() {
       }
     } catch (error) {
       alert(`Error restarting server ${ServerId}: ${error}`);
+    } finally {
+      setRestartingServerId(null);
     }
   }
 
@@ -120,8 +258,8 @@ function App() {
                   {server.adminVersion && <p><strong>Admin Version:</strong> {server.adminVersion}</p>}
                   <div class="flags">
                     {server.french && <span class="badge">French</span>}
-                    {server.ethiopian && <span class="badge">Ethiopian</span>}
-                    {server.openAccess && <span class="badge success">Open Access</span>}
+                    {server.ethiopian && <span class="badge calendar">Ethiopian</span>}
+                    {server.openAccess && <span class="badge access">Open Access</span>}
                   </div>
 
                   {/* Expanded view */}
@@ -138,17 +276,25 @@ function App() {
                             value={selectedVersion()}
                             onChange={(e) => setSelectedVersion(e.currentTarget.value)}
                           >
-                            <option value="1.6.12" selected={server.serverVersion === '1.6.12'}>1.6.12</option>
-                            <option value="1.6.11" selected={server.serverVersion === '1.6.11'}>1.6.11</option>
-                            <option value="1.6.10" selected={server.serverVersion === '1.6.10'}>1.6.10</option>
-                            <option value="1.6.9" selected={server.serverVersion === '1.6.9'}>1.6.9</option>
-                            <option value="1.6.8" selected={server.serverVersion === '1.6.8'}>1.6.8</option>
-                            <option value="1.6.7" selected={server.serverVersion === '1.6.7'}>1.6.7</option>
-                            <option value="1.6.6" selected={server.serverVersion === '1.6.6'}>1.6.6</option>
-                            <option value="1.6.5" selected={server.serverVersion === '1.6.5'}>1.6.5</option>
+                            <For each={serverVersions()}>{(version) =>
+                              <option value={version} selected={server.serverVersion === version}>{version}</option>
+                            }</For>
                           </select>
                         </label>
-                        <button class="update-btn" onClick={() => updateServerVersion(server.id, selectedVersion())}>Update Version</button>
+                        <button 
+                          class="update-btn" 
+                          onClick={() => updateServerVersion(server.id, selectedVersion())}
+                          disabled={updatingServerId() === server.id}
+                        >
+                          {updatingServerId() === server.id ? (
+                            <>
+                              <span class="button-spinner"></span>
+                              Updating...
+                            </>
+                          ) : (
+                            'Update Version'
+                          )}
+                        </button>
                       </div>
 
                       {/* Analytics */}
@@ -157,41 +303,88 @@ function App() {
                         <div class="stats-grid">
                           <div class="stat-item">
                             <span class="stat-label">Current Users:</span>
-                            <span class="stat-value">-</span>
+                            <span class="stat-value">{statuses()?.[server.id]?.totalUsers ?? '0'}</span>
                           </div>
                           <div class="stat-item">
                             <span class="stat-label">Uptime:</span>
                             <span class="stat-value">
-                              {statuses()?.[server.id]?.uptime || 'N/A'}
+                              {statuses()?.[server.id]?.uptimeMs 
+                                ? formatUptime(statuses()?.[server.id]!.uptimeMs) 
+                                : 'N/A'}
                             </span>
-                          </div>
-                          <div class="stat-item">
-                            <span class="stat-label">Last Updated:</span>
-                            <span class="stat-value">-</span>
                           </div>
                           <div class="stat-item">
                             <span class="stat-label">Status:</span>
-                            <span class={`stat-value ${statuses()?.[server.id]?.online ? 'status-online' : 'status-offline'}`}>
-                              {statuses()?.[server.id]?.online ? 'Online' : 'Offline'}
+                            <span class={statuses()?.[server.id]?.running ? "status-online" : "status-offline"}>
+                              {statuses()?.[server.id]?.running ? "Online" : "Offline"}
                             </span>
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Admin Users */}
+                      <div class="admin-users-section">
+                        <h3>Admin Users ({statuses()?.[server.id]?.adminUsers?.length ?? 0})</h3>
+                        <div class="admin-users-grid">
+                          <For each={statuses()?.[server.id]?.adminUsers ?? []}>
+                            {(email) => (
+                              <div class="admin-user-card">
+                                <span class="user-icon">👤</span>
+                                <span class="user-email">{email}</span>
+                              </div>
+                            )}
+                          </For>
                         </div>
                       </div>
 
                       {/* Actions */}
                       <div class="actions-section">
                         <h3>Actions</h3>
-                        <button class="action-btn restart" onClick={()=> restartServer(server.id)}>Restart Server</button>
-                        <button class="action-btn">View Logs</button>
+                        <button 
+                          class="action-btn restart" 
+                          onClick={() => restartServer(server.id)}
+                          disabled={restartingServerId() === server.id}
+                        >
+                          {restartingServerId() === server.id ? (
+                            <>
+                              <span class="button-spinner"></span>
+                              Restarting...
+                            </>
+                          ) : (
+                            'Restart Server'
+                          )}
+                        </button>
+                        <button class="action-btn" onClick={() => openLogsModal(server.id)}>View Logs</button>
                         <button class="action-btn">Configuration</button>
                       </div>
                     </div>
                   )}
-
                 </div>
               )
             }}
           </For>
+        </div>
+      )}
+
+      {/* Logs Modal */}
+      {logsModalServerId() && (
+        <div class="modal-overlay" onClick={closeLogsModal}>
+          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div class="modal-header">
+              <h2>Server Logs: {logsModalServerId()}</h2>
+              <button class="modal-close" onClick={closeLogsModal}>✕</button>
+            </div>
+            <div class="modal-body">
+              {logsLoading() ? (
+                <div class="logs-loading">
+                  <div class="spinner"></div>
+                  <p>Loading logs...</p>
+                </div>
+              ) : (
+                <pre class="logs-display">{modalLogs()}</pre>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </>
