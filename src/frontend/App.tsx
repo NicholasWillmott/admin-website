@@ -1,7 +1,7 @@
 import { createResource, createSignal, For, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
 
-const API_BASE = "http://localhost:3001";
+const API_BASE = "https://status-api.fastr-analytics.org";
 
 interface Server {
   id: string;
