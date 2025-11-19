@@ -11,9 +11,12 @@ import { executeCommand, isCommandAllowed } from "./ssh.ts";
 
 const app = new Hono();
 
-app.use("*", logger());
 app.use("*", cors({
-  origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+  origin: [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://status.fastr-analytics.org",  
+  ],
   credentials: true,
 }));
 
@@ -111,7 +114,7 @@ app.post("/api/servers/:id/update", async (c) => {
 })
 
 // get all of the versions that we are able to update to
-app.get("api/versions", async (c) => {
+app.get("/api/versions", async (c) => {
     const command = `docker images --format "{{.Tag}}" timroberton/comb`;
 
     try{
