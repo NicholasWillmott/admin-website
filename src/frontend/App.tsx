@@ -248,14 +248,21 @@ function App() {
                 <div class={`server-card ${isExpanded() ? 'expanded' : ''}`} onClick={() => toggleCard(server.id)}>
                   {/*Collapsed View*/}
                   <div class="card-header">
-                    <h2>{server.label}</h2>
+                    <a href={`https://${server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
+                      <h2>{server.label}</h2>
+                    </a>
                     <span class="expand-icon">{isExpanded() ? '▼' : '▶'}</span>
                   </div>
                   <p><strong>ID:</strong> {server.id}</p>
-                  <p><strong>Port:</strong> {server.port}</p>
                   <p><strong>Server Version:</strong> {server.serverVersion}</p>
                   {server.instanceDir && <p><strong>Instance Dir:</strong> {server.instanceDir}</p>}
                   {server.adminVersion && <p><strong>Admin Version:</strong> {server.adminVersion}</p>}
+                  <p>
+                    <strong>Status:</strong>{' '}
+                    <span class={statuses()?.[server.id]?.running ? "status-online" : "status-offline"}>
+                      {statuses()?.[server.id]?.running ? "Online" : "Offline"}
+                    </span>
+                  </p>
                   <div class="flags">
                     {server.french && <span class="badge">French</span>}
                     {server.ethiopian && <span class="badge calendar">Ethiopian</span>}
@@ -302,7 +309,7 @@ function App() {
                         <h3>Analytics</h3>
                         <div class="stats-grid">
                           <div class="stat-item">
-                            <span class="stat-label">Current Users:</span>
+                            <span class="stat-label">Total Users:</span>
                             <span class="stat-value">{statuses()?.[server.id]?.totalUsers ?? '0'}</span>
                           </div>
                           <div class="stat-item">
@@ -311,12 +318,6 @@ function App() {
                               {statuses()?.[server.id]?.uptimeMs
                                 ? formatUptime(statuses()![server.id]!.uptimeMs)
                                 : 'N/A'}
-                            </span>
-                          </div>
-                          <div class="stat-item">
-                            <span class="stat-label">Status:</span>
-                            <span class={statuses()?.[server.id]?.running ? "status-online" : "status-offline"}>
-                              {statuses()?.[server.id]?.running ? "Online" : "Offline"}
                             </span>
                           </div>
                         </div>
