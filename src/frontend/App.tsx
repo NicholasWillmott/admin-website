@@ -15,6 +15,8 @@ interface Server {
   openAccess?: boolean;
 }
 
+type ServerRestartStatus = 'idle' | 'pending' | 'online';
+
 interface ServerLogs {
   success: boolean;
   logs: string;
@@ -132,9 +134,12 @@ function App() {
   const [modalLogs, setModalLogs] = createSignal<string>('');
   const [logsLoading, setLogsLoading] = createSignal<boolean>(false);
 
-  // track when updating server and restarting server ids are loading 
+  // track when updating server and restarting server ids are loading
   const [updatingServerId, setUpdatingServerId] = createSignal<string | null>(null);
   const [restartingServerId, setRestartingServerId] = createSignal<string | null>(null);
+
+  // track server restart statuses (idle, pending, online)
+  const [serverRestartStatuses, setServerRestartStatuses] = createSignal<Record<string, ServerRestartStatus>>({});
 
   // Auto-refresh statuses every 60 seconds
   createEffect(() => {
@@ -170,6 +175,46 @@ function App() {
   const closeLogsModal = () => {
     setLogsModalServerId(null);
     setModalLogs('');
+  };
+
+  // poll server logs until startup message is found
+  const pollServerLogsForStartup = async (serverId: string) => {
+    const maxAttempts = 400; // 400 attempts = 35 minutes with 5 second intervals
+    let attempts = 0;
+
+    const checkLogs = async (): Promise<boolean> => {
+      attempts++;
+
+      try {
+        const result = await fetchServerLogs(serverId);
+
+        if (result?.success && result.logs.includes('Listening on http://0.0.0.0:8000/')) {
+          return true; // Server is up
+        }
+
+        if (attempts >= maxAttempts) {
+          console.error(`Server ${serverId} did not start after ${maxAttempts} attempts`);
+          return false;
+        }
+
+        // Wait 5 seconds before next check
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return await checkLogs();
+
+      } catch (error) {
+        console.error(`Error checking logs for ${serverId}:`, error);
+
+        if (attempts >= maxAttempts) {
+          return false;
+        }
+
+        // Wait 5 seconds before retry
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return await checkLogs();
+      }
+    };
+
+    return await checkLogs();
   };
 
   // update server version
@@ -214,17 +259,34 @@ function App() {
   // restart server
   const restartServer = async (ServerId: string) => {
     setRestartingServerId(ServerId);
+
+    // Set status to pending
+    setServerRestartStatuses(prev => ({ ...prev, [ServerId]: 'pending' }));
+
     try{
       const response = await fetch(`${API_BASE}/api/servers/${ServerId}/restart`, {
         method: 'POST',
       });
       const result = await response.json();
       if (result.success) {
-        alert(`Server ${ServerId} restarted successfully.`);
+        // Start polling logs for startup message
+        const isOnline = await pollServerLogsForStartup(ServerId);
+
+        if (isOnline) {
+          setServerRestartStatuses(prev => ({ ...prev, [ServerId]: 'online' }));
+          alert(`Server ${ServerId} restarted successfully and is now online.`);
+          // Refresh server status to update UI
+          refetchStatuses();
+        } else {
+          setServerRestartStatuses(prev => ({ ...prev, [ServerId]: 'idle' }));
+          alert(`Server ${ServerId} restart command sent, but failed to detect online status.`);
+        }
       } else {
+        setServerRestartStatuses(prev => ({ ...prev, [ServerId]: 'idle' }));
         alert(`Failed to restart server ${ServerId}: ${result.error}`);
       }
     } catch (error) {
+      setServerRestartStatuses(prev => ({ ...prev, [ServerId]: 'idle' }));
       alert(`Error restarting server ${ServerId}: ${error}`);
     } finally {
       setRestartingServerId(null);
@@ -259,9 +321,17 @@ function App() {
                   {server.adminVersion && <p><strong>Admin Version:</strong> {server.adminVersion}</p>}
                   <p>
                     <strong>Status:</strong>{' '}
-                    <span class={statuses()?.[server.id]?.running ? "status-online" : "status-offline"}>
-                      {statuses()?.[server.id]?.running ? "Online" : "Offline"}
-                    </span>
+                    {(() => {
+                      const restartStatus = serverRestartStatuses()[server.id];
+                      if (restartStatus === 'pending') {
+                        return <span class="status-pending">Pending</span>;
+                      }
+                      return (
+                        <span class={statuses()?.[server.id]?.running ? "status-online" : "status-offline"}>
+                          {statuses()?.[server.id]?.running ? "Online" : "Offline"}
+                        </span>
+                      );
+                    })()}
                   </p>
                   <div class="flags">
                     {server.french && <span class="badge">French</span>}

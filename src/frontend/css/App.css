@@ -288,6 +288,12 @@ h1 {
   font-weight: bold;
 }
 
+.status-pending {
+  font-size: 20px;
+  color: #ffc107;  /* Yellow/Orange */
+  font-weight: bold;
+}
+
 .admin-users-section {
   margin: 20px 0;
   background: #f8f9fa;
