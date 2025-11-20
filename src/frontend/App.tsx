@@ -331,7 +331,6 @@ function App() {
                               </div>
                               <p><strong>ID:</strong> {server.id}</p>
                               <p><strong>Server Version:</strong> {server.serverVersion}</p>
-                              {server.instanceDir && <p><strong>Instance Dir:</strong> {server.instanceDir}</p>}
                               {server.adminVersion && <p><strong>Admin Version:</strong> {server.adminVersion}</p>}
                               <p>
                                 <strong>Status:</strong>{' '}
