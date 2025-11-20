@@ -63,6 +63,8 @@ h1 {
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   cursor: pointer;
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .server-card:hover {
@@ -81,7 +83,7 @@ h1 {
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  margin-bottom: 16px;
+  margin-bottom: 2px;
 }
 
 .card-header a {
@@ -116,7 +118,7 @@ h1 {
 }
 
 .server-card p {
-  margin: 8px 0;
+  margin: 4px 0;
   color: #555;
   font-size: 14px;
 }
@@ -129,8 +131,9 @@ h1 {
 .flags {
   display: flex;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: auto;
   flex-wrap: wrap;
+  padding: 8px 0 0 0;
 }
 
 .badge {
