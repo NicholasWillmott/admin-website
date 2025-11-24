@@ -507,3 +507,61 @@ h1 {
   color: white;
   margin: 2rem 0;
 }
+
+/* Authentication Styles */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.signup-btn {
+  margin-left: 10px;
+}
+
+/* Access Denied Styles */
+.access-denied {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 50px;
+  gap: 20px;
+}
+
+/* Auth Box Styles */
+.auth-box {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  min-width: 350px;
+  margin-top: 100px;
+}
+
+.auth-box-header {
+  background: linear-gradient(135deg, #16c9c9 0%, #066464 100%);
+  padding: 20px;
+  text-align: center;
+}
+
+.auth-box-header h2 {
+  margin: 0;
+  color: white;
+  font-size: 22px;
+  font-weight: 600;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.auth-box-content {
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+}
+
+.auth-box-content button {
+  width: 100%;
+  max-width: 250px;
+}

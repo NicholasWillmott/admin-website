@@ -1,7 +1,7 @@
 import { createResource, createSignal, For, Show, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
 import { SERVER_CATEGORIES } from './serverCategories.ts'
-import { SignedIn, SignedOut, SignInButton, UserButton } from 'clerk-solidjs'
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser } from 'clerk-solidjs'
 
 const API_BASE = "https://status-api.fastr-analytics.org";
 
@@ -151,6 +151,9 @@ function App() {
 
     onCleanup(() => clearInterval(interval));
   });
+
+  const { user: currentUser } = useUser();
+  const isAdmin = () => currentUser()?.publicMetadata?.isAdmin === true;
 
   // toggle card
   const toggleCard = (id: string) => {
@@ -302,11 +305,21 @@ function App() {
         <h1>Fastr Analytics Admin Dashboard</h1>
       </div>
       {/* Authentication UI */}
-      <div style={{ 'align-items': 'center' }}>
+      <div class="auth-container">
         <SignedOut>
-          <SignInButton mode="modal">
-            Sign In
-          </SignInButton>
+          <div class ="auth-box">
+            <div class="auth-box-header">
+              <h2>Admin Website Login</h2>
+            </div>
+            <div class ="auth-box-content">
+              <SignInButton mode="modal" >
+                Sign In
+              </SignInButton>
+              <SignUpButton mode="modal">
+                Sign Up
+              </SignUpButton>
+            </div>
+          </div>
         </SignedOut>
         <SignedIn>
           <UserButton />
@@ -314,183 +327,194 @@ function App() {
       </div>
 
       <SignedIn>
-        {servers.loading && <h2 class="loading-text">Loading...</h2>}
-        {servers.error && <p>Error: {servers.error.message}</p>}
-        {servers() && (
-          <div class="servers-container">
-          <For each={SERVER_CATEGORIES}>
-            {(category) => {
-              const categoryServers = () => servers()?.filter(s =>
-                category.servers.includes(s.id)
-              ) || [];
+        <Show
+          when={isAdmin()}
+          fallback={
+            <div class="access-denied">
+              <h2>Access Denied</h2>
+              <p>You do not have permission to access this admin dashboard.</p>
+              <p>Please contact an administrator if you believe this is an error.</p>
+            </div>
+          }
+        >
+            {servers.loading && <h2 class="loading-text">Loading...</h2>}
+            {servers.error && <p>Error: {servers.error.message}</p>}
+            {servers() && (
+              <div class="servers-container">
+              <For each={SERVER_CATEGORIES}>
+                {(category) => {
+                  const categoryServers = () => servers()?.filter(s =>
+                    category.servers.includes(s.id)
+                  ) || [];
 
-              return (
-                <Show when={categoryServers().length > 0}>
-                  <div class="category-section">
-                    <h2 class="category-header">{category.name}</h2>
-                    <div class="servers-grid">
-                      <For each={categoryServers()}>
-                        {(server) =>{
-                          const isExpanded = () => expandedId() === server.id
-                          const [selectedVersion, setSelectedVersion] = createSignal(server.serverVersion);
+                  return (
+                    <Show when={categoryServers().length > 0}>
+                      <div class="category-section">
+                        <h2 class="category-header">{category.name}</h2>
+                        <div class="servers-grid">
+                          <For each={categoryServers()}>
+                            {(server) =>{
+                              const isExpanded = () => expandedId() === server.id
+                              const [selectedVersion, setSelectedVersion] = createSignal(server.serverVersion);
 
-                          return (
-                            <div class={`server-card ${isExpanded() ? 'expanded' : ''}`} onClick={() => toggleCard(server.id)}>
-                              {/*Collapsed View*/}
-                              <div class="card-header">
-                                <a href={`https://${server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
-                                  <h2>{server.label}</h2>
-                                </a>
-                                <span class="expand-icon">{isExpanded() ? '▼' : '▶'}</span>
-                              </div>
-                              <p><strong>ID:</strong> {server.id}</p>
-                              <p><strong>Server Version:</strong> {server.serverVersion}</p>
-                              {server.adminVersion && <p><strong>Admin Version:</strong> {server.adminVersion}</p>}
-                              <p>
-                                <strong>Status:</strong>{' '}
-                                {(() => {
-                                  const restartStatus = serverRestartStatuses()[server.id];
-                                  if (restartStatus === 'pending') {
-                                    return <span class="status-pending">Pending</span>;
-                                  }
-                                  return (
-                                    <span class={statuses()?.[server.id]?.running ? "status-online" : "status-offline"}>
-                                      {statuses()?.[server.id]?.running ? "Online" : "Offline"}
-                                    </span>
-                                  );
-                                })()}
-                              </p>
-                              <div class="flags">
-                                {server.french && <span class="badge">French</span>}
-                                {server.ethiopian && <span class="badge calendar">Ethiopian</span>}
-                                {server.openAccess && <span class="badge access">Open Access</span>}
-                              </div>
-
-                              {/* Expanded view */}
-                              {isExpanded() && (
-                                <div class="expanded-content" onClick={(e) => e.stopPropagation()}>
-                                  <hr/>
-
-                                  {/* Version Control */}
-                                  <div class="control-section">
-                                    <h3>Version Control</h3>
-                                    <label>
-                                      <strong>Server Version:</strong>
-                                      <select class="version-select"
-                                        value={selectedVersion()}
-                                        onChange={(e) => setSelectedVersion(e.currentTarget.value)}
-                                      >
-                                        <For each={serverVersions()}>{(version) =>
-                                          <option value={version} selected={server.serverVersion === version}>{version}</option>
-                                        }</For>
-                                      </select>
-                                    </label>
-                                    <button
-                                      class="update-btn"
-                                      onClick={() => updateServerVersion(server.id, selectedVersion())}
-                                      disabled={updatingServerId() === server.id}
-                                    >
-                                      {updatingServerId() === server.id ? (
-                                        <>
-                                          <span class="button-spinner"></span>
-                                          Updating...
-                                        </>
-                                      ) : (
-                                        'Update Version'
-                                      )}
-                                    </button>
+                              return (
+                                <div class={`server-card ${isExpanded() ? 'expanded' : ''}`} onClick={() => toggleCard(server.id)}>
+                                  {/*Collapsed View*/}
+                                  <div class="card-header">
+                                    <a href={`https://${server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
+                                      <h2>{server.label}</h2>
+                                    </a>
+                                    <span class="expand-icon">{isExpanded() ? '▼' : '▶'}</span>
                                   </div>
-
-                                  {/* Analytics */}
-                                  <div class="analytics-section">
-                                    <h3>Analytics</h3>
-                                    <div class="stats-grid">
-                                      <div class="stat-item">
-                                        <span class="stat-label">Total Users:</span>
-                                        <span class="stat-value">{statuses()?.[server.id]?.totalUsers ?? '0'}</span>
-                                      </div>
-                                      <div class="stat-item">
-                                        <span class="stat-label">Uptime:</span>
-                                        <span class="stat-value">
-                                          {statuses()?.[server.id]?.uptimeMs
-                                            ? formatUptime(statuses()![server.id]!.uptimeMs)
-                                            : 'N/A'}
+                                  <p><strong>ID:</strong> {server.id}</p>
+                                  <p><strong>Server Version:</strong> {server.serverVersion}</p>
+                                  {server.adminVersion && <p><strong>Admin Version:</strong> {server.adminVersion}</p>}
+                                  <p>
+                                    <strong>Status:</strong>{' '}
+                                    {(() => {
+                                      const restartStatus = serverRestartStatuses()[server.id];
+                                      if (restartStatus === 'pending') {
+                                        return <span class="status-pending">Pending</span>;
+                                      }
+                                      return (
+                                        <span class={statuses()?.[server.id]?.running ? "status-online" : "status-offline"}>
+                                          {statuses()?.[server.id]?.running ? "Online" : "Offline"}
                                         </span>
+                                      );
+                                    })()}
+                                  </p>
+                                  <div class="flags">
+                                    {server.french && <span class="badge">French</span>}
+                                    {server.ethiopian && <span class="badge calendar">Ethiopian</span>}
+                                    {server.openAccess && <span class="badge access">Open Access</span>}
+                                  </div>
+
+                                  {/* Expanded view */}
+                                  {isExpanded() && (
+                                    <div class="expanded-content" onClick={(e) => e.stopPropagation()}>
+                                      <hr/>
+
+                                      {/* Version Control */}
+                                      <div class="control-section">
+                                        <h3>Version Control</h3>
+                                        <label>
+                                          <strong>Server Version:</strong>
+                                          <select class="version-select"
+                                            value={selectedVersion()}
+                                            onChange={(e) => setSelectedVersion(e.currentTarget.value)}
+                                          >
+                                            <For each={serverVersions()}>{(version) =>
+                                              <option value={version} selected={server.serverVersion === version}>{version}</option>
+                                            }</For>
+                                          </select>
+                                        </label>
+                                        <button
+                                          class="update-btn"
+                                          onClick={() => updateServerVersion(server.id, selectedVersion())}
+                                          disabled={updatingServerId() === server.id}
+                                        >
+                                          {updatingServerId() === server.id ? (
+                                            <>
+                                              <span class="button-spinner"></span>
+                                              Updating...
+                                            </>
+                                          ) : (
+                                            'Update Version'
+                                          )}
+                                        </button>
+                                      </div>
+
+                                      {/* Analytics */}
+                                      <div class="analytics-section">
+                                        <h3>Analytics</h3>
+                                        <div class="stats-grid">
+                                          <div class="stat-item">
+                                            <span class="stat-label">Total Users:</span>
+                                            <span class="stat-value">{statuses()?.[server.id]?.totalUsers ?? '0'}</span>
+                                          </div>
+                                          <div class="stat-item">
+                                            <span class="stat-label">Uptime:</span>
+                                            <span class="stat-value">
+                                              {statuses()?.[server.id]?.uptimeMs
+                                                ? formatUptime(statuses()![server.id]!.uptimeMs)
+                                                : 'N/A'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Admin Users */}
+                                      <div class="admin-users-section">
+                                        <h3>Admin Users ({statuses()?.[server.id]?.adminUsers?.length ?? 0})</h3>
+                                        <div class="admin-users-grid">
+                                          <For each={statuses()?.[server.id]?.adminUsers ?? []}>
+                                            {(email) => (
+                                              <div class="admin-user-card">
+                                                <span class="user-icon">👤</span>
+                                                <span class="user-email">{email}</span>
+                                              </div>
+                                            )}
+                                          </For>
+                                        </div>
+                                      </div>
+
+                                      {/* Actions */}
+                                      <div class="actions-section">
+                                        <h3>Actions</h3>
+                                        <button
+                                          class="action-btn restart"
+                                          onClick={() => restartServer(server.id)}
+                                          disabled={restartingServerId() === server.id}
+                                        >
+                                          {restartingServerId() === server.id ? (
+                                            <>
+                                              <span class="button-spinner"></span>
+                                              Restarting...
+                                            </>
+                                          ) : (
+                                            'Restart Server'
+                                          )}
+                                        </button>
+                                        <button class="action-btn" onClick={() => openLogsModal(server.id)}>View Logs</button>
+                                        <button class="action-btn">Configuration</button>
                                       </div>
                                     </div>
-                                  </div>
-
-                                  {/* Admin Users */}
-                                  <div class="admin-users-section">
-                                    <h3>Admin Users ({statuses()?.[server.id]?.adminUsers?.length ?? 0})</h3>
-                                    <div class="admin-users-grid">
-                                      <For each={statuses()?.[server.id]?.adminUsers ?? []}>
-                                        {(email) => (
-                                          <div class="admin-user-card">
-                                            <span class="user-icon">👤</span>
-                                            <span class="user-email">{email}</span>
-                                          </div>
-                                        )}
-                                      </For>
-                                    </div>
-                                  </div>
-
-                                  {/* Actions */}
-                                  <div class="actions-section">
-                                    <h3>Actions</h3>
-                                    <button
-                                      class="action-btn restart"
-                                      onClick={() => restartServer(server.id)}
-                                      disabled={restartingServerId() === server.id}
-                                    >
-                                      {restartingServerId() === server.id ? (
-                                        <>
-                                          <span class="button-spinner"></span>
-                                          Restarting...
-                                        </>
-                                      ) : (
-                                        'Restart Server'
-                                      )}
-                                    </button>
-                                    <button class="action-btn" onClick={() => openLogsModal(server.id)}>View Logs</button>
-                                    <button class="action-btn">Configuration</button>
-                                  </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          )
-                        }}
-                      </For>
-                    </div>
-                  </div>
-                </Show>
-              );
-            }}
-          </For>
-        </div>
-      )}
+                              )
+                            }}
+                          </For>
+                        </div>
+                      </div>
+                    </Show>
+                  );
+                }}
+              </For>
+            </div>
+          )}
 
-      {/* Logs Modal */}
-      {logsModalServerId() && (
-        <div class="modal-overlay" onClick={closeLogsModal}>
-          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div class="modal-header">
-              <h2>Server Logs: {logsModalServerId()}</h2>
-              <button class="modal-close" onClick={closeLogsModal}>✕</button>
-            </div>
-            <div class="modal-body">
-              {logsLoading() ? (
-                <div class="logs-loading">
-                  <div class="spinner"></div>
-                  <p>Loading logs...</p>
+          {/* Logs Modal */}
+          {logsModalServerId() && (
+            <div class="modal-overlay" onClick={closeLogsModal}>
+              <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+                <div class="modal-header">
+                  <h2>Server Logs: {logsModalServerId()}</h2>
+                  <button class="modal-close" onClick={closeLogsModal}>✕</button>
                 </div>
-              ) : (
-                <pre class="logs-display">{modalLogs()}</pre>
-              )}
+                <div class="modal-body">
+                  {logsLoading() ? (
+                    <div class="logs-loading">
+                      <div class="spinner"></div>
+                      <p>Loading logs...</p>
+                    </div>
+                  ) : (
+                    <pre class="logs-display">{modalLogs()}</pre>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </Show>
       </SignedIn>
     </>
   )
