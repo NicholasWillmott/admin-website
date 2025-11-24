@@ -32,7 +32,7 @@ async function getServerInfo(serverId: string) {
 }
 
 app.get("/", (c) => c.text("Admin Website Backend is running"));
-
+ 
 // Restart individual server
 app.post("/api/servers/:id/restart", async (c) => {
     const serverId = c.req.param("id");
