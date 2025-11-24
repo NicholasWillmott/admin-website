@@ -7,6 +7,7 @@ await load({ export: true });
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { executeCommand, isCommandAllowed } from "./ssh.ts";
 
 const app = new Hono();
@@ -15,11 +16,65 @@ app.use("*", cors({
   origin: [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://status.fastr-analytics.org",  
+    "https://status.fastr-analytics.org",
     "http://status.fastr-analytics.org",
   ],
   credentials: true,
 }));
+
+// Add Clerk middleware - this will verify JWT tokens from your frontend
+app.use("*", clerkMiddleware({
+  publishableKey: Deno.env.get("VITE_CLERK_PUBLISHABLE_KEY"),
+  secretKey: Deno.env.get("CLERK_SECRET_KEY"),
+}));
+
+// Helper function to check if user is authenticated and is admin
+async function requireAdmin(c: any) {
+  const auth = getAuth(c);
+
+
+  if (!auth?.userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const userId = auth.sessionClaims?.sub || auth.userId;
+
+  // Fetch user metadata from Clerk API
+  try {
+    const clerkSecretKey = Deno.env.get("CLERK_SECRET_KEY");
+    const response = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+      headers: {
+        'Authorization': `Bearer ${clerkSecretKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch user from Clerk:", await response.text());
+      return c.json({ error: "Failed to verify user permissions" }, 500);
+    }
+
+    const user = await response.json();
+
+    const isAdmin = user.public_metadata?.isAdmin === true;
+
+    if (!isAdmin) {
+      return c.json({
+        error: "Forbidden - Admin access required",
+        debug: {
+          userId: userId,
+          hasPublicMetadata: !!user.public_metadata,
+          publicMetadata: user.public_metadata
+        }
+      }, 403);
+    }
+
+    return null; // User is authenticated and is admin
+  } catch (error) {
+    console.error("Error checking admin status:", error);
+    return c.json({ error: "Failed to verify user permissions" }, 500);
+  }
+}
 
 // Droplet IP where all servers are hosted
 const DROPLET_IP = Deno.env.get("DROPLET_IP") || "159.223.167.134";
@@ -33,8 +88,12 @@ async function getServerInfo(serverId: string) {
 
 app.get("/", (c) => c.text("Admin Website Backend is running"));
  
-// Restart individual server
+// Restart individual server - PROTECTED
 app.post("/api/servers/:id/restart", async (c) => {
+    // Check authentication and admin status
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
     const serverId = c.req.param("id");
     const server = await getServerInfo(serverId);
 
@@ -72,6 +131,10 @@ app.post("/api/servers/:id/restart", async (c) => {
 // projects
 // calendar
 app.get("/api/servers/:id/status", async (c) => {
+    // Check authentication and admin status
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
     const serverId = c.req.param("id");
     try{
        const response = await fetch(`https://${serverId}.fastr-analytics.org/health_check`);
@@ -81,8 +144,12 @@ app.get("/api/servers/:id/status", async (c) => {
         return c.json({ error: String(error) }, 500);
     }
 });
-// update server version (need to run restart api after)
+// update server version (need to run restart api after) - PROTECTED
 app.post("/api/servers/:id/update", async (c) => {
+    // Check authentication and admin status
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
     const serverId = c.req.param("id");
     const { version } = await c.req.json();
 
@@ -114,13 +181,17 @@ app.post("/api/servers/:id/update", async (c) => {
     }
 })
 
-// get all of the versions that we are able to update to
+// get all of the versions that we are able to update to - PROTECTED
 app.get("/api/versions", async (c) => {
+    // Check authentication and admin status
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
     const command = `docker images --format "{{.Tag}}" timroberton/comb`;
 
     try{
         const result = await executeCommand(DROPLET_IP, command);
-        
+
         if (!result.success) {
             return c.json({ error: result.stderr }, 500);
         }
@@ -130,7 +201,7 @@ app.get("/api/versions", async (c) => {
             .split('\n')
             .filter(tag => tag.startsWith('wb-fastr-server-v'))
             .map(tag => tag.replace('wb-fastr-server-v', ''));
-        
+
         // Find the highest minor version (middle number)
         let highestMinor = -1;
         tags.forEach(version => {
@@ -142,7 +213,7 @@ app.get("/api/versions", async (c) => {
                 }
             }
         });
-        
+
         // Filter to only include versions with the highest minor version
         const filteredTags = tags
             .filter(version => {
@@ -153,7 +224,7 @@ app.get("/api/versions", async (c) => {
                 // Sort by semantic version (newest first)
                 const aParts = a.split('.').map(Number);
                 const bParts = b.split('.').map(Number);
-                
+
                 for (let i = 0; i < 3; i++) {
                     if (bParts[i] !== aParts[i]) {
                         return bParts[i] - aParts[i];
@@ -161,15 +232,19 @@ app.get("/api/versions", async (c) => {
                 }
                 return 0;
             });
-        
+
         return c.json({ versions: filteredTags });
     } catch (error) {
         return c.json({ error: String(error) }, 500);
     }
 });
 
-// get servers docker logs
+// get servers docker logs - PROTECTED
 app.get("/api/servers/:id/logs", async (c) =>{
+    // Check authentication and admin status
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
     const serverId = c.req.param("id");
     const command = `docker logs ${serverId}`;
     try {

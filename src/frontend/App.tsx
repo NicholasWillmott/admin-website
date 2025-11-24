@@ -1,7 +1,7 @@
 import { createResource, createSignal, For, Show, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
 import { SERVER_CATEGORIES } from './serverCategories.ts'
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser } from 'clerk-solidjs'
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -72,9 +72,13 @@ async function fetchServerCardData(): Promise<Server[]> {
   return response.json()
 }
 
-async function fetchServerLogs(serverId: string): Promise<ServerLogs | null> {
+async function fetchServerLogs(serverId: string, token: string | null): Promise<ServerLogs | null> {
   try{
-    const response = await fetch(`${API_BASE}/api/servers/${serverId}/logs`);
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/logs`, { headers });
     if (!response.ok) return null;
     return await response.json();
   } catch (error) {
@@ -83,15 +87,23 @@ async function fetchServerLogs(serverId: string): Promise<ServerLogs | null> {
   }
 }
 
-async function fetchServerVersions() {
-  const response = await fetch(`${API_BASE}/api/versions`);
+async function fetchServerVersions(token: string | null) {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const response = await fetch(`${API_BASE}/api/versions`, { headers });
   const data: { versions: serverVersions } = await response.json();
   return data.versions;
 }
 
-async function fetchServerStatus(serverId: string): Promise<HealthCheckResponse | null> {
+async function fetchServerStatus(serverId: string, token: string | null): Promise<HealthCheckResponse | null> {
   try {
-    const response = await fetch(`${API_BASE}/api/servers/${serverId}/status`);
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/status`, { headers });
     if (!response.ok) return null;
     return await response.json();
   } catch (error) {
@@ -100,14 +112,14 @@ async function fetchServerStatus(serverId: string): Promise<HealthCheckResponse 
   }
 }
 
-async function fetchAllServerStatuses(servers: Server[]): Promise<ServerStatuses> {
+async function fetchAllServerStatuses(servers: Server[], token: string | null): Promise<ServerStatuses> {
   const statusPromises = servers.map(async (server) => ({
     id: server.id,
-    status: await fetchServerStatus(server.id),
+    status: await fetchServerStatus(server.id, token),
   }));
-  
+
   const results = await Promise.all(statusPromises);
-  
+
   return results.reduce((acc, { id, status }) => {
     acc[id] = status;
     return acc;
@@ -116,17 +128,25 @@ async function fetchAllServerStatuses(servers: Server[]): Promise<ServerStatuses
 
 
 function App() {
+  const { getToken } = useAuth();
+
   // get server data
   const [servers, { mutate }] = createResource(fetchServerCardData)
 
   // get server status, total users, uptime, etc
   const [statuses, { refetch: refetchStatuses }] = createResource(
     servers,
-    (serverList) => fetchAllServerStatuses(serverList)
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerStatuses(serverList, token);
+    }
   );
 
   // get server versions
-  const [serverVersions] = createResource(fetchServerVersions);
+  const [serverVersions] = createResource(async () => {
+    const token = await getToken();
+    return fetchServerVersions(token);
+  });
 
   // track expanded card
   const [expandedId, setExpandedId] = createSignal<string | null>(null)
@@ -164,15 +184,16 @@ function App() {
   const openLogsModal = async (serverId: string) => {
     setLogsModalServerId(serverId);
     setLogsLoading(true);
-    
-    const result = await fetchServerLogs(serverId);
-    
+
+    const token = await getToken();
+    const result = await fetchServerLogs(serverId, token);
+
     if (result?.success) {
       setModalLogs(result.logs);
     } else {
       setModalLogs(`Error: ${result?.error || 'Failed to fetch logs'}`);
     }
-    
+
     setLogsLoading(false);
   };
 
@@ -191,7 +212,8 @@ function App() {
       attempts++;
 
       try {
-        const result = await fetchServerLogs(serverId);
+        const token = await getToken();
+        const result = await fetchServerLogs(serverId, token);
 
         if (result?.success && result.logs.includes('Listening on http://0.0.0.0:8000/')) {
           return true; // Server is up
@@ -226,11 +248,16 @@ function App() {
   const updateServerVersion = async (serverId: string, version: string) => {
     setUpdatingServerId(serverId);
     try{
+      const token = await getToken();
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const response = await fetch(`${API_BASE}/api/servers/${serverId}/update`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ version }),
       });
       const result = await response.json();
@@ -269,8 +296,14 @@ function App() {
     setServerRestartStatuses(prev => ({ ...prev, [ServerId]: 'pending' }));
 
     try{
+      const token = await getToken();
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const response = await fetch(`${API_BASE}/api/servers/${ServerId}/restart`, {
         method: 'POST',
+        headers,
       });
       const result = await response.json();
       if (result.success) {
