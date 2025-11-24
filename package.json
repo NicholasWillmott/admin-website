@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "clerk-solidjs": "^2.0.10",
     "solid-js": "^1.9.10"
   },
   "devDependencies": {

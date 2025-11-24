@@ -1,6 +1,7 @@
 import { createResource, createSignal, For, Show, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
-import { SERVER_CATEGORIES } from './serverCategories'
+import { SERVER_CATEGORIES } from './serverCategories.ts'
+import { SignedIn, SignedOut, SignInButton, UserButton } from 'clerk-solidjs'
 
 const API_BASE = "https://status-api.fastr-analytics.org";
 
@@ -297,13 +298,26 @@ function App() {
 
   return (
     <>
-      {!servers.loading && <div class ="sticky-header">
+      <div class="sticky-header">
         <h1>Fastr Analytics Admin Dashboard</h1>
-      </div>}
-      {servers.loading && <h2 class="loading-text">Loading...</h2>}
-      {servers.error && <p>Error: {servers.error.message}</p>}
-      {servers() && (
-        <div class="servers-container">
+      </div>
+      {/* Authentication UI */}
+      <div style={{ 'align-items': 'center' }}>
+        <SignedOut>
+          <SignInButton mode="modal">
+            Sign In
+          </SignInButton>
+        </SignedOut>
+        <SignedIn>
+          <UserButton />
+        </SignedIn>
+      </div>
+
+      <SignedIn>
+        {servers.loading && <h2 class="loading-text">Loading...</h2>}
+        {servers.error && <p>Error: {servers.error.message}</p>}
+        {servers() && (
+          <div class="servers-container">
           <For each={SERVER_CATEGORIES}>
             {(category) => {
               const categoryServers = () => servers()?.filter(s =>
@@ -477,6 +491,7 @@ function App() {
           </div>
         </div>
       )}
+      </SignedIn>
     </>
   )
 }
