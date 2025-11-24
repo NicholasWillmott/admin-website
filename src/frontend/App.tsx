@@ -3,7 +3,7 @@ import './css/App.css'
 import { SERVER_CATEGORIES } from './serverCategories.ts'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser } from 'clerk-solidjs'
 
-const API_BASE = "https://status-api.fastr-analytics.org";
+const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
 interface Server {
   id: string;
