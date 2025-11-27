@@ -565,3 +565,17 @@ h1 {
   width: 100%;
   max-width: 250px;
 }
+
+.action-btn.backup {
+  background: linear-gradient(135deg, #5ef09b 0%, #01e827 100%);
+  color: white;
+}
+
+.action-btn.backup:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+} 

@@ -77,7 +77,8 @@ async function requireAdmin(c: any) {
 }
 
 // Droplet IP where all servers are hosted
-const DROPLET_IP = Deno.env.get("DROPLET_IP") || "159.223.167.134";
+const DROPLET_IP = Deno.env.get("DROPLET_IP") || "";
+const ADMIN_DROPLET_IP = Deno.env.get("ADMIN_DROPLET_IP") || "";
 
 // Get indiviudal server's info for the cards
 async function getServerInfo(serverId: string) {
@@ -255,6 +256,36 @@ app.get("/api/servers/:id/logs", async (c) =>{
         }
 
         return c.json({ success: true, logs: result.stdout, error: ''});
+    } catch (error) {
+        return c.json({ success: false, logs: '', error: String(error) });
+    }
+});
+
+app.post("/api/servers/:id/backup", async (c) =>{
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+
+    try {
+        // Run backup script locally (not via SSH)
+        const command = new Deno.Command("/root/backup-scripts/fastr-backup.sh", {
+            args: [serverId],
+            stdout: "piped",
+            stderr: "piped",
+        });
+
+        const process = command.spawn();
+        const { code, stdout, stderr } = await process.output();
+
+        const stdoutText = new TextDecoder().decode(stdout);
+        const stderrText = new TextDecoder().decode(stderr);
+
+        if (code === 0) {
+            return c.json({ success: true, logs: stdoutText, error: '' });
+        } else {
+            return c.json({ success: false, logs: '', error: stderrText });
+        }
     } catch (error) {
         return c.json({ success: false, logs: '', error: String(error) });
     }

@@ -163,6 +163,10 @@ function App() {
   // track server restart statuses (idle, pending, online)
   const [serverRestartStatuses, setServerRestartStatuses] = createSignal<Record<string, ServerRestartStatus>>({});
 
+  // track server backup statuses
+  const [backingUpServerId, setBackingUpServerId] = createSignal<string | null>(null);
+
+
   // Auto-refresh statuses every 60 seconds
   createEffect(() => {
     const interval = setInterval(() => {
@@ -328,6 +332,35 @@ function App() {
       alert(`Error restarting server ${ServerId}: ${error}`);
     } finally {
       setRestartingServerId(null);
+    }
+  }
+
+  // backup server
+  const backupServer = async (ServerId: string) => {
+    setBackingUpServerId(ServerId);
+
+    try {
+      const token = await getToken();
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_BASE}/api/servers/${ServerId}/backup`, {
+        method: 'POST',
+        headers,
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`Backup created successfully for ${ServerId}`);
+      } else {
+        alert(`Failed to backup ${ServerId}: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Error backing up server ${ServerId}: ${error}`);
+    } finally {
+      setBackingUpServerId(null);
     }
   }
 
@@ -506,6 +539,20 @@ function App() {
                                             </>
                                           ) : (
                                             'Restart Server'
+                                          )}
+                                        </button>
+                                        <button
+                                          class="action-btn backup"
+                                          onClick={() => backupServer(server.id)}
+                                          disabled={backingUpServerId() === server.id}
+                                        >
+                                          {backingUpServerId() === server.id ? (
+                                            <>
+                                              <span class="button-spinner"></span>
+                                              Backing Up...
+                                            </>
+                                          ): (
+                                            'Back Up Server'
                                           )}
                                         </button>
                                         <button class="action-btn" onClick={() => openLogsModal(server.id)}>View Logs</button>
