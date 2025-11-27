@@ -77,7 +77,7 @@ async function requireAdmin(c: any) {
 }
 
 // Droplet IP where all servers are hosted
-const DROPLET_IP = Deno.env.get("DROPLET_IP") || "";
+const DROPLET_IP = Deno.env.get("DROPLET_IP") || "159.223.167.134";
 const ADMIN_DROPLET_IP = Deno.env.get("ADMIN_DROPLET_IP") || "";
 
 // Get indiviudal server's info for the cards
