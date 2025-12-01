@@ -63,11 +63,6 @@ interface BackupInfo {
   file_count: number;
 }
 
-interface BackupFile {
-  name: string;
-  type: 'main' | 'project' | 'metadata' | 'log';
-}
-
 function formatUptime(ms: number): string {
   const minutes = Math.floor(ms / 60000);
   const hours = Math.floor(minutes / 60);
