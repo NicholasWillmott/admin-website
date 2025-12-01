@@ -331,15 +331,34 @@ app.get("/api/servers/:id/backups", async (c) =>{
                     };
                 }
 
-                // Get folder size and file count
+                // Get folder size, file count, and list all files
                 let totalSize = 0;
                 let fileCount = 0;
+                const files = [];
                 try {
                     for await (const file of Deno.readDir(backupPath)) {
                         if (file.isFile) {
                             const fileInfo = await Deno.stat(`${backupPath}/${file.name}`);
                             totalSize += fileInfo.size;
                             fileCount++;
+
+                            // Categorize file type
+                            let fileType = 'other';
+                            if (file.name === 'main.sql.gz') {
+                                fileType = 'main';
+                            } else if (file.name === 'metadata.json') {
+                                fileType = 'metadata';
+                            } else if (file.name === 'backup.log') {
+                                fileType = 'log';
+                            } else if (file.name.endsWith('.sql.gz')) {
+                                fileType = 'project';
+                            }
+
+                            files.push({
+                                name: file.name,
+                                size: fileInfo.size,
+                                type: fileType,
+                            });
                         }
                     }
                 } catch {
@@ -354,6 +373,7 @@ app.get("/api/servers/:id/backups", async (c) =>{
                     backed_up_projects: metadata.backed_up_projects || 0,
                     size: totalSize,
                     file_count: fileCount,
+                    files: files,
                 });
             }
         }
@@ -369,7 +389,7 @@ app.get("/api/servers/:id/backups", async (c) =>{
 });
 
 // Download a specific backup file
-app.get("/api/server/:id/backups/:folder/:file", async (c) => {
+app.get("/api/servers/:id/backups/:folder/:file", async (c) => {
     const authError = await requireAdmin(c);
     if (authError) return authError;
 
@@ -394,10 +414,20 @@ app.get("/api/server/:id/backups/:folder/:file", async (c) => {
         // Read the file
         const fileContent = await Deno.readFile(filePath);
 
+        // Determine content type
+        let contentType = "application/octet-stream";
+        if (file.endsWith(".gz")) {
+            contentType = "application/gzip";
+        } else if (file.endsWith(".json")) {
+            contentType = "application/json";
+        } else if (file.endsWith(".log")) {
+            contentType = "text/plain";
+        }
+
         // Set appropriate headers for download
         return new Response(fileContent, {
             headers: {
-                "Content-Type": "application/gzip",
+                "Content-Type": contentType,
                 "Content-Disposition": `attachment; filename="${file}"`,
                 "Content-Length": fileInfo.size.toString(),
             },
@@ -405,6 +435,58 @@ app.get("/api/server/:id/backups/:folder/:file", async (c) => {
     } catch (error) {
         console.error(`Error downloading backup file:`, error);
         return c.json({ error: "File not found" }, 404);
+    }
+});
+
+// Download entire backup folder as tar.gz
+app.get("/api/servers/:id/backups/:folder/download-all", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+    const folder = c.req.param("folder");
+
+    // Security: Prevent directory traversal
+    if (folder.includes("..") || folder.includes("/")) {
+        return c.json({ error: "Invalid path" }, 400);
+    }
+
+    const backupPath = `/mnt/fastr-backups/${serverId}/${folder}`;
+
+    try {
+        // Check if directory exists
+        const dirInfo = await Deno.stat(backupPath);
+        if (!dirInfo.isDirectory) {
+            return c.json({ error: "Backup folder not found" }, 404);
+        }
+
+        // Create tar.gz archive using tar command
+        const tarFileName = `${serverId}_${folder}.tar.gz`;
+        const command = new Deno.Command("tar", {
+            args: ["-czf", "-", "-C", backupPath, "."],
+            stdout: "piped",
+            stderr: "piped",
+        });
+
+        const process = command.spawn();
+        const { code, stdout, stderr } = await process.output();
+
+        if (code !== 0) {
+            const errorText = new TextDecoder().decode(stderr);
+            console.error(`Error creating tar archive: ${errorText}`);
+            return c.json({ error: "Failed to create archive" }, 500);
+        }
+
+        // Return the tar.gz file
+        return new Response(stdout, {
+            headers: {
+                "Content-Type": "application/gzip",
+                "Content-Disposition": `attachment; filename="${tarFileName}"`,
+            },
+        });
+    } catch (error) {
+        console.error(`Error downloading backup folder:`, error);
+        return c.json({ error: "Failed to download backup" }, 500);
     }
 });
 

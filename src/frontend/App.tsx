@@ -61,6 +61,13 @@ interface BackupInfo {
   backed_up_projects: number;
   size: number;
   file_count: number;
+  files: BackupFileInfo[];
+}
+
+interface BackupFileInfo {
+  name: string;
+  size: number;
+  type: 'main' | 'project' | 'metadata' | 'log' | 'other';
 }
 
 function formatUptime(ms: number): string {
@@ -302,6 +309,39 @@ function App() {
       document.body.removeChild(a);
     } catch (error) {
       alert(`Error downloading file: ${error}`);
+    }
+  };
+
+  // download entire backup folder
+  const downloadEntireBackup = async (serverId: string, folder: string) => {
+    try {
+      const token = await getToken();
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(
+        `${API_BASE}/api/servers/${serverId}/backups/${folder}/download-all`,
+        { headers }
+      );
+
+      if (!response.ok) {
+        alert('Failed to download entire backup');
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${serverId}_${folder}.tar.gz`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      alert(`Error downloading entire backup: ${error}`);
     }
   };
 
@@ -707,27 +747,47 @@ function App() {
 
                             {expandedBackup() === backup.folder && (
                               <div class="backup-files">
-                                <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, 'main.sql.gz')}>
-                                  <span class="file-icon">📦</span>
-                                  <span class="file-name">main.sql.gz</span>
-                                  <span class="file-type">Main Database</span>
+                                <div class="download-all-section">
+                                  <button
+                                    type="button"
+                                    class="download-all-btn"
+                                    onClick={() => downloadEntireBackup(backupsModalServerId()!, backup.folder)}
+                                  >
+                                    📥 Download Entire Backup ({formatBytes(backup.size)})
+                                  </button>
                                 </div>
-                                <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, 'metadata.json')}>
-                                  <span class="file-icon">📄</span>
-                                  <span class="file-name">metadata.json</span>
-                                  <span class="file-type">Metadata</span>
-                                </div>
-                                <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, 'backup.log')}>
-                                  <span class="file-icon">📋</span>
-                                  <span class="file-name">backup.log</span>
-                                  <span class="file-type">Log File</span>
-                                </div>
+
                                 <div class="backup-section-header">
-                                  <span>Project Backups ({backup.backed_up_projects})</span>
+                                  <span>Main Files</span>
                                 </div>
-                                <div class="project-backups-note">
-                                  Click main.sql.gz to download all project databases (named by UUID)
+                                <For each={backup.files.filter(f => f.type === 'main' || f.type === 'metadata' || f.type === 'log')}>
+                                  {(file) => (
+                                    <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, file.name)}>
+                                      <span class="file-icon">
+                                        {file.type === 'main' ? '📦' : file.type === 'metadata' ? '📄' : '📋'}
+                                      </span>
+                                      <span class="file-name">{file.name}</span>
+                                      <span class="file-size">{formatBytes(file.size)}</span>
+                                      <span class="file-type">
+                                        {file.type === 'main' ? 'Main Database' : file.type === 'metadata' ? 'Metadata' : 'Log File'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </For>
+
+                                <div class="backup-section-header">
+                                  <span>Project Backups ({backup.files.filter(f => f.type === 'project').length})</span>
                                 </div>
+                                <For each={backup.files.filter(f => f.type === 'project')}>
+                                  {(file) => (
+                                    <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, file.name)}>
+                                      <span class="file-icon">🗄️</span>
+                                      <span class="file-name">{file.name}</span>
+                                      <span class="file-size">{formatBytes(file.size)}</span>
+                                      <span class="file-type">Project Database</span>
+                                    </div>
+                                  )}
+                                </For>
                               </div>
                             )}
                           </div>
