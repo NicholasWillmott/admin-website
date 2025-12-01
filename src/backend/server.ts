@@ -388,57 +388,7 @@ app.get("/api/servers/:id/backups", async (c) =>{
     }
 });
 
-// Download a specific backup file
-app.get("/api/servers/:id/backups/:folder/:file", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
-
-    const serverId = c.req.param("id");
-    const folder = c.req.param("folder");
-    const file = c.req.param("file");
-
-    // Security: Prevent directory traversal
-    if (folder.includes("..") || file.includes("..") || folder.includes("/") || file.includes("/")) {
-        return c.json({ error: "Invalid path" }, 400);
-    }
-
-    const filePath = `/mnt/fastr-backups/${serverId}/${folder}/${file}`;
-
-    try {
-        //check if file exists
-        const fileInfo = await Deno.stat(filePath);
-        if (!fileInfo.isFile) {
-            return c.json({ error: "File not found" }, 404);
-        }
-
-        // Read the file
-        const fileContent = await Deno.readFile(filePath);
-
-        // Determine content type
-        let contentType = "application/octet-stream";
-        if (file.endsWith(".gz")) {
-            contentType = "application/gzip";
-        } else if (file.endsWith(".json")) {
-            contentType = "application/json";
-        } else if (file.endsWith(".log")) {
-            contentType = "text/plain";
-        }
-
-        // Set appropriate headers for download
-        return new Response(fileContent, {
-            headers: {
-                "Content-Type": contentType,
-                "Content-Disposition": `attachment; filename="${file}"`,
-                "Content-Length": fileInfo.size.toString(),
-            },
-        });
-    } catch (error) {
-        console.error(`Error downloading backup file:`, error);
-        return c.json({ error: "File not found" }, 404);
-    }
-});
-
-// Download entire backup folder as tar.gz
+// Download entire backup folder as tar.gz (MUST be before the :file route)
 app.get("/api/servers/:id/backups/:folder/download-all", async (c) => {
     const authError = await requireAdmin(c);
     if (authError) return authError;
@@ -487,6 +437,56 @@ app.get("/api/servers/:id/backups/:folder/download-all", async (c) => {
     } catch (error) {
         console.error(`Error downloading backup folder:`, error);
         return c.json({ error: "Failed to download backup" }, 500);
+    }
+});
+
+// Download a specific backup file
+app.get("/api/servers/:id/backups/:folder/:file", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+    const folder = c.req.param("folder");
+    const file = c.req.param("file");
+
+    // Security: Prevent directory traversal
+    if (folder.includes("..") || file.includes("..") || folder.includes("/") || file.includes("/")) {
+        return c.json({ error: "Invalid path" }, 400);
+    }
+
+    const filePath = `/mnt/fastr-backups/${serverId}/${folder}/${file}`;
+
+    try {
+        //check if file exists
+        const fileInfo = await Deno.stat(filePath);
+        if (!fileInfo.isFile) {
+            return c.json({ error: "File not found" }, 404);
+        }
+
+        // Read the file
+        const fileContent = await Deno.readFile(filePath);
+
+        // Determine content type
+        let contentType = "application/octet-stream";
+        if (file.endsWith(".gz")) {
+            contentType = "application/gzip";
+        } else if (file.endsWith(".json")) {
+            contentType = "application/json";
+        } else if (file.endsWith(".log")) {
+            contentType = "text/plain";
+        }
+
+        // Set appropriate headers for download
+        return new Response(fileContent, {
+            headers: {
+                "Content-Type": contentType,
+                "Content-Disposition": `attachment; filename="${file}"`,
+                "Content-Length": fileInfo.size.toString(),
+            },
+        });
+    } catch (error) {
+        console.error(`Error downloading backup file:`, error);
+        return c.json({ error: "File not found" }, 404);
     }
 });
 
