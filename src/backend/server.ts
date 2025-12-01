@@ -291,6 +291,123 @@ app.post("/api/servers/:id/backup", async (c) =>{
     }
 });
 
+// List all backups for a server
+app.get("/api/servers/:id/backups", async (c) =>{
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+    const backupBaseDir = `/mnt/fastr-backups/${serverId}`;
+
+    try{
+        // Check if backup directory exists
+        let dirInfo;
+        try {
+            dirInfo = await Deno.stat(backupBaseDir);
+        } catch {
+            return c.json({ backups: [] });
+        }
+
+        if (!dirInfo.isDirectory) {
+            return c.json({ backups: [] });
+        }
+
+        // Read all backup folders
+        const backups = [];
+        for await (const entry of Deno.readDir(backupBaseDir)) {
+            if (entry.isDirectory) {
+                const backupPath = `${backupBaseDir}/${entry.name}`;
+
+                // Try read metadata.json
+                let metadata = null;
+                try {
+                    const metadataText = await Deno.readTextFile(`${backupPath}/metadata.json`);
+                    metadata = JSON.parse(metadataText);
+                } catch {
+                    // If metadata doesn't exist, create basic info from folder name
+                    metadata = {
+                        timestamp: entry.name,
+                        backup_date: entry.name,
+                    };
+                }
+
+                // Get folder size and file count
+                let totalSize = 0;
+                let fileCount = 0;
+                try {
+                    for await (const file of Deno.readDir(backupPath)) {
+                        if (file.isFile) {
+                            const fileInfo = await Deno.stat(`${backupPath}/${file.name}`);
+                            totalSize += fileInfo.size;
+                            fileCount++;
+                        }
+                    }
+                } catch {
+                    // Ignore errors reading directory
+                }
+
+                backups.push({
+                    folder: entry.name,
+                    timestamp: metadata.timestamp,
+                    backup_date: metadata.backup_date,
+                    total_projects: metadata.total_projects || 0,
+                    backed_up_projects: metadata.backed_up_projects || 0,
+                    size: totalSize,
+                    file_count: fileCount,
+                });
+            }
+        }
+
+        // Sort by timestamp (newest first)
+        backups.sort((a,b) => b.timestamp.localeCompare(a.timestamp));
+
+        return c.json({ backups });
+    } catch (error){
+        console.error(`Error listing backups for ${serverId}:`, error);
+        return c.json({ error: String(error) },500);
+    }
+});
+
+// Download a specific backup file
+app.get("/api/server/:id/backups/:folder/:file", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+    const folder = c.req.param("folder");
+    const file = c.req.param("file");
+
+    // Security: Prevent directory traversal
+    if (folder.includes("..") || file.includes("..") || folder.includes("/") || file.includes("/")) {
+        return c.json({ error: "Invalid path" }, 400);
+    }
+
+    const filePath = `/mnt/fastr-backups/${serverId}/${folder}/${file}`;
+
+    try {
+        //check if file exists
+        const fileInfo = await Deno.stat(filePath);
+        if (!fileInfo.isFile) {
+            return c.json({ error: "File not found" }, 404);
+        }
+
+        // Read the file
+        const fileContent = await Deno.readFile(filePath);
+
+        // Set appropriate headers for download
+        return new Response(fileContent, {
+            headers: {
+                "Content-Type": "application/gzip",
+                "Content-Disposition": `attachment; filename="${file}"`,
+                "Content-Length": fileInfo.size.toString(),
+            },
+        });
+    } catch (error) {
+        console.error(`Error downloading backup file:`, error);
+        return c.json({ error: "File not found" }, 404);
+    }
+});
+
 const PORT = parseInt(Deno.env.get("PORT") || "3001");
 console.log(`🚀 Server running on http://localhost:${PORT}`);
 Deno.serve({ port: PORT }, app.fetch);

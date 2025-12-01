@@ -53,6 +53,21 @@ interface ServerStatuses {
 
 type serverVersions = string[];
 
+interface BackupInfo {
+  folder: string;
+  timestamp: string;
+  backup_date: string;
+  total_projects: number;
+  backed_up_projects: number;
+  size: number;
+  file_count: number;
+}
+
+interface BackupFile {
+  name: string;
+  type: 'main' | 'project' | 'metadata' | 'log';
+}
+
 function formatUptime(ms: number): string {
   const minutes = Math.floor(ms / 60000);
   const hours = Math.floor(minutes / 60);
@@ -85,6 +100,31 @@ async function fetchServerLogs(serverId: string, token: string | null): Promise<
     console.error(`failed to fetch server logs for ${serverId}: `, error);
     return null;
   }
+}
+
+async function fetchServerBackups(serverId: string, token: string | null): Promise<BackupInfo[]> {
+  try {
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/backups`, { headers });
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    return data.backups || [];
+  } catch (error) {
+    console.error(`Failed to fetch backups for ${serverId}`, error);
+    return [];
+  }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
 async function fetchServerVersions(token: string | null) {
@@ -166,6 +206,12 @@ function App() {
   // track server backup statuses
   const [backingUpServerId, setBackingUpServerId] = createSignal<string | null>(null);
 
+  // track which server's backups to show in modal
+  const [backupsModalServerId, setBackupsModalServerId] = createSignal<string | null>(null);
+  const [backupsList, setBackupsList] = createSignal<BackupInfo[]>([]);
+  const [backupsLoading, setBackupsLoading] = createSignal<boolean>(false);
+  const [expandedBackup, setExpandedBackup] = createSignal<string | null>(null);
+
 
   // Auto-refresh statuses every 60 seconds
   createEffect(() => {
@@ -205,6 +251,63 @@ function App() {
   const closeLogsModal = () => {
     setLogsModalServerId(null);
     setModalLogs('');
+  };
+
+  // open backups modal
+  const openBackupsModal = async (serverId: string) => {
+    setBackupsModalServerId(serverId);
+    setBackupsLoading(true);
+    setExpandedBackup(null);
+
+    const token = await getToken();
+    const backups = await fetchServerBackups(serverId, token);
+    setBackupsList(backups);
+    setBackupsLoading(false);
+  };
+
+  // close backups modal
+  const closeBackupsModal = () => {
+    setBackupsModalServerId(null);
+    setBackupsList([]);
+    setExpandedBackup(null);
+  };
+
+  // toggle expanded backup view
+  const toggleBackupExpand = (folder: string) => {
+    setExpandedBackup(expandedBackup() === folder ? null : folder);
+  };
+
+  // download backup file
+  const downloadBackupFile = async (serverId: string, folder: string, file: string) => {
+    try {
+      const token = await getToken();
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(
+        `${API_BASE}/api/servers/${serverId}/backups/${folder}/${file}`,
+        { headers }
+      );
+
+      if (!response.ok) {
+        alert('Failed to download backup file');
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      alert(`Error downloading file: ${error}`);
+    }
   };
 
   // poll server logs until startup message is found
@@ -552,9 +655,10 @@ function App() {
                                               Backing Up...
                                             </>
                                           ): (
-                                            'Back Up Server'
+                                            'Backup Tables'
                                           )}
                                         </button>
+                                        <button class="action-btn" onClick={() => openBackupsModal(server.id)}>View Backups</button>
                                         <button class="action-btn" onClick={() => openLogsModal(server.id)}>View Logs</button>
                                         <button class="action-btn">Configuration</button>
                                       </div>
@@ -573,6 +677,74 @@ function App() {
             </div>
           )}
 
+          {/* Backups Modal */}
+          {backupsModalServerId() && (
+            <div class="modal-overlay" onClick={closeBackupsModal}>
+              <div class="modal-content backups-modal" onClick={(e) => e.stopPropagation()}>
+                <div class="modal-header">
+                  <h2>Backups: {backupsModalServerId()}</h2>
+                  <button class="modal-close" onClick={closeBackupsModal}>✕</button>
+                </div>
+                <div class="modal-body">
+                  {backupsLoading() ? (
+                    <div class="logs-loading">
+                      <div class="spinner"></div>
+                      <p>Loading backups...</p>
+                    </div>
+                  ) : backupsList().length === 0 ? (
+                    <div class="no-backups">
+                      <p>No backups found for this server.</p>
+                    </div>
+                  ) : (
+                    <div class="backups-list">
+                      <For each={backupsList()}>
+                        {(backup) => (
+                          <div class="backup-item">
+                            <div class="backup-header" onClick={() => toggleBackupExpand(backup.folder)}>
+                              <div class="backup-info">
+                                <span class="backup-timestamp">{backup.timestamp}</span>
+                                <span class="backup-meta">
+                                  {backup.backed_up_projects} projects • {formatBytes(backup.size)} • {backup.file_count} files
+                                </span>
+                              </div>
+                              <span class="backup-expand-icon">{expandedBackup() === backup.folder ? '▼' : '▶'}</span>
+                            </div>
+
+                            {expandedBackup() === backup.folder && (
+                              <div class="backup-files">
+                                <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, 'main.sql.gz')}>
+                                  <span class="file-icon">📦</span>
+                                  <span class="file-name">main.sql.gz</span>
+                                  <span class="file-type">Main Database</span>
+                                </div>
+                                <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, 'metadata.json')}>
+                                  <span class="file-icon">📄</span>
+                                  <span class="file-name">metadata.json</span>
+                                  <span class="file-type">Metadata</span>
+                                </div>
+                                <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, 'backup.log')}>
+                                  <span class="file-icon">📋</span>
+                                  <span class="file-name">backup.log</span>
+                                  <span class="file-type">Log File</span>
+                                </div>
+                                <div class="backup-section-header">
+                                  <span>Project Backups ({backup.backed_up_projects})</span>
+                                </div>
+                                <div class="project-backups-note">
+                                  Click main.sql.gz to download all project databases (named by UUID)
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Logs Modal */}
           {logsModalServerId() && (
             <div class="modal-overlay" onClick={closeLogsModal}>
