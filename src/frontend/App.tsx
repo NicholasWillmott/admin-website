@@ -217,6 +217,10 @@ function App() {
   const [backupsLoading, setBackupsLoading] = createSignal<boolean>(false);
   const [expandedBackup, setExpandedBackup] = createSignal<string | null>(null);
 
+  // Track active view: servers or snapshots
+  type ViewType = "servers" | "snapshots";
+  const [activeView, setActiveView] = createSignal<ViewType>("servers");
+
 
   // Auto-refresh statuses every 60 seconds
   createEffect(() => {
@@ -532,6 +536,22 @@ function App() {
     <>
       <div class="sticky-header">
         <h1>Fastr Analytics Admin Dashboard</h1>
+        <SignedIn>
+          <Show when={isAdmin()}>
+            <button
+              data-selected={activeView() === "servers"}
+              onClick={() => setActiveView("servers")}  
+            >
+              Servers
+            </button>
+            <button
+              data-selected={activeView() === "snapshots"}
+              onClick={() => setActiveView("snapshots")}
+            >
+              Snapshots
+            </button>
+          </Show>
+        </SignedIn>
       </div>
       {/* Authentication UI */}
       <div class="auth-container">
@@ -566,299 +586,304 @@ function App() {
             </div>
           }
         >
-            {servers.loading && <h2 class="loading-text">Loading...</h2>}
-            {servers.error && <p>Error: {servers.error.message}</p>}
-            {servers() && (
-              <div class="servers-container">
-              <For each={SERVER_CATEGORIES}>
-                {(category) => {
-                  const categoryServers = () => servers()?.filter(s =>
-                    category.servers.includes(s.id)
-                  ) || [];
+          <Show when={activeView() === "servers"}>
+              {servers.loading && <h2 class="loading-text">Loading...</h2>}
+              {servers.error && <p>Error: {servers.error.message}</p>}
+              {servers() && (
+                <div class="servers-container">
+                <For each={SERVER_CATEGORIES}>
+                  {(category) => {
+                    const categoryServers = () => servers()?.filter(s =>
+                      category.servers.includes(s.id)
+                    ) || [];
 
-                  return (
-                    <Show when={categoryServers().length > 0}>
-                      <div class="category-section">
-                        <h2 class="category-header">{category.name}</h2>
-                        <div class="servers-grid">
-                          <For each={categoryServers()}>
-                            {(server) =>{
-                              const isExpanded = () => expandedId() === server.id
-                              const [selectedVersion, setSelectedVersion] = createSignal(server.serverVersion);
+                    return (
+                      <Show when={categoryServers().length > 0}>
+                        <div class="category-section">
+                          <h2 class="category-header">{category.name}</h2>
+                          <div class="servers-grid">
+                            <For each={categoryServers()}>
+                              {(server) =>{
+                                const isExpanded = () => expandedId() === server.id
+                                const [selectedVersion, setSelectedVersion] = createSignal(server.serverVersion);
 
-                              return (
-                                <div class={`server-card ${isExpanded() ? 'expanded' : ''}`} onClick={() => toggleCard(server.id)}>
-                                  {/*Collapsed View*/}
-                                  <div class="card-header">
-                                    <a href={`https://${server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
-                                      <h2>{server.label}</h2>
-                                    </a>
-                                    <span class="expand-icon">{isExpanded() ? '▼' : '▶'}</span>
-                                  </div>
-                                  <p><strong>ID:</strong> {server.id}</p>
-                                  <p><strong>Server Version:</strong> {server.serverVersion}</p>
-                                  {server.adminVersion && <p><strong>Admin Version:</strong> {server.adminVersion}</p>}
-                                  <p>
-                                    <strong>Status:</strong>{' '}
-                                    {(() => {
-                                      const restartStatus = serverRestartStatuses()[server.id];
-                                      if (restartStatus === 'pending') {
-                                        return <span class="status-pending">Pending</span>;
-                                      }
-                                      return (
-                                        <span class={statuses()?.[server.id]?.running ? "status-online" : "status-offline"}>
-                                          {statuses()?.[server.id]?.running ? "Online" : "Offline"}
-                                        </span>
-                                      );
-                                    })()}
-                                  </p>
-                                  <div class="flags">
-                                    {server.french && <span class="badge">French</span>}
-                                    {server.ethiopian && <span class="badge calendar">Ethiopian</span>}
-                                    {server.openAccess && <span class="badge access">Open Access</span>}
-                                  </div>
+                                return (
+                                  <div class={`server-card ${isExpanded() ? 'expanded' : ''}`} onClick={() => toggleCard(server.id)}>
+                                    {/*Collapsed View*/}
+                                    <div class="card-header">
+                                      <a href={`https://${server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
+                                        <h2>{server.label}</h2>
+                                      </a>
+                                      <span class="expand-icon">{isExpanded() ? '▼' : '▶'}</span>
+                                    </div>
+                                    <p><strong>ID:</strong> {server.id}</p>
+                                    <p><strong>Server Version:</strong> {server.serverVersion}</p>
+                                    {server.adminVersion && <p><strong>Admin Version:</strong> {server.adminVersion}</p>}
+                                    <p>
+                                      <strong>Status:</strong>{' '}
+                                      {(() => {
+                                        const restartStatus = serverRestartStatuses()[server.id];
+                                        if (restartStatus === 'pending') {
+                                          return <span class="status-pending">Pending</span>;
+                                        }
+                                        return (
+                                          <span class={statuses()?.[server.id]?.running ? "status-online" : "status-offline"}>
+                                            {statuses()?.[server.id]?.running ? "Online" : "Offline"}
+                                          </span>
+                                        );
+                                      })()}
+                                    </p>
+                                    <div class="flags">
+                                      {server.french && <span class="badge">French</span>}
+                                      {server.ethiopian && <span class="badge calendar">Ethiopian</span>}
+                                      {server.openAccess && <span class="badge access">Open Access</span>}
+                                    </div>
 
-                                  {/* Expanded view */}
-                                  {isExpanded() && (
-                                    <div class="expanded-content" onClick={(e) => e.stopPropagation()}>
-                                      <hr/>
+                                    {/* Expanded view */}
+                                    {isExpanded() && (
+                                      <div class="expanded-content" onClick={(e) => e.stopPropagation()}>
+                                        <hr/>
 
-                                      {/* Version Control */}
-                                      <div class="control-section">
-                                        <h3>Version Control</h3>
-                                        <label>
-                                          <strong>Server Version:</strong>
-                                          <select class="version-select"
-                                            value={selectedVersion()}
-                                            onChange={(e) => setSelectedVersion(e.currentTarget.value)}
+                                        {/* Version Control */}
+                                        <div class="control-section">
+                                          <h3>Version Control</h3>
+                                          <label>
+                                            <strong>Server Version:</strong>
+                                            <select class="version-select"
+                                              value={selectedVersion()}
+                                              onChange={(e) => setSelectedVersion(e.currentTarget.value)}
+                                            >
+                                              <For each={serverVersions()}>{(version) =>
+                                                <option value={version} selected={server.serverVersion === version}>{version}</option>
+                                              }</For>
+                                            </select>
+                                          </label>
+                                          <button
+                                            class="update-btn"
+                                            onClick={() => updateServerVersion(server.id, selectedVersion())}
+                                            disabled={updatingServerId() === server.id}
                                           >
-                                            <For each={serverVersions()}>{(version) =>
-                                              <option value={version} selected={server.serverVersion === version}>{version}</option>
-                                            }</For>
-                                          </select>
-                                        </label>
-                                        <button
-                                          class="update-btn"
-                                          onClick={() => updateServerVersion(server.id, selectedVersion())}
-                                          disabled={updatingServerId() === server.id}
-                                        >
-                                          {updatingServerId() === server.id ? (
-                                            <>
-                                              <span class="button-spinner"></span>
-                                              Updating...
-                                            </>
-                                          ) : (
-                                            'Update Version'
-                                          )}
-                                        </button>
-                                      </div>
-
-                                      {/* Analytics */}
-                                      <div class="analytics-section">
-                                        <h3>Analytics</h3>
-                                        <div class="stats-grid">
-                                          <div class="stat-item">
-                                            <span class="stat-label">Total Users:</span>
-                                            <span class="stat-value">{statuses()?.[server.id]?.totalUsers ?? '0'}</span>
-                                          </div>
-                                          <div class="stat-item">
-                                            <span class="stat-label">Uptime:</span>
-                                            <span class="stat-value">
-                                              {statuses()?.[server.id]?.uptimeMs
-                                                ? formatUptime(statuses()![server.id]!.uptimeMs)
-                                                : 'N/A'}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      {/* Admin Users */}
-                                      <div class="admin-users-section">
-                                        <h3>Admin Users ({statuses()?.[server.id]?.adminUsers?.length ?? 0})</h3>
-                                        <div class="admin-users-grid">
-                                          <For each={statuses()?.[server.id]?.adminUsers ?? []}>
-                                            {(email) => (
-                                              <div class="admin-user-card">
-                                                <span class="user-icon">👤</span>
-                                                <span class="user-email">{email}</span>
-                                              </div>
+                                            {updatingServerId() === server.id ? (
+                                              <>
+                                                <span class="button-spinner"></span>
+                                                Updating...
+                                              </>
+                                            ) : (
+                                              'Update Version'
                                             )}
-                                          </For>
+                                          </button>
+                                        </div>
+
+                                        {/* Analytics */}
+                                        <div class="analytics-section">
+                                          <h3>Analytics</h3>
+                                          <div class="stats-grid">
+                                            <div class="stat-item">
+                                              <span class="stat-label">Total Users:</span>
+                                              <span class="stat-value">{statuses()?.[server.id]?.totalUsers ?? '0'}</span>
+                                            </div>
+                                            <div class="stat-item">
+                                              <span class="stat-label">Uptime:</span>
+                                              <span class="stat-value">
+                                                {statuses()?.[server.id]?.uptimeMs
+                                                  ? formatUptime(statuses()![server.id]!.uptimeMs)
+                                                  : 'N/A'}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {/* Admin Users */}
+                                        <div class="admin-users-section">
+                                          <h3>Admin Users ({statuses()?.[server.id]?.adminUsers?.length ?? 0})</h3>
+                                          <div class="admin-users-grid">
+                                            <For each={statuses()?.[server.id]?.adminUsers ?? []}>
+                                              {(email) => (
+                                                <div class="admin-user-card">
+                                                  <span class="user-icon">👤</span>
+                                                  <span class="user-email">{email}</span>
+                                                </div>
+                                              )}
+                                            </For>
+                                          </div>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div class="actions-section">
+                                          <h3>Actions</h3>
+                                          <button
+                                            class="action-btn restart"
+                                            onClick={() => restartServer(server.id)}
+                                            disabled={restartingServerId() === server.id}
+                                          >
+                                            {restartingServerId() === server.id ? (
+                                              <>
+                                                <span class="button-spinner"></span>
+                                                Restarting...
+                                              </>
+                                            ) : (
+                                              'Restart Server'
+                                            )}
+                                          </button>
+                                          <button
+                                            class="action-btn backup"
+                                            onClick={() => backupServer(server.id)}
+                                            disabled={backingUpServerId() === server.id}
+                                          >
+                                            {backingUpServerId() === server.id ? (
+                                              <>
+                                                <span class="button-spinner"></span>
+                                                Backing Up...
+                                              </>
+                                            ): (
+                                              'Back Up Server'
+                                            )}
+                                          </button>
+                                          <button class="action-btn" onClick={() => openBackupsModal(server.id)}>View Backups</button>
+                                          <button class="action-btn" onClick={() => openLogsModal(server.id)}>View Logs</button>
+                                          <button class="action-btn">Configuration</button>
                                         </div>
                                       </div>
-
-                                      {/* Actions */}
-                                      <div class="actions-section">
-                                        <h3>Actions</h3>
-                                        <button
-                                          class="action-btn restart"
-                                          onClick={() => restartServer(server.id)}
-                                          disabled={restartingServerId() === server.id}
-                                        >
-                                          {restartingServerId() === server.id ? (
-                                            <>
-                                              <span class="button-spinner"></span>
-                                              Restarting...
-                                            </>
-                                          ) : (
-                                            'Restart Server'
-                                          )}
-                                        </button>
-                                        <button
-                                          class="action-btn backup"
-                                          onClick={() => backupServer(server.id)}
-                                          disabled={backingUpServerId() === server.id}
-                                        >
-                                          {backingUpServerId() === server.id ? (
-                                            <>
-                                              <span class="button-spinner"></span>
-                                              Backing Up...
-                                            </>
-                                          ): (
-                                            'Back Up Server'
-                                          )}
-                                        </button>
-                                        <button class="action-btn" onClick={() => openBackupsModal(server.id)}>View Backups</button>
-                                        <button class="action-btn" onClick={() => openLogsModal(server.id)}>View Logs</button>
-                                        <button class="action-btn">Configuration</button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            }}
-                          </For>
-                        </div>
-                      </div>
-                    </Show>
-                  );
-                }}
-              </For>
-            </div>
-          )}
-
-          {/* Backups Modal */}
-          {backupsModalServerId() && (
-            <div class="modal-overlay" onClick={closeBackupsModal}>
-              <div class="modal-content backups-modal" onClick={(e) => e.stopPropagation()}>
-                <div class="modal-header">
-                  <h2>Backups: {backupsModalServerId()}</h2>
-                  <button class="modal-close" onClick={closeBackupsModal}>✕</button>
-                </div>
-                <div class="modal-body">
-                  {backupsLoading() ? (
-                    <div class="logs-loading">
-                      <div class="spinner"></div>
-                      <p>Loading backups...</p>
-                    </div>
-                  ) : backupsList().length === 0 ? (
-                    <div class="no-backups">
-                      <p>No backups found for this server.</p>
-                    </div>
-                  ) : (
-                    <div class="backups-list">
-                      <For each={backupsList()}>
-                        {(backup) => (
-                          <div class="backup-item">
-                            <div class="backup-header" onClick={() => toggleBackupExpand(backup.folder)}>
-                              <div class="backup-info">
-                                <span class="backup-timestamp">{backup.timestamp}</span>
-                                <span class="backup-meta">
-                                  {backup.backed_up_projects} projects • {formatBytes(backup.size)} • {backup.file_count} files
-                                </span>
-                              </div>
-                              <span class="backup-expand-icon">{expandedBackup() === backup.folder ? '▼' : '▶'}</span>
-                            </div>
-
-                            {expandedBackup() === backup.folder && (
-                              <div class="backup-files">
-                                <div class="download-all-section">
-                                  <button
-                                    type="button"
-                                    class="download-all-btn"
-                                    onClick={() => downloadEntireBackup(backupsModalServerId()!, backup.folder)}
-                                  >
-                                    📥 Download Entire Backup ({formatBytes(backup.size)})
-                                  </button>
-                                </div>
-
-                                <div class="backup-section-header">
-                                  <span>Main Files</span>
-                                </div>
-                                <For each={backup.files.filter(f => f.type === 'main' || f.type === 'metadata' || f.type === 'log')}>
-                                  {(file) => (
-                                    <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, file.name)}>
-                                      <span class="file-icon">
-                                        {file.type === 'main' ? '📦' : file.type === 'metadata' ? '📄' : '📋'}
-                                      </span>
-                                      <span class="file-name">{file.name}</span>
-                                      <span class="file-size">{formatBytes(file.size)}</span>
-                                      <span class="file-type">
-                                        {file.type === 'main' ? 'Main Database' : file.type === 'metadata' ? 'Metadata' : 'Log File'}
-                                      </span>
-                                    </div>
-                                  )}
-                                </For>
-
-                                <div class="backup-section-header">
-                                  <span>Project Backups ({backup.files.filter(f => f.type === 'project').length})</span>
-                                </div>
-                                <For each={backup.files.filter(f => f.type === 'project')}>
-                                  {(file) => (
-                                    <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, file.name)}>
-                                      <span class="file-icon">🗄️</span>
-                                      <span class="file-name">{file.name}</span>
-                                      <span class="file-size">{formatBytes(file.size)}</span>
-                                      <span class="file-type">Project Database</span>
-                                    </div>
-                                  )}
-                                </For>
-                              </div>
-                            )}
+                                    )}
+                                  </div>
+                                )
+                              }}
+                            </For>
                           </div>
-                        )}
-                      </For>
-                    </div>
-                  )}
+                        </div>
+                      </Show>
+                    );
+                  }}
+                </For>
+              </div>
+            )}
+
+            {/* Backups Modal */}
+            {backupsModalServerId() && (
+              <div class="modal-overlay" onClick={closeBackupsModal}>
+                <div class="modal-content backups-modal" onClick={(e) => e.stopPropagation()}>
+                  <div class="modal-header">
+                    <h2>Backups: {backupsModalServerId()}</h2>
+                    <button class="modal-close" onClick={closeBackupsModal}>✕</button>
+                  </div>
+                  <div class="modal-body">
+                    {backupsLoading() ? (
+                      <div class="logs-loading">
+                        <div class="spinner"></div>
+                        <p>Loading backups...</p>
+                      </div>
+                    ) : backupsList().length === 0 ? (
+                      <div class="no-backups">
+                        <p>No backups found for this server.</p>
+                      </div>
+                    ) : (
+                      <div class="backups-list">
+                        <For each={backupsList()}>
+                          {(backup) => (
+                            <div class="backup-item">
+                              <div class="backup-header" onClick={() => toggleBackupExpand(backup.folder)}>
+                                <div class="backup-info">
+                                  <span class="backup-timestamp">{backup.timestamp}</span>
+                                  <span class="backup-meta">
+                                    {backup.backed_up_projects} projects • {formatBytes(backup.size)} • {backup.file_count} files
+                                  </span>
+                                </div>
+                                <span class="backup-expand-icon">{expandedBackup() === backup.folder ? '▼' : '▶'}</span>
+                              </div>
+
+                              {expandedBackup() === backup.folder && (
+                                <div class="backup-files">
+                                  <div class="download-all-section">
+                                    <button
+                                      type="button"
+                                      class="download-all-btn"
+                                      onClick={() => downloadEntireBackup(backupsModalServerId()!, backup.folder)}
+                                    >
+                                      📥 Download Entire Backup ({formatBytes(backup.size)})
+                                    </button>
+                                  </div>
+
+                                  <div class="backup-section-header">
+                                    <span>Main Files</span>
+                                  </div>
+                                  <For each={backup.files.filter(f => f.type === 'main' || f.type === 'metadata' || f.type === 'log')}>
+                                    {(file) => (
+                                      <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, file.name)}>
+                                        <span class="file-icon">
+                                          {file.type === 'main' ? '📦' : file.type === 'metadata' ? '📄' : '📋'}
+                                        </span>
+                                        <span class="file-name">{file.name}</span>
+                                        <span class="file-size">{formatBytes(file.size)}</span>
+                                        <span class="file-type">
+                                          {file.type === 'main' ? 'Main Database' : file.type === 'metadata' ? 'Metadata' : 'Log File'}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </For>
+
+                                  <div class="backup-section-header">
+                                    <span>Project Backups ({backup.files.filter(f => f.type === 'project').length})</span>
+                                  </div>
+                                  <For each={backup.files.filter(f => f.type === 'project')}>
+                                    {(file) => (
+                                      <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, file.name)}>
+                                        <span class="file-icon">🗄️</span>
+                                        <span class="file-name">{file.name}</span>
+                                        <span class="file-size">{formatBytes(file.size)}</span>
+                                        <span class="file-type">Project Database</span>
+                                      </div>
+                                    )}
+                                  </For>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </For>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Logs Modal */}
-          {logsModalServerId() && (
-            <div class="modal-overlay" onClick={closeLogsModal}>
-              <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-                <div class="modal-header">
-                  <h2>Server Logs: {logsModalServerId()}</h2>
-                  <button class="modal-close" onClick={closeLogsModal}>✕</button>
-                </div>
-                <div class="modal-body">
-                  {logsLoading() ? (
-                    <div class="logs-loading">
-                      <div class="spinner"></div>
-                      <p>Loading logs...</p>
-                    </div>
-                  ) : (
-                    <pre class="logs-display">{modalLogs()}</pre>
-                  )}
+            {/* Logs Modal */}
+            {logsModalServerId() && (
+              <div class="modal-overlay" onClick={closeLogsModal}>
+                <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div class="modal-header">
+                    <h2>Server Logs: {logsModalServerId()}</h2>
+                    <button class="modal-close" onClick={closeLogsModal}>✕</button>
+                  </div>
+                  <div class="modal-body">
+                    {logsLoading() ? (
+                      <div class="logs-loading">
+                        <div class="spinner"></div>
+                        <p>Loading logs...</p>
+                      </div>
+                    ) : (
+                      <pre class="logs-display">{modalLogs()}</pre>
+                    )}
+                  </div>
                 </div>
               </div>
+            )}
+          </Show>
+          <Show when={activeView() === "snapshots"}>
+            <div class="snapshots-container">
+              <div class="system-actions">
+                <button class="system-btn snapshot" onClick={createVolumeSnapshot} disabled={snappingVolume()}>
+                  {snappingVolume() ? (
+                    <>
+                      <span class="button-spinner"></span>
+                      Creating Volume Snapshot...
+                    </>
+                  ): (
+                    'Create Volume Snapshot'
+                  )}
+                </button>
+              </div>
             </div>
-          )}
-
-          <div class="system-actions">
-            <button class="system-btn snapshot" onClick={createVolumeSnapshot} disabled={snappingVolume()}>
-              {snappingVolume() ? (
-                <>
-                  <span class="button-spinner"></span>
-                  Creating Volume Snapshot...
-                </>
-              ): (
-                'Create Volume Snapshot'
-              )}
-            </button>
-          </div>
+          </Show>
         </Show>
       </SignedIn>
     </>
