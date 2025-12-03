@@ -77,7 +77,7 @@ async function requireAdmin(c: any) {
 }
 
 // Droplet IP where all servers are hosted
-const DROPLET_IP = Deno.env.get("DROPLET_IP") || "159.223.167.134";
+const DROPLET_IP = Deno.env.get("DROPLET_IP") || "";
 const ADMIN_DROPLET_IP = Deno.env.get("ADMIN_DROPLET_IP") || "";
 
 // Get indiviudal server's info for the cards
@@ -261,6 +261,7 @@ app.get("/api/servers/:id/logs", async (c) =>{
     }
 });
 
+// backup tables from main app onto admin volume
 app.post("/api/servers/:id/backup", async (c) =>{
     const authError = await requireAdmin(c);
     if (authError) return authError;
@@ -288,6 +289,58 @@ app.post("/api/servers/:id/backup", async (c) =>{
         }
     } catch (error) {
         return c.json({ success: false, logs: '', error: String(error) });
+    }
+});
+
+// take snapshot of main droplet volume
+app.post("/api/server/snapshot", async (c) =>{
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
+    const volumeId = Deno.env.get("VOLUME_ID");
+
+    if(!doToken || !volumeId) {
+        return c.json({
+            success: false,
+            error: "Digital Ocean API token or Volume ID not found",
+        });
+    }
+
+    try{
+        // Generate snpashot name with timestamp
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const snapshotName = `${volumeId}-snapshot-${timestamp}`;
+
+        // Create volume snapshot
+        const response = await fetch(`https://api.digitalocean.com/v2/volumes/${volumeId}/snapshots`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${doToken}`,
+            },
+            body: JSON.stringify({
+                name: snapshotName,
+                description: `Snapshot for ${volumeId} created via admin dashboard`,
+            }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            return c.json({
+                success: true,
+                snapshot: result.snapshot,
+                message: `Snapshot ${snapshotName} created successfully`
+            });
+        } else {
+            return c.json({
+                success: false,
+                error: result.message || "Failed to create snapshot"
+            });
+        }
+    } catch (error) {
+        return c.json({ success: false, error: String(error) });
     }
 });
 
