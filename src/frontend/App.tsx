@@ -538,18 +538,20 @@ function App() {
         <h1>Fastr Analytics Admin Dashboard</h1>
         <SignedIn>
           <Show when={isAdmin()}>
-            <button
-              data-selected={activeView() === "servers"}
-              onClick={() => setActiveView("servers")}  
-            >
-              Servers
-            </button>
-            <button
-              data-selected={activeView() === "snapshots"}
-              onClick={() => setActiveView("snapshots")}
-            >
-              Snapshots
-            </button>
+            <div class="button-container">
+              <button
+                data-selected={activeView() === "servers"}
+                onClick={() => setActiveView("servers")}  
+              >
+                Servers
+              </button>
+              <button
+                data-selected={activeView() === "snapshots"}
+                onClick={() => setActiveView("snapshots")}
+              >
+                Snapshots
+              </button>
+            </div>
           </Show>
         </SignedIn>
       </div>
