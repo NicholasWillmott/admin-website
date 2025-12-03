@@ -718,6 +718,7 @@ function App() {
                                             'Back Up Server'
                                           )}
                                         </button>
+                                        <button class="action-btn" onClick={() => openBackupsModal(server.id)}>View Backups</button>
                                         <button class="action-btn" onClick={() => openLogsModal(server.id)}>View Logs</button>
                                         <button class="action-btn">Configuration</button>
                                       </div>
@@ -736,28 +737,94 @@ function App() {
             </div>
           )}
 
-          {/* Logs Modal */}
-          {logsModalServerId() && (
-            <div class="modal-overlay" onClick={closeLogsModal}>
-              <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+          {/* Backups Modal */}
+          {backupsModalServerId() && (
+            <div class="modal-overlay" onClick={closeBackupsModal}>
+              <div class="modal-content backups-modal" onClick={(e) => e.stopPropagation()}>
                 <div class="modal-header">
-                  <h2>Server Logs: {logsModalServerId()}</h2>
-                  <button class="modal-close" onClick={closeLogsModal}>✕</button>
+                  <h2>Backups: {backupsModalServerId()}</h2>
+                  <button class="modal-close" onClick={closeBackupsModal}>✕</button>
                 </div>
                 <div class="modal-body">
-                  {logsLoading() ? (
+                  {backupsLoading() ? (
                     <div class="logs-loading">
                       <div class="spinner"></div>
-                      <p>Loading logs...</p>
+                      <p>Loading backups...</p>
+                    </div>
+                  ) : backupsList().length === 0 ? (
+                    <div class="no-backups">
+                      <p>No backups found for this server.</p>
                     </div>
                   ) : (
-                    <pre class="logs-display">{modalLogs()}</pre>
+                    <div class="backups-list">
+                      <For each={backupsList()}>
+                        {(backup) => (
+                          <div class="backup-item">
+                            <div class="backup-header" onClick={() => toggleBackupExpand(backup.folder)}>
+                              <div class="backup-info">
+                                <span class="backup-timestamp">{backup.timestamp}</span>
+                                <span class="backup-meta">
+                                  {backup.backed_up_projects} projects • {formatBytes(backup.size)} • {backup.file_count} files
+                                </span>
+                              </div>
+                              <span class="backup-expand-icon">{expandedBackup() === backup.folder ? '▼' : '▶'}</span>
+                            </div>
+
+                            {expandedBackup() === backup.folder && (
+                              <div class="backup-files">
+                                <div class="download-all-section">
+                                  <button
+                                    type="button"
+                                    class="download-all-btn"
+                                    onClick={() => downloadEntireBackup(backupsModalServerId()!, backup.folder)}
+                                  >
+                                    📥 Download Entire Backup ({formatBytes(backup.size)})
+                                  </button>
+                                </div>
+
+                                <div class="backup-section-header">
+                                  <span>Main Files</span>
+                                </div>
+                                <For each={backup.files.filter(f => f.type === 'main' || f.type === 'metadata' || f.type === 'log')}>
+                                  {(file) => (
+                                    <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, file.name)}>
+                                      <span class="file-icon">
+                                        {file.type === 'main' ? '📦' : file.type === 'metadata' ? '📄' : '📋'}
+                                      </span>
+                                      <span class="file-name">{file.name}</span>
+                                      <span class="file-size">{formatBytes(file.size)}</span>
+                                      <span class="file-type">
+                                        {file.type === 'main' ? 'Main Database' : file.type === 'metadata' ? 'Metadata' : 'Log File'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </For>
+
+                                <div class="backup-section-header">
+                                  <span>Project Backups ({backup.files.filter(f => f.type === 'project').length})</span>
+                                </div>
+                                <For each={backup.files.filter(f => f.type === 'project')}>
+                                  {(file) => (
+                                    <div class="backup-file" onClick={() => downloadBackupFile(backupsModalServerId()!, backup.folder, file.name)}>
+                                      <span class="file-icon">🗄️</span>
+                                      <span class="file-name">{file.name}</span>
+                                      <span class="file-size">{formatBytes(file.size)}</span>
+                                      <span class="file-type">Project Database</span>
+                                    </div>
+                                  )}
+                                </For>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </For>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
           )}
-          
+
           {/* Logs Modal */}
           {logsModalServerId() && (
             <div class="modal-overlay" onClick={closeLogsModal}>
