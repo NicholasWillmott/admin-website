@@ -950,6 +950,33 @@ h1 {
   color: #667eea;
 }
 
+.snapshot-actions {
+  text-align: center;
+}
+
+.delete-btn {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+}
+
+.delete-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+.delete-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(231, 76, 60, 0.3);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .snapshots-table th,

@@ -292,6 +292,50 @@ app.post("/api/servers/:id/backup", async (c) =>{
     }
 });
 
+// delete snapshot by id
+app.delete("/api/server/snapshot/:id", async (c) =>{
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
+    const volumeId = Deno.env.get("VOLUME_ID");
+
+    const snapshotId = c.req.param("id");
+
+    if(!doToken || !volumeId) {
+        return c.json({
+            success: false,
+            error: "Digital Ocean API token or Volume ID not found",
+        });
+    }
+
+    try {
+        const response = await fetch(`https://api.digitalocean.com/v2/snapshots/${snapshotId}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": `Bearer ${doToken}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        if (response.status === 204) {
+            // 204 No Content means successful deletion
+            return c.json({
+                success: true,
+                message: `Snapshot deleted successfully`
+            });
+        } else if (!response.ok) {
+            const result = await response.json();
+            return c.json({
+                success: false,
+                error: result.message || "Failed to delete snapshot"
+            });
+        }
+    } catch (error) {
+        return c.json({ success: false, error: String(error) }, 500);
+    }
+});
+
 // take snapshot of main droplet volume
 app.post("/api/server/snapshot", async (c) =>{
     const authError = await requireAdmin(c);
@@ -386,7 +430,7 @@ app.get("/api/servers/snapshots", async(c) => {
         });
 
     } catch (error) {
-        console.error('Error fetching volue snpashots:', error);
+        console.error('Error fetching volue snapshots:', error);
         return c.json({
             success: false,
             error: 'Failed to fetch snpashots'

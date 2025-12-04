@@ -230,7 +230,7 @@ function App() {
   const [expandedBackup, setExpandedBackup] = createSignal<string | null>(null);
 
   // track loading volume snapshots
-  const [volumeSnapshots] = createResource(async () => {
+  const [volumeSnapshots, { refetch: refetchSnapshots }] = createResource(async () => {
     const token = await getToken();
     const headers: HeadersInit = {};
     if (token) {
@@ -415,6 +415,29 @@ function App() {
     };
 
     return await checkLogs();
+  };
+
+  // delete snapshot of volume
+  const deleteVolumeSnapshot = async (snapshotId: string) => {
+    if (!confirm('Are you sure you want to delete this snapshot? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      const token = await getToken();
+      const response = await fetch(`${API_BASE}/api/server/snapshot/${snapshotId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('Snapshot deleted successfully!');
+        refetchSnapshots();
+      } else {
+        alert(`Failed to delete snapshot: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Error deleting snapshot: ${error}`);
+    }
   };
 
   // create snapshot of volume
@@ -931,6 +954,7 @@ function App() {
                           <th>Snapshot Name</th>
                           <th>Created</th>
                           <th>Size</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -940,6 +964,15 @@ function App() {
                               <td class="snapshot-name">{snapshot.name}</td>
                               <td class="snapshot-date">{formatDate(snapshot.created_at)}</td>
                               <td class="snapshot-size">{snapshot.size_gigabytes} GB</td>
+                              <td class="snapshot-actions">
+                                <button
+                                  type="button"
+                                  class="delete-btn"
+                                  onClick={() => deleteVolumeSnapshot(snapshot.id)}
+                                >
+                                  Delete
+                                </button>
+                              </td>
                             </tr>
                           )}
                         </For>
