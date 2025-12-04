@@ -17,8 +17,6 @@ interface Server {
   openAccess?: boolean;
 }
 
-type ServerRestartStatus = 'idle' | 'pending' | 'online';
-
 interface ServerLogs {
   success: boolean;
   logs: string;
@@ -51,6 +49,8 @@ interface ServerStatuses {
   [serverId: string]: HealthCheckResponse | null;
 }
 
+type ServerRestartStatus = 'idle' | 'pending' | 'online';
+
 type serverVersions = string[];
 
 interface BackupInfo {
@@ -68,6 +68,13 @@ interface BackupFileInfo {
   name: string;
   size: number;
   type: 'main' | 'project' | 'metadata' | 'log' | 'other';
+}
+
+interface VolumeSnapshot {
+  id: string;
+  name: string;
+  created_at: string;
+  size_gigabytes: number;
 }
 
 function formatUptime(ms: number): string {
@@ -128,6 +135,18 @@ function formatBytes(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
+
+  function formatDate(isoString: string): string {
+    const date = new Date(isoString);
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).format(date);
+  }
 
 async function fetchServerVersions(token: string | null) {
   const headers: HeadersInit = {};
@@ -216,6 +235,18 @@ function App() {
   const [backupsList, setBackupsList] = createSignal<BackupInfo[]>([]);
   const [backupsLoading, setBackupsLoading] = createSignal<boolean>(false);
   const [expandedBackup, setExpandedBackup] = createSignal<string | null>(null);
+
+  // track loading volume snapshots
+  const [volumeSnapshots] = createResource(async () => {
+    const token = await getToken();
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE}/api/servers/snapshots`, { headers });
+    const data = await response.json();
+    return data.snapshots || [];
+  })
 
   // Track active view: servers or snapshots
   type ViewType = "servers" | "snapshots";
@@ -872,17 +903,57 @@ function App() {
           </Show>
           <Show when={activeView() === "snapshots"}>
             <div class="snapshots-container">
-              <div class="system-actions">
-                <button class="system-btn snapshot" onClick={createVolumeSnapshot} disabled={snappingVolume()}>
-                  {snappingVolume() ? (
-                    <>
-                      <span class="button-spinner"></span>
-                      Creating Volume Snapshot...
-                    </>
-                  ): (
-                    'Create Volume Snapshot'
-                  )}
-                </button>
+              <div class="snapshots-content">
+                <div class="snapshots-header">
+                  <button class="system-btn snapshot" onClick={createVolumeSnapshot} disabled={snappingVolume()}>
+                    {snappingVolume() ? (
+                      <>
+                        <span class="button-spinner"></span>
+                        Creating Volume Snapshot...
+                      </>
+                    ): (
+                      'Create Volume Snapshot'
+                    )}
+                  </button>
+                </div>
+
+                {volumeSnapshots.loading ? (
+                  <div class="snapshots-loading">
+                    <div class="spinner"></div>
+                    <p>Loading Snapshots</p>
+                  </div>
+                ) : volumeSnapshots.error ? (
+                  <div class="snapshots-error">
+                    <p>Error loading snapshots: {volumeSnapshots.error.message}</p>
+                  </div>
+                ) : volumeSnapshots() && volumeSnapshots().length === 0 ? (
+                  <div class="no-snapshots">
+                    <p>No volume snapshots found</p>
+                  </div>
+                ) : (
+                  <div class="snapshots-table-container">
+                    <table class="snapshots-table">
+                      <thead>
+                        <tr>
+                          <th>Snapshot Name</th>
+                          <th>Created</th>
+                          <th>Size</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <For each={volumeSnapshots()}>
+                          {(snapshot) => (
+                            <tr>
+                              <td class="snapshot-name">{snapshot.name}</td>
+                              <td class="snapshot-date">{formatDate(snapshot.created_at)}</td>
+                              <td class="snapshot-size">{snapshot.size_gigabytes} GB</td>
+                            </tr>
+                          )}
+                        </For>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </Show>

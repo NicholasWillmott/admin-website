@@ -344,6 +344,56 @@ app.post("/api/server/snapshot", async (c) =>{
     }
 });
 
+// Get the list of snapshots for the volume
+app.get("/api/servers/snapshots", async(c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    try {
+        const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
+        const volumeId = Deno.env.get("VOLUME_ID");
+
+        if(!doToken || !volumeId) {
+            return c.json({
+               success: false,
+               error: 'Missing DigitalOcean credentials'
+            }, 500);
+        }
+
+        // Fetch volume snapshots
+        const response = await fetch(
+            `https://api.digitalocean.com/v2/volumes/${volumeId}/snapshots`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${doToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return c.json({ 
+                success: false, 
+                error: `DigitalOcean API error: ${errorText}` 
+            }, response.status);
+        }
+
+        const data = await response.json();
+        return c.json({
+            success: true,
+            snapshots: data.snapshots || []
+        });
+
+    } catch (error) {
+        console.error('Error fetching volue snpashots:', error);
+        return c.json({
+            success: false,
+            error: 'Failed to fetch snpashots'
+        }, 500);
+    }
+});
+
 // List all backups for a server
 app.get("/api/servers/:id/backups", async (c) =>{
     const authError = await requireAdmin(c);
