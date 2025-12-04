@@ -70,13 +70,6 @@ interface BackupFileInfo {
   type: 'main' | 'project' | 'metadata' | 'log' | 'other';
 }
 
-interface VolumeSnapshot {
-  id: string;
-  name: string;
-  created_at: string;
-  size_gigabytes: number;
-}
-
 function formatUptime(ms: number): string {
   const minutes = Math.floor(ms / 60000);
   const hours = Math.floor(minutes / 60);
