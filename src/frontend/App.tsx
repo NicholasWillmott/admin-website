@@ -245,6 +245,15 @@ function App() {
   type ViewType = "servers" | "snapshots";
   const [activeView, setActiveView] = createSignal<ViewType>("servers");
 
+  // Sorted snapshots (newest first)
+  const sortedSnapshots = () => {
+    const snapshots = volumeSnapshots();
+    if (!snapshots) return [];
+    return [...snapshots].sort((a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  };
+
 
   // Auto-refresh statuses every 60 seconds
   createEffect(() => {
@@ -958,7 +967,7 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        <For each={volumeSnapshots()}>
+                        <For each={sortedSnapshots()}>
                           {(snapshot) => (
                             <tr>
                               <td class="snapshot-name">{snapshot.name}</td>
