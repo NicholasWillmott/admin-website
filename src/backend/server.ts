@@ -599,18 +599,10 @@ app.get("/api/servers/:id/backups/:folder/download-all", async (c) => {
 
 // Download a specific backup file
 app.get("/api/servers/:id/backups/:folder/:file", async (c) => {
-    // Check for either admin auth OR internal API key
-    const apiKey = c.req.header("X-Internal-API-Key");
-    const internalApiKey = Deno.env.get("INTERNAL_API_KEY");
 
-    // If API key is provided and valid, skip admin check
-    const isValidApiKey = apiKey && internalApiKey && apiKey === internalApiKey;
-
-    if (!isValidApiKey) {
-        // If no valid API key, require admin authentication
-        const authError = await requireAdmin(c);
-        if (authError) return authError;
-    }
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+    
 
     const serverId = c.req.param("id");
     const folder = c.req.param("folder");
