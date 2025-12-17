@@ -262,16 +262,17 @@ app.get("/api/servers/:id/logs", async (c) =>{
 });
 
 // backup tables from main app onto admin volume
-app.post("/api/servers/:id/backup", async (c) =>{
+app.post("/api/servers/:id/backup/:name?", async (c) =>{
     const authError = await requireAdmin(c);
     if (authError) return authError;
 
     const serverId = c.req.param("id");
+    const backupName = c.req.param("name") || "";
 
     try {
         // Run backup script locally (not via SSH)
         const command = new Deno.Command("/root/backup-scripts/fastr-backup.sh", {
-            args: [serverId],
+            args: [serverId, backupName],
             stdout: "piped",
             stderr: "piped",
         });
