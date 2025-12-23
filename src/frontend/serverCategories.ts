@@ -23,7 +23,7 @@ export const SERVER_CATEGORIES: ServerCategory[] = [
   },
   {
     name: "East Africa",
-    servers: ["ethiopia", "somalia", "somaliland"]
+    servers: ["ethiopia", "somalia", "somaliland", "uganda", "zambia"]
   },
   {
     name: "Central Africa",
