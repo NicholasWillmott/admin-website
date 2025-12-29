@@ -88,6 +88,27 @@ async function getServerInfo(serverId: string) {
 }
 
 app.get("/", (c) => c.text("Admin Website Backend is running"));
+
+// pull docker image on main droplet
+app.post("/api/docker/pull/:version", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const versionToPull = c.req.param("version");
+
+    const command = `docker pull timroberton/comb:wb-fastr-server-v${versionToPull}`;
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
  
 // Restart individual server - PROTECTED
 app.post("/api/servers/:id/restart", async (c) => {

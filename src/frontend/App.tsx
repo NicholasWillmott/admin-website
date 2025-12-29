@@ -1,6 +1,8 @@
 import { createResource, createSignal, For, Show, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
 import { SERVER_CATEGORIES } from './serverCategories.ts'
+import { t } from "lib";
+import { Input } from "panther";
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
@@ -180,6 +182,21 @@ async function fetchAllServerStatuses(servers: Server[], token: string | null): 
   }, {} as ServerStatuses);
 }
 
+async function dockerPull(version: string, token: string | null) {
+  try {
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE}/api/docker/pull/${version}`, { headers });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error(`failed to pull version ${version}:`, error);
+    return null;
+  }
+}
+
 
 function App() {
   const { getToken } = useAuth();
@@ -208,6 +225,10 @@ function App() {
   // track expanded card
   const [expandedId, setExpandedId] = createSignal<string | null>(null)
   
+  // track docker pull modal
+  const [dockerPullModalOpen, setDockerPullModalOpen] = createSignal<boolean>(false);
+  const [dockerPullVersion, setDockerPullVersion] = createSignal<string>('');
+
   // track which server's logs to show in modal
   const [logsModalServerId, setLogsModalServerId] = createSignal<string | null>(null);
   const [modalLogs, setModalLogs] = createSignal<string>('');
@@ -271,6 +292,15 @@ function App() {
   const toggleCard = (id: string) => {
     setExpandedId(expandedId() === id ? null : id)
   }
+
+  // open docker pull modal
+  const openDockerPullModal = () => {
+    setDockerPullModalOpen(true);
+  };
+
+  const closeDockerPullModal = () => {
+    setDockerPullModalOpen(false);
+  };
 
   // open logs modal
   const openLogsModal = async (serverId: string) => {
@@ -607,6 +637,11 @@ function App() {
               >
                 Snapshots
               </button>
+              <button
+                onClick={() => openDockerPullModal}
+              >
+                Docker Pull
+              </button>
             </div>
           </Show>
         </SignedIn>
@@ -921,6 +956,27 @@ function App() {
                     ) : (
                       <pre class="logs-display">{modalLogs()}</pre>
                     )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Docker Pull Modal */}
+            {dockerPullModalOpen() && (
+              <div class="modal-overlay" onClick={closeDockerPullModal}>
+                <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <div class="modal-header">
+                    <h2>Docker Pull</h2>
+                    <button class="modal-close" onClick={closeDockerPullModal}>✕</button>
+                  </div>
+                  <div class="modal-body">
+                    <Input
+                      label={t("pullingversion")}
+                      value={dockerPullVersion()}
+                      onChange={setDockerPullVersion}
+                      fullwidth
+                      autofocus
+                    />
                   </div>
                 </div>
               </div>
