@@ -1,8 +1,6 @@
 import { createResource, createSignal, For, Show, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
 import { SERVER_CATEGORIES } from './serverCategories.ts'
-import { t } from "lib";
-import { Input } from "panther";
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
@@ -971,13 +969,16 @@ function App() {
                     <button class="modal-close" onClick={closeDockerPullModal}>✕</button>
                   </div>
                   <div class="modal-body">
-                    <Input
-                      label={t("pullingversion")}
-                      value={dockerPullVersion()}
-                      onChange={setDockerPullVersion}
-                      fullwidth
-                      autofocus
-                    />
+                    <div class="input-group">
+                      <label>Docker Version</label>
+                      <input
+                        type="text"
+                        value={dockerPullVersion()}
+                        onInput={(e) => setDockerPullVersion(e.currentTarget.value)}
+                        placeholder="Enter version (e.g., v1.0.0)"
+                        autofocus
+                      />
+                    </div>
                     <button
                       onClick={() => dockerPull(dockerPullVersion())}
                     >
