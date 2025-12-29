@@ -182,21 +182,6 @@ async function fetchAllServerStatuses(servers: Server[], token: string | null): 
   }, {} as ServerStatuses);
 }
 
-async function dockerPull(version: string, token: string | null) {
-  try {
-    const headers: HeadersInit = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    const response = await fetch(`${API_BASE}/api/docker/pull/${version}`, { headers });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (error) {
-    console.error(`failed to pull version ${version}:`, error);
-    return null;
-  }
-}
-
 
 function App() {
   const { getToken } = useAuth();
@@ -349,6 +334,22 @@ function App() {
     setExpandedBackup(expandedBackup() === folder ? null : folder);
   };
 
+  // docker pull version
+  async function dockerPull(version: string) {
+    try {
+      const token = await getToken();
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(`${API_BASE}/api/docker/pull/${version}`, { headers });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error(`failed to pull version ${version}:`, error);
+      return null;
+    }
+  }
   // download backup file
   const downloadBackupFile = async (serverId: string, folder: string, file: string) => {
     try {
@@ -977,6 +978,11 @@ function App() {
                       fullwidth
                       autofocus
                     />
+                    <button
+                      onClick={() => dockerPull(dockerPullVersion())}
+                    >
+                      Pull
+                    </button>
                   </div>
                 </div>
               </div>
