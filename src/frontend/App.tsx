@@ -197,7 +197,7 @@ function App() {
   );
 
   // get server versions
-  const [serverVersions] = createResource(async () => {
+  const [serverVersions, { refetch: refetchServerVersions }] = createResource(async () => {
     const token = await getToken();
     return fetchServerVersions(token);
   });
@@ -989,7 +989,11 @@ function App() {
                       <button
                         type="button"
                         class="action-btn docker-pull"
-                        onClick={() => dockerPull(dockerPullVersion())}
+                        onClick={async () => {
+                            await dockerPull(dockerPullVersion());
+                            await refetchServerVersions()
+                          }
+                        }
                         disabled={!dockerPullVersion().trim()}
                       >
                         Pull Docker Image
