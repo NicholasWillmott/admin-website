@@ -340,7 +340,12 @@ function App() {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      const response = await fetch(`${API_BASE}/api/docker/pull/${version}`, { headers });
+      const response = await fetch(`${API_BASE}/api/docker/pull/${version}`, 
+        { 
+          method: 'POST',
+          headers 
+        }
+      );
       if (!response.ok) return null;
       return await response.json();
     } catch (error) {
@@ -348,6 +353,7 @@ function App() {
       return null;
     }
   }
+
   // download backup file
   const downloadBackupFile = async (serverId: string, folder: string, file: string) => {
     try {
@@ -977,7 +983,7 @@ function App() {
                         class="version-input"
                         value={dockerPullVersion()}
                         onInput={(e) => setDockerPullVersion(e.currentTarget.value)}
-                        placeholder="Enter version (e.g., v1.0.0)"
+                        placeholder="Enter version (e.g., 1.0.0)"
                         autofocus
                       />
                       <button
