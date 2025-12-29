@@ -966,43 +966,7 @@ function App() {
               </div>
             )}
 
-            {/* Docker Pull Modal */}
-            {dockerPullModalOpen() && (
-              <div class="modal-overlay" onClick={closeDockerPullModal}>
-                <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-                  <div class="modal-header">
-                    <h2>Docker Pull</h2>
-                    <button class="modal-close" onClick={closeDockerPullModal}>✕</button>
-                  </div>
-                  <div class="modal-body">
-                    <div class="docker-pull-form">
-                      <label for="docker-version">Docker Version</label>
-                      <input
-                        id="docker-version"
-                        type="text"
-                        class="version-input"
-                        value={dockerPullVersion()}
-                        onInput={(e) => setDockerPullVersion(e.currentTarget.value)}
-                        placeholder="Enter version (e.g., 1.0.0)"
-                        autofocus
-                      />
-                      <button
-                        type="button"
-                        class="action-btn docker-pull"
-                        onClick={async () => {
-                            await dockerPull(dockerPullVersion());
-                            await refetchServerVersions()
-                          }
-                        }
-                        disabled={!dockerPullVersion().trim()}
-                      >
-                        Pull Docker Image
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            
           </Show>
           <Show when={activeView() === "snapshots"}>
             <div class="snapshots-container">
@@ -1071,6 +1035,43 @@ function App() {
             </div>
           </Show>
         </Show>
+        {/* Docker Pull Modal */}
+        {dockerPullModalOpen() && (
+          <div class="modal-overlay" onClick={closeDockerPullModal}>
+            <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div class="modal-header">
+                <h2>Docker Pull</h2>
+                <button class="modal-close" onClick={closeDockerPullModal}>✕</button>
+              </div>
+              <div class="modal-body">
+                <div class="docker-pull-form">
+                  <label for="docker-version">Docker Version</label>
+                  <input
+                    id="docker-version"
+                    type="text"
+                    class="version-input"
+                    value={dockerPullVersion()}
+                    onInput={(e) => setDockerPullVersion(e.currentTarget.value)}
+                    placeholder="Enter version (e.g., 1.0.0)"
+                    autofocus
+                  />
+                  <button
+                    type="button"
+                    class="action-btn docker-pull"
+                    onClick={async () => {
+                        await dockerPull(dockerPullVersion());
+                        await refetchServerVersions()
+                      }
+                    }
+                    disabled={!dockerPullVersion().trim()}
+                  >
+                    Pull Docker Image
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </SignedIn>
     </>
   )
