@@ -637,7 +637,7 @@ function App() {
                 Snapshots
               </button>
               <button
-                onClick={() => openDockerPullModal}
+                onClick={() => openDockerPullModal()}
               >
                 Docker Pull
               </button>
