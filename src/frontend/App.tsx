@@ -969,21 +969,26 @@ function App() {
                     <button class="modal-close" onClick={closeDockerPullModal}>✕</button>
                   </div>
                   <div class="modal-body">
-                    <div class="input-group">
-                      <label>Docker Version</label>
+                    <div class="docker-pull-form">
+                      <label for="docker-version">Docker Version</label>
                       <input
+                        id="docker-version"
                         type="text"
+                        class="version-input"
                         value={dockerPullVersion()}
                         onInput={(e) => setDockerPullVersion(e.currentTarget.value)}
                         placeholder="Enter version (e.g., v1.0.0)"
                         autofocus
                       />
+                      <button
+                        type="button"
+                        class="action-btn docker-pull"
+                        onClick={() => dockerPull(dockerPullVersion())}
+                        disabled={!dockerPullVersion().trim()}
+                      >
+                        Pull Docker Image
+                      </button>
                     </div>
-                    <button
-                      onClick={() => dockerPull(dockerPullVersion())}
-                    >
-                      Pull
-                    </button>
                   </div>
                 </div>
               </div>
