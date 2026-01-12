@@ -1,9 +1,17 @@
-// SSH command executor using native Deno
+// SSH command executor using native Deno with connection multiplexing
 export interface CommandResult {
     success: boolean;
     stdout: string;
     stderr: string;
     code: number;
+}
+
+// Get control socket path for SSH multiplexing
+function getControlPath(host: string): string {
+    const tmpDir = Deno.env.get("TMPDIR") || "/tmp";
+    // Use sanitized host name for the socket path
+    const sanitizedHost = host.replace(/[^a-zA-Z0-9.-]/g, "_");
+    return `${tmpDir}/ssh-control-${sanitizedHost}`;
 }
 
 export async function executeCommand(
@@ -21,12 +29,22 @@ export async function executeCommand(
 
     console.log(`Executing on ${host}: ${command}`);
 
-    // Use native SSH command via Deno
+    const controlPath = getControlPath(host);
+
+    // Use SSH connection multiplexing to reuse existing connections
+    // ControlMaster=auto: Automatically create or reuse master connection
+    // ControlPath: Socket file location for connection sharing
+    // ControlPersist=10m: Keep connection alive for 10 minutes after last use
     const sshCommand = new Deno.Command("ssh", {
         args: [
             "-i", keyPath,
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "ControlMaster=auto",
+            "-o", `ControlPath=${controlPath}`,
+            "-o", "ControlPersist=10m",
+            "-o", "ServerAliveInterval=60",
+            "-o", "ServerAliveCountMax=3",
             `root@${host}`,
             command
         ],
