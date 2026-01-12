@@ -537,8 +537,12 @@ function App() {
           mutate(updatedServers);
         }
 
+        // Wait a moment before restarting to ensure the update command has fully completed
+        // and the SSH connection is properly closed
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         // restart server after update
-        restartServer(serverId);
+        await restartServer(serverId);
 
       } else {
         alert(`Error: ${result.error}`);
@@ -1060,6 +1064,8 @@ function App() {
                     class="action-btn docker-pull"
                     onClick={async () => {
                         await dockerPull(dockerPullVersion());
+                        // Wait a moment before refetching versions to ensure the SSH connection is properly closed
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                         await refetchServerVersions()
                       }
                     }
