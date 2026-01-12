@@ -837,7 +837,7 @@ function App() {
                                           <button
                                             class="action-btn restart"
                                             onClick={() => restartServer(server.id)}
-                                            disabled={restartingServerId() === server.id || sshOperationInProgress}
+                                            disabled={restartingServerId() === server.id || sshOperationInProgress()}
                                           >
                                             {restartingServerId() === server.id ? (
                                               <>
