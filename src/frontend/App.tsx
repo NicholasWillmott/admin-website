@@ -326,8 +326,6 @@ function App() {
 
   // fetch server versions helper function
   const fetchServerVersions = async (token: string | null): Promise<string[]> => {
-    if (sshOperationInProgress()) return [];
-    setSshOperationInProgress(true);
     try{
       const headers: HeadersInit = {};
       if (token) {
@@ -339,15 +337,11 @@ function App() {
     } catch (error) {
       console.error("Failed to fetch server versions:", error);
       return [];
-    }finally{
-      setSshOperationInProgress(false);
     }
   };
 
   // docker pull version
   async function dockerPull(version: string) {
-    if (sshOperationInProgress()) return;
-    setSshOperationInProgress(true);
     try {
       const token = await getToken();
       const headers: HeadersInit = {};
@@ -369,8 +363,6 @@ function App() {
     } catch (error) {
       console.error(`failed to pull version ${version}:`, error);
       return null;
-    }finally {
-      setSshOperationInProgress(false);
     }
   }
 
@@ -790,13 +782,15 @@ function App() {
                                           <button
                                             class="update-btn"
                                             onClick={() => updateServerVersion(server.id, selectedVersion())}
-                                            disabled={updatingServerId() === server.id}
+                                            disabled={updatingServerId() === server.id || sshOperationInProgress()}
                                           >
                                             {updatingServerId() === server.id ? (
                                               <>
                                                 <span class="button-spinner"></span>
                                                 Updating...
                                               </>
+                                            ) : sshOperationInProgress() ? (
+                                              'SSH Operation in Progress...'
                                             ) : (
                                               'Update Version'
                                             )}
@@ -843,14 +837,17 @@ function App() {
                                           <button
                                             class="action-btn restart"
                                             onClick={() => restartServer(server.id)}
-                                            disabled={restartingServerId() === server.id}
+                                            disabled={restartingServerId() === server.id || sshOperationInProgress}
                                           >
                                             {restartingServerId() === server.id ? (
                                               <>
                                                 <span class="button-spinner"></span>
                                                 Restarting...
                                               </>
+                                            ) : sshOperationInProgress() ? (
+                                              'SSH Operation in Progress...'
                                             ) : (
+                                            
                                               'Restart Server'
                                             )}
                                           </button>
@@ -1090,13 +1087,22 @@ function App() {
                     type="button"
                     class="action-btn docker-pull"
                     onClick={async () => {
-                        await dockerPull(dockerPullVersion());
-                        // Wait a moment before refetching versions to ensure the SSH connection is properly closed
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        await refetchServerVersions()
+                        if (sshOperationInProgress()) {
+                          alert('Please wait for the current operation to complete');
+                          return;
+                        }
+                        
+                        setSshOperationInProgress(true);
+                        try {
+                          await dockerPull(dockerPullVersion());
+                          await new Promise(resolve => setTimeout(resolve, 1000));
+                          await refetchServerVersions();
+                        } finally {
+                          setSshOperationInProgress(false);
+                        }
                       }
                     }
-                    disabled={!dockerPullVersion().trim()}
+                    disabled={!dockerPullVersion().trim() || sshOperationInProgress()}
                   >
                     Pull Docker Image
                   </button>
