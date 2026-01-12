@@ -520,9 +520,14 @@ function App() {
 
   // update server version
   const updateServerVersion = async (serverId: string, version: string) => {
-    if(sshOperationInProgress()) return;
+    if(sshOperationInProgress()) {
+      alert('Another SSH operation is in progress. Please wait.');
+      return;
+    }
+
     setSshOperationInProgress(true);
     setUpdatingServerId(serverId);
+
     try{
       const token = await getToken();
       const headers: HeadersInit = {
@@ -537,6 +542,7 @@ function App() {
         body: JSON.stringify({ version }),
       });
       const result = await response.json();
+
       if (result.success) {
         alert(`${serverId} Server updated successfully to version ${version}.`);
 
@@ -552,40 +558,28 @@ function App() {
         }
 
         // Wait a moment before restarting to ensure the update command has fully completed
-        // and the SSH connection is properly closed
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Clear the updating state before restarting
         setUpdatingServerId(null);
 
-        // restart server after update - pass true to skip lock check since we already hold the lock
-        await restartServer(serverId, true);
-
-        // Release the SSH lock after restart completes
-        setSshOperationInProgress(false);
+        // restart server after update (still holding the SSH lock)
+        await restartServerInternal(serverId);
 
       } else {
         alert(`Error: ${result.error}`);
-        // Release lock on error
-        setUpdatingServerId(null);
-        setSshOperationInProgress(false);
       }
     } catch (error) {
       alert(`Failed to update server: ${error}`);
-      // Release lock on error
+    } finally {
       setUpdatingServerId(null);
       setSshOperationInProgress(false);
     }
   }
 
-  // restart server
-  const restartServer = async (ServerId: string, skipLockCheck = false) => {
-    if(!skipLockCheck && sshOperationInProgress()) return;
-    if(!skipLockCheck) setSshOperationInProgress(true);
-
+  // Internal restart function (assumes SSH lock is already held)
+  const restartServerInternal = async (ServerId: string) => {
     setRestartingServerId(ServerId);
-
-    // Set status to pending
     setServerRestartStatuses(prev => ({ ...prev, [ServerId]: 'pending' }));
 
     try{
@@ -606,7 +600,6 @@ function App() {
         if (isOnline) {
           setServerRestartStatuses(prev => ({ ...prev, [ServerId]: 'online' }));
           alert(`Server ${ServerId} restarted successfully and is now online.`);
-          // Refresh server status to update UI
           refetchStatuses();
         } else {
           setServerRestartStatuses(prev => ({ ...prev, [ServerId]: 'idle' }));
@@ -621,7 +614,22 @@ function App() {
       alert(`Error restarting server ${ServerId}: ${error}`);
     } finally {
       setRestartingServerId(null);
-      if(!skipLockCheck) setSshOperationInProgress(false);
+    }
+  };
+
+  // restart server (user-initiated)
+  const restartServer = async (ServerId: string) => {
+    if(sshOperationInProgress()) {
+      alert('Another SSH operation is in progress. Please wait.');
+      return;
+    }
+
+    setSshOperationInProgress(true);
+
+    try {
+      await restartServerInternal(ServerId);
+    } finally {
+      setSshOperationInProgress(false);
     }
   }
 
