@@ -555,24 +555,33 @@ function App() {
         // and the SSH connection is properly closed
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // restart server after update
-        await restartServer(serverId);
+        // Clear the updating state before restarting
+        setUpdatingServerId(null);
+
+        // restart server after update - pass true to skip lock check since we already hold the lock
+        await restartServer(serverId, true);
+
+        // Release the SSH lock after restart completes
+        setSshOperationInProgress(false);
 
       } else {
         alert(`Error: ${result.error}`);
+        // Release lock on error
+        setUpdatingServerId(null);
+        setSshOperationInProgress(false);
       }
     } catch (error) {
       alert(`Failed to update server: ${error}`);
-    } finally {
+      // Release lock on error
       setUpdatingServerId(null);
       setSshOperationInProgress(false);
     }
   }
 
   // restart server
-  const restartServer = async (ServerId: string) => {
-    if(sshOperationInProgress()) return;
-    setSshOperationInProgress(true);
+  const restartServer = async (ServerId: string, skipLockCheck = false) => {
+    if(!skipLockCheck && sshOperationInProgress()) return;
+    if(!skipLockCheck) setSshOperationInProgress(true);
 
     setRestartingServerId(ServerId);
 
@@ -612,7 +621,7 @@ function App() {
       alert(`Error restarting server ${ServerId}: ${error}`);
     } finally {
       setRestartingServerId(null);
-      setSshOperationInProgress(false);
+      if(!skipLockCheck) setSshOperationInProgress(false);
     }
   }
 
