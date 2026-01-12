@@ -1087,21 +1087,20 @@ function App() {
                     type="button"
                     class="action-btn docker-pull"
                     onClick={async () => {
-                        if (sshOperationInProgress()) {
-                          alert('Please wait for the current operation to complete');
-                          return;
-                        }
-                        
-                        setSshOperationInProgress(true);
-                        try {
-                          await dockerPull(dockerPullVersion());
-                          await new Promise(resolve => setTimeout(resolve, 1000));
-                          await refetchServerVersions();
-                        } finally {
-                          setSshOperationInProgress(false);
-                        }
+                      if (sshOperationInProgress()) {
+                        alert('Please wait for the current operation to complete');
+                        return;
                       }
-                    }
+                      
+                      setSshOperationInProgress(true);
+                      try {
+                        await dockerPull(dockerPullVersion());
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        await refetchServerVersions();
+                      } finally {
+                        setSshOperationInProgress(false);
+                      }
+                    }}
                     disabled={!dockerPullVersion().trim() || sshOperationInProgress()}
                   >
                     Pull Docker Image
