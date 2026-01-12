@@ -51,8 +51,6 @@ interface ServerStatuses {
 
 type ServerRestartStatus = 'idle' | 'pending' | 'online';
 
-type serverVersions = string[];
-
 interface BackupInfo {
   folder: string;
   timestamp: string;
@@ -141,16 +139,6 @@ function formatBytes(bytes: number): string {
     }).format(date);
   }
 
-async function fetchServerVersions(token: string | null) {
-  const headers: HeadersInit = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  const response = await fetch(`${API_BASE}/api/versions`, { headers });
-  const data: { versions: serverVersions } = await response.json();
-  return data.versions;
-}
-
 async function fetchServerStatus(serverId: string, token: string | null): Promise<HealthCheckResponse | null> {
   try {
     const headers: HeadersInit = {};
@@ -196,6 +184,7 @@ function App() {
     }
   );
 
+
   // get server versions
   const [serverVersions, { refetch: refetchServerVersions }] = createResource(async () => {
     const token = await getToken();
@@ -232,6 +221,9 @@ function App() {
   const [backupsList, setBackupsList] = createSignal<BackupInfo[]>([]);
   const [backupsLoading, setBackupsLoading] = createSignal<boolean>(false);
   const [expandedBackup, setExpandedBackup] = createSignal<string | null>(null);
+
+  // track when an ssh operation is happening to stop other ssh operations from occuring
+  const [sshOperationInProgress, setSshOperationInProgress] = createSignal<boolean>(false);
 
   // track loading volume snapshots
   const [volumeSnapshots, { refetch: refetchSnapshots }] = createResource(async () => {
@@ -332,8 +324,30 @@ function App() {
     setExpandedBackup(expandedBackup() === folder ? null : folder);
   };
 
+  // fetch server versions helper function
+  const fetchServerVersions = async (token: string | null): Promise<string[]> => {
+    if (sshOperationInProgress()) return [];
+    setSshOperationInProgress(true);
+    try{
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(`${API_BASE}/api/versions`, { headers });
+      const data: { versions: string[] } = await response.json();
+      return data.versions;
+    } catch (error) {
+      console.error("Failed to fetch server versions:", error);
+      return [];
+    }finally{
+      setSshOperationInProgress(false);
+    }
+  };
+
   // docker pull version
   async function dockerPull(version: string) {
+    if (sshOperationInProgress()) return;
+    setSshOperationInProgress(true);
     try {
       const token = await getToken();
       const headers: HeadersInit = {};
@@ -346,11 +360,17 @@ function App() {
           headers 
         }
       );
-      if (!response.ok) return null;
-      return await response.json();
+      if(response.ok) {
+        alert(`Docker image for version ${version} pulled successfully!`);
+        return await response.json();
+      } else {
+        return null;
+      }
     } catch (error) {
       console.error(`failed to pull version ${version}:`, error);
       return null;
+    }finally {
+      setSshOperationInProgress(false);
     }
   }
 
@@ -508,6 +528,8 @@ function App() {
 
   // update server version
   const updateServerVersion = async (serverId: string, version: string) => {
+    if(sshOperationInProgress()) return;
+    setSshOperationInProgress(true);
     setUpdatingServerId(serverId);
     try{
       const token = await getToken();
@@ -551,11 +573,15 @@ function App() {
       alert(`Failed to update server: ${error}`);
     } finally {
       setUpdatingServerId(null);
+      setSshOperationInProgress(false);
     }
   }
 
   // restart server
   const restartServer = async (ServerId: string) => {
+    if(sshOperationInProgress()) return;
+    setSshOperationInProgress(true);
+
     setRestartingServerId(ServerId);
 
     // Set status to pending
@@ -594,6 +620,7 @@ function App() {
       alert(`Error restarting server ${ServerId}: ${error}`);
     } finally {
       setRestartingServerId(null);
+      setSshOperationInProgress(false);
     }
   }
 
