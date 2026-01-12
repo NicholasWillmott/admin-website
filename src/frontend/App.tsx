@@ -520,11 +520,14 @@ function App() {
 
   // update server version
   const updateServerVersion = async (serverId: string, version: string) => {
+    // Double-check lock to prevent race conditions
     if(sshOperationInProgress()) {
+      console.log('Update blocked: SSH operation already in progress');
       alert('Another SSH operation is in progress. Please wait.');
       return;
     }
 
+    console.log('Update starting: Acquiring SSH lock');
     setSshOperationInProgress(true);
     setUpdatingServerId(serverId);
 
@@ -573,6 +576,7 @@ function App() {
       alert(`Failed to update server: ${error}`);
     } finally {
       setUpdatingServerId(null);
+      console.log('Update finished: Releasing SSH lock');
       setSshOperationInProgress(false);
     }
   }
@@ -619,16 +623,20 @@ function App() {
 
   // restart server (user-initiated)
   const restartServer = async (ServerId: string) => {
+    // Double-check lock to prevent race conditions
     if(sshOperationInProgress()) {
+      console.log('Restart blocked: SSH operation already in progress');
       alert('Another SSH operation is in progress. Please wait.');
       return;
     }
 
+    console.log('Restart starting: Acquiring SSH lock');
     setSshOperationInProgress(true);
 
     try {
       await restartServerInternal(ServerId);
     } finally {
+      console.log('Restart finished: Releasing SSH lock');
       setSshOperationInProgress(false);
     }
   }
@@ -1104,17 +1112,21 @@ function App() {
                     type="button"
                     class="action-btn docker-pull"
                     onClick={async () => {
+                      // Double-check lock to prevent race conditions
                       if (sshOperationInProgress()) {
+                        console.log('Docker pull blocked: SSH operation already in progress');
                         alert('Please wait for the current operation to complete');
                         return;
                       }
-                      
+
+                      console.log('Docker pull starting: Acquiring SSH lock');
                       setSshOperationInProgress(true);
                       try {
                         await dockerPull(dockerPullVersion());
                         await new Promise(resolve => setTimeout(resolve, 1000));
                         await refetchServerVersions();
                       } finally {
+                        console.log('Docker pull finished: Releasing SSH lock');
                         setSshOperationInProgress(false);
                       }
                     }}
