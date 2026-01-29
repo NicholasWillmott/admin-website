@@ -462,10 +462,11 @@ app.get("/api/servers/snapshots", async(c) => {
 
 // List all backups for a server
 app.get("/api/servers/:id/backups", async (c) =>{
-
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
-
+    const secretKey = c.req.header("platform-secret-key");
+    if(secretKey !== Deno.env.get("PLATFORM_SECRET_KEY")){
+        const authError = await requireAdmin(c);
+        if (authError) return authError;
+    }
 
     const serverId = c.req.param("id");
     const backupBaseDir = `/mnt/fastr-backups/${serverId}`;
@@ -561,8 +562,11 @@ app.get("/api/servers/:id/backups", async (c) =>{
 
 // Download entire backup folder as tar.gz (MUST be before the :file route)
 app.get("/api/servers/:id/backups/:folder/download-all", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
+    const secretKey = c.req.header("platform-secret-key");
+    if(secretKey !== Deno.env.get("PLATFORM_SECRET_KEY")){
+        const authError = await requireAdmin(c);
+        if (authError) return authError;
+    }
 
     const serverId = c.req.param("id");
     const folder = c.req.param("folder");
@@ -614,8 +618,11 @@ app.get("/api/servers/:id/backups/:folder/download-all", async (c) => {
 // Download a specific backup file
 app.get("/api/servers/:id/backups/:folder/:file", async (c) => {
 
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
+    const secretKey = c.req.header("platform-secret-key");
+    if(secretKey !== Deno.env.get("PLATFORM_SECRET_KEY")){
+        const authError = await requireAdmin(c);
+        if (authError) return authError;
+    }
     
 
     const serverId = c.req.param("id");
