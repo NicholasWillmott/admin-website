@@ -462,8 +462,8 @@ app.get("/api/servers/snapshots", async(c) => {
 
 // List all backups for a server
 app.get("/api/servers/:id/backups", async (c) =>{
-    const secretKey = c.req.header("platform-secret-key");
-    if(secretKey !== Deno.env.get("PLATFORM_SECRET_KEY")){
+    const secretKey = c.req.header("status-api-key");
+    if(secretKey !== Deno.env.get("STATUS_API_KEY")){
         const authError = await requireAdmin(c);
         if (authError) return authError;
     }
@@ -562,8 +562,8 @@ app.get("/api/servers/:id/backups", async (c) =>{
 
 // Download entire backup folder as tar.gz (MUST be before the :file route)
 app.get("/api/servers/:id/backups/:folder/download-all", async (c) => {
-    const secretKey = c.req.header("platform-secret-key");
-    if(secretKey !== Deno.env.get("PLATFORM_SECRET_KEY")){
+    const secretKey = c.req.header("status-api-key");
+    if(secretKey !== Deno.env.get("STATUS_API_KEY")){
         const authError = await requireAdmin(c);
         if (authError) return authError;
     }
@@ -618,8 +618,8 @@ app.get("/api/servers/:id/backups/:folder/download-all", async (c) => {
 // Download a specific backup file
 app.get("/api/servers/:id/backups/:folder/:file", async (c) => {
 
-    const secretKey = c.req.header("platform-secret-key");
-    if(secretKey !== Deno.env.get("PLATFORM_SECRET_KEY")){
+    const secretKey = c.req.header("status-api-key");
+    if(secretKey !== Deno.env.get("STATUS_API_KEY")){
         const authError = await requireAdmin(c);
         if (authError) return authError;
     }
