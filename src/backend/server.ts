@@ -224,38 +224,20 @@ app.get("/api/versions", async (c) => {
             .filter(tag => tag.startsWith('wb-fastr-server-v'))
             .map(tag => tag.replace('wb-fastr-server-v', ''));
 
-        // Find the highest minor version (middle number)
-        let highestMinor = -1;
-        tags.forEach(version => {
-            const parts = version.split('.');
-            if (parts.length >= 2) {
-                const minor = parseInt(parts[1]);
-                if (minor > highestMinor) {
-                    highestMinor = minor;
+        // Sort by semantic version (newest first)
+        const sortedTags = tags.sort((a, b) => {
+            const aParts = a.split('.').map(Number);
+            const bParts = b.split('.').map(Number);
+
+            for (let i = 0; i < 3; i++) {
+                if (bParts[i] !== aParts[i]) {
+                    return bParts[i] - aParts[i];
                 }
             }
+            return 0;
         });
 
-        // Filter to only include versions with the highest minor version
-        const filteredTags = tags
-            .filter(version => {
-                const parts = version.split('.');
-                return parts.length >= 2 && parseInt(parts[1]) === highestMinor;
-            })
-            .sort((a, b) => {
-                // Sort by semantic version (newest first)
-                const aParts = a.split('.').map(Number);
-                const bParts = b.split('.').map(Number);
-
-                for (let i = 0; i < 3; i++) {
-                    if (bParts[i] !== aParts[i]) {
-                        return bParts[i] - aParts[i];
-                    }
-                }
-                return 0;
-            });
-
-        return c.json({ versions: filteredTags });
+        return c.json({ versions: sortedTags });
     } catch (error) {
         return c.json({ error: String(error) }, 500);
     }

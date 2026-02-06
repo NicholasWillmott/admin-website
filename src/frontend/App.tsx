@@ -68,6 +68,33 @@ interface BackupFileInfo {
   type: 'main' | 'project' | 'metadata' | 'log' | 'other';
 }
 
+// Parse semantic version string into components
+function parseVersion(version: string): { major: number; minor: number; patch: number } | null {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return null;
+  return {
+    major: parseInt(match[1], 10),
+    minor: parseInt(match[2], 10),
+    patch: parseInt(match[3], 10),
+  };
+}
+
+// Filter versions to only show those >= current server's minor version
+function filterVersionsForServer(versions: string[], currentVersion: string): string[] {
+  const current = parseVersion(currentVersion);
+  if (!current) return versions;
+
+  return versions.filter((v) => {
+    const parsed = parseVersion(v);
+    if (!parsed) return false;
+
+    // Compare: same major and minor >= current, OR higher major
+    if (parsed.major > current.major) return true;
+    if (parsed.major === current.major && parsed.minor >= current.minor) return true;
+    return false;
+  });
+}
+
 function formatUptime(ms: number): string {
   const minutes = Math.floor(ms / 60000);
   const hours = Math.floor(minutes / 60);
@@ -799,7 +826,7 @@ function App() {
                                               value={selectedVersion()}
                                               onChange={(e) => setSelectedVersion(e.currentTarget.value)}
                                             >
-                                              <For each={serverVersions()}>{(version) =>
+                                              <For each={filterVersionsForServer(serverVersions() || [], server.serverVersion)}>{(version) =>
                                                 <option value={version} selected={server.serverVersion === version}>{version}</option>
                                               }</For>
                                             </select>
