@@ -1,6 +1,6 @@
 import { createResource, createSignal, For, Show, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
-import { SERVER_CATEGORIES } from './serverCategories.ts'
+import { SERVER_CATEGORIES, ALL_CATEGORIZED_SERVER_IDS } from './serverCategories.ts'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
@@ -764,7 +764,7 @@ function App() {
               {servers.error && <p>Error: {servers.error.message}</p>}
               {servers() && (
                 <div class="servers-container">
-                <For each={SERVER_CATEGORIES}>
+                <For each={[...SERVER_CATEGORIES, { name: "Misc", servers: (servers() || []).filter(s => !ALL_CATEGORIZED_SERVER_IDS.has(s.id)).map(s => s.id) }]}>
                   {(category) => {
                     const categoryServers = () => servers()?.filter(s =>
                       category.servers.includes(s.id)

@@ -43,6 +43,10 @@ export const SERVER_CATEGORIES: ServerCategory[] = [
   }
 ];
 
+export const ALL_CATEGORIZED_SERVER_IDS = new Set(
+  SERVER_CATEGORIES.flatMap(cat => cat.servers)
+);
+
 export function getCategoryForServer(serverId: string): string {
   const category = SERVER_CATEGORIES.find(cat =>
     cat.servers.includes(serverId)
