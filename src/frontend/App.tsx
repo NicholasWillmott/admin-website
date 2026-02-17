@@ -2,6 +2,7 @@ import { createResource, createSignal, For, Show, createEffect, onCleanup } from
 import './css/App.css'
 import { SERVER_CATEGORIES, ALL_CATEGORIZED_SERVER_IDS } from './serverCategories.ts'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
+import { ModuleEditorContent } from './components/ModuleDefinitions/ModuleEditorContent';
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -228,6 +229,7 @@ function App() {
   const [dockerPullModalOpen, setDockerPullModalOpen] = createSignal<boolean>(false);
   const [dockerPullVersion, setDockerPullVersion] = createSignal<string>('');
 
+
   // track which server's logs to show in modal
   const [logsModalServerId, setLogsModalServerId] = createSignal<string | null>(null);
   const [modalLogs, setModalLogs] = createSignal<string>('');
@@ -265,7 +267,7 @@ function App() {
   })
 
   // Track active view: servers or snapshots
-  type ViewType = "servers" | "snapshots";
+  type ViewType = "servers" | "snapshots" | "moduleEditor";
   const [activeView, setActiveView] = createSignal<ViewType>("servers");
 
   // Sorted snapshots (newest first)
@@ -722,6 +724,12 @@ function App() {
               >
                 Docker Pull
               </button>
+              <button
+                data-selected={activeView() === "moduleEditor"}
+                onClick={() => setActiveView("moduleEditor")}
+              >
+                Module Definitions
+              </button>
             </div>
           </Show>
         </SignedIn>
@@ -1113,6 +1121,9 @@ function App() {
                 )}
               </div>
             </div>
+          </Show>
+          <Show when={activeView() === "moduleEditor"}>
+            <ModuleEditorContent/>
           </Show>
         </Show>
         {/* Docker Pull Modal */}

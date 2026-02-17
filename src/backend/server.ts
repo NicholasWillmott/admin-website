@@ -9,6 +9,9 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { executeCommand, isCommandAllowed } from "./ssh.ts";
+import * as github from "./viz_editor/github.ts";
+
+
 
 const app = new Hono();
 
@@ -649,6 +652,52 @@ app.get("/api/servers/:id/backups/:folder/:file", async (c) => {
     } catch (error) {
         console.error(`Error downloading backup file:`, error);
         return c.json({ error: "File not found" }, 404);
+    }
+});
+
+// Github api route
+
+// List all modules
+app.get("/api/module-definitions", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    try {
+        const modules = await github.listModules();
+        return c.json({ success: true, data: modules });
+    } catch (error) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+// Get specfic defintion.ts file
+app.get("/api/module-definitions/:moduleId", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const moduleId = c.req.param("moduleId");
+
+    try {
+        const content = await github.getDefinitionFile(moduleId);
+        return c.json({ success: true, data: { content } });
+    } catch (error) {
+        return c.json({ success: false, error: error.message}, 500);
+    }
+});
+
+// Commit batch changes
+app.post("/api/module-definitions/commit", async (c) => {
+    const authError = await requireAdmin(c);
+    if(authError) return authError;
+
+    const body = await c.req.json();
+    const { changes, commitMessage } = body;
+
+    try {
+        const result = await github.commitBatchChanges(changes, commitMessage);
+        return c.json({ success: true, data:result });
+    } catch (error) {
+        return c.json({ success: false, error: error.message }, 500);
     }
 });
 
