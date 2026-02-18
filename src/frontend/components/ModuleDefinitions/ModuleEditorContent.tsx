@@ -1,6 +1,7 @@
 import { useAuth } from "clerk-solidjs";
 import { createResource, createSignal, For, Show } from "solid-js";
-import { VizPresetFormEditor } from "./VizPresetFormEditor";
+import { VizPresetFormEditor } from "./VizPresetFormEditor.tsx";
+import { MonacoEditor } from "./MonacoEditor.tsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -28,6 +29,19 @@ export function ModuleEditorContent() {
     const [commitMessage, setCommitMessage] = createSignal("");
     const [committing, setCommitting] = createSignal(false);
 
+    // Per-module content cache in localStorage to persist edits across module switches and page refreshes
+    const CACHE_PREFIX = "module-editor:";
+    function cacheGet(moduleId: string): { fileContent: string; originalContent: string } | null {
+        const raw = localStorage.getItem(CACHE_PREFIX + moduleId);
+        return raw ? JSON.parse(raw) : null;
+    }
+    function cacheSet(moduleId: string, fc: string, oc: string) {
+        localStorage.setItem(CACHE_PREFIX + moduleId, JSON.stringify({ fileContent: fc, originalContent: oc }));
+    }
+    function cacheClear(moduleId: string) {
+        localStorage.removeItem(CACHE_PREFIX + moduleId);
+    }
+
     // Fetch module list
     const [modules] = createResource(async () => {
         const token = await getToken();
@@ -39,9 +53,25 @@ export function ModuleEditorContent() {
         return json.data as ModuleInfo[];
     });
 
-    // Load a modules file content
+    // Load a module's file content (restores from cache if available)
     async function loadModule(moduleId: string) {
+        // Save current module's content to cache before switching
+        const currentId = selectedModuleId();
+        if (currentId) {
+            cacheSet(currentId, fileContent(), originalContent());
+        }
+
         setSelectedModuleId(moduleId);
+
+        // Restore from cache if available
+        const cached = cacheGet(moduleId);
+        if (cached) {
+            setFileContent(cached.fileContent);
+            setOriginalContent(cached.originalContent);
+            return;
+        }
+
+        // Fetch from API only if not cached
         const token = await getToken();
         const res = await fetch(`${API_BASE}/api/module-definitions/${moduleId}`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -64,6 +94,7 @@ export function ModuleEditorContent() {
             return [...filtered, { moduleId: modId, newContent: fileContent() }];
         });
         setOriginalContent(fileContent());
+        cacheSet(modId, fileContent(), originalContent());
     }
 
     // Commit all pending changes
@@ -85,9 +116,25 @@ export function ModuleEditorContent() {
             });
             const json = await res.json();
             if (!json.success) throw new Error(json.error);
+            // Clear cache for committed modules so next load fetches fresh content
+            for (const change of pendingChanges()) {
+                cacheClear(change.moduleId);
+            }
             setPendingChanges([]);
             setCommitMessage("");
-            alert(`Commited successfully! SHA: ${json.data.commitSha}`);
+            // Re-fetch current module to get the committed state
+            const currentId = selectedModuleId();
+            if (currentId) {
+                const freshRes = await fetch(`${API_BASE}/api/module-definitions/${currentId}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                const freshJson = await freshRes.json();
+                if (freshJson.success) {
+                    setFileContent(freshJson.data.content);
+                    setOriginalContent(freshJson.data.content);
+                }
+            }
+            alert(`Committed successfully! SHA: ${json.data.commitSha}`);
         } catch (error) {
             alert(`Commit failed: ${error}`);
         } finally {
@@ -112,7 +159,7 @@ export function ModuleEditorContent() {
                             >
                                 <strong>{mod.moduleId}</strong>
                                 <span>{mod.label}</span>
-                                <small>{mod.vizPresetsCount}</small>
+                                <small>Viz presets: {mod.vizPresetsCount}</small>
                             </button>
                         )}
                     </For>
@@ -155,13 +202,11 @@ export function ModuleEditorContent() {
                     {/* Editor */}
                     <div class="module-editor-content-area">
                         <Show when={editorView() === "code"}>
-                            <textarea
-                                class="code-editor-textarea"
-                                value={fileContent()}
-                                onInput={(e) => setFileContent(e.currentTarget.value)}
-                                spellcheck={false}
+                            <MonacoEditor
+                                language="typescript"
+                                value={fileContent}
+                                onChange={setFileContent}
                             />
-                            {/* Replace textarea with Monaco later */}
                         </Show>
                         <Show when={editorView() === "form"}>
                             <VizPresetFormEditor

@@ -9,9 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@monaco-editor/react": "^4.7.0",
     "clerk-solidjs": "^2.0.10",
-    "monaco-editor": "^0.55.1",
+    "monaco-editor": "^0.48.0",
     "solid-js": "^1.9.10"
   },
   "devDependencies": {

@@ -75,7 +75,7 @@ const ALLOWED_COMMANDS = [
   /^wb c show [\w-]+$/,
   /^wb c show [\w-]+ --json$/,
   /^wb c add [\w-]+$/,
-  /^wb c update [\w-@]+ (?:--label "[\w\s.-]+" |--french (?:true|false) |--ethiopian (?:true|false) |--open-access (?:true|false) |--server [\d.]+ |--admin [\d.]+ |--instance-dir [\w-]+ )*$/,
+  /^wb c update [\w-]+ --server [\w.-]+$/,
   /^wb c remove [\w-]+$/,
   /^wb c tag [\w-]+ (?:[\w-]+ ?)+$/,
   /^wb c untag [\w-]+ (?:[\w-]+ ?)+$/,
@@ -105,6 +105,9 @@ const ALLOWED_COMMANDS = [
   /^wb help$/,
   /^docker ps$/,
   /^docker ps --format .+$/,
+  /^docker images --format .+ [\w/]+$/,
+  /^docker logs [\w-]+$/,
+  /^docker pull [\w/:._-]+$/,
 ];
 
 export function isCommandAllowed(command: string): boolean {

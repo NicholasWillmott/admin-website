@@ -1,981 +1,2266 @@
-import { createSignal, createMemo, For, Show } from "solid-js";
-import { createStore, produce } from "solid-js/store";
+import { createEffect, createSignal, For, on, Show, type JSX } from "solid-js";
+import { createStore, reconcile, unwrap, type SetStoreFunction } from "solid-js/store";
 import {
+    type ExtractedPreset,
+    type ExtractedMetric,
     extractPresetsFromFile,
-    extractMetricsFromFile,
+    extractResultsObjectsFromFile,
+    extractFullMetricsFromFile,
     replacePresetInFile,
+    replaceResultsObjectInFile,
+    replaceMetricInFile,
     insertPresetInFile,
     deletePresetFromFile,
-    type ExtractedPreset,
-} from "./vizPresetParser";
+} from "./vizPresetParser.ts";
 
-// === Constants ===
+// ────────────────────────────────────────────
+// Types
+// ────────────────────────────────────────────
 
-const PRESENTATION_TYPES = ["timeseries", "table", "chart"];
-const PERIOD_OPTIONS = ["period_id", "quarter_id", "year"];
-const DIS_DISPLAY_OPTIONS = ["col", "row", "series", "cell", "indicator", "replicant"];
+interface TranslatableString {
+    en: string;
+    fr: string;
+}
+
+interface DisaggregateByEntry {
+    disOpt: string;
+    disDisplayOpt: string;
+}
+
+interface FilterByEntry {
+    disOpt: string;
+    values: string[];
+}
+
+interface DataConfig {
+    type: "table" | "timeseries" | "chart";
+    periodOpt: string;
+    valuesDisDisplayOpt: string;
+    disaggregateBy: DisaggregateByEntry[];
+    filterBy: FilterByEntry[];
+    valuesFilter?: string[];
+    selectedReplicantValue?: string;
+    includeNationalForAdminArea2?: boolean;
+    includeNationalPosition?: "bottom" | "top";
+}
+
+interface StyleConfig {
+    scale?: number;
+    content?: string;
+    conditionalFormatting?: string;
+    colorScale?: string;
+    decimalPlaces?: number;
+    hideLegend?: boolean;
+    showDataLabels?: boolean;
+    showDataLabelsLineCharts?: boolean;
+    barsStacked?: boolean;
+    sortIndicatorValues?: string;
+    idealAspectRatio?: string;
+    allowVerticalColHeaders?: boolean;
+    specialCoverageChart?: boolean;
+    specialScorecardTable?: boolean;
+    forceYMax1?: boolean;
+    forceYMinAuto?: boolean;
+    verticalTickLabels?: boolean;
+    allowIndividualRowLimits?: boolean;
+    diffAreas?: boolean;
+    diffInverted?: boolean;
+    formatAdminArea3Labels?: boolean;
+    seriesColorFuncPropToUse?: string;
+    customSeriesStyles?: { color: string; strokeWidth: number; lineStyle: string }[];
+    [key: string]: any;
+}
+
+interface TextConfig {
+    caption?: TranslatableString;
+    subCaption?: TranslatableString;
+    footnote?: TranslatableString;
+    captionRelFontSize?: number;
+    subCaptionRelFontSize?: number;
+    footnoteRelFontSize?: number;
+}
+
+interface PresetFormData {
+    id: string;
+    label: TranslatableString;
+    description: TranslatableString;
+    needsReplicant?: boolean;
+    allowedFilters?: string[];
+    createDefaultVisualizationOnInstall?: string;
+    defaultPeriodFilterForDefaultVisualizations?: { nMonths: number };
+    config: {
+        d: DataConfig;
+        s?: StyleConfig;
+        t?: TextConfig;
+    };
+}
+
+interface ResultsObjectFormData {
+    id: string;
+    description: string;
+    createTableStatementPossibleColumns?: Record<string, string>;
+}
+
+interface MetricFormData {
+    id: string;
+    resultsObjectId: string;
+    label: TranslatableString;
+    valueProps: string[];
+    valueFunc: string;
+    formatAs: string;
+    requiredDisaggregationOptions: string[];
+    periodOptions: string[];
+    valueLabelReplacements?: Record<string, string>;
+    postAggregationExpression?: {
+        ingredientValues: { prop: string; func: string }[];
+        expression: string;
+    };
+    hide?: boolean;
+    variantLabel?: TranslatableString;
+    importantNotes?: TranslatableString;
+    aiDescription?: any;
+}
+
+type EditLevel = "resultsObject" | "metric" | "preset";
+
+// ────────────────────────────────────────────
+// Constants
+// ────────────────────────────────────────────
+
 const DISAGGREGATION_OPTIONS = [
-    "indicator_common_id", "admin_area_2", "admin_area_3", "admin_area_4",
-    "facility_name", "facility_type", "facility_ownership",
-    "denominator", "denominator_best_or_survey", "source_indicator",
-    "target_population", "ratio_type", "hfa_indicator", "hfa_category", "time_point",
+    "indicator_common_id",
+    "admin_area_2",
+    "admin_area_3",
+    "admin_area_4",
+    "year",
+    "month",
+    "quarter_id",
+    "period_id",
+    "denominator",
+    "denominator_best_or_survey",
+    "source_indicator",
+    "target_population",
+    "ratio_type",
+    "facility_name",
+    "facility_type",
+    "facility_ownership",
+    "facility_custom_1",
+    "facility_custom_2",
+    "facility_custom_3",
+    "facility_custom_4",
+    "facility_custom_5",
+    "hfa_indicator",
+    "hfa_category",
+    "time_point",
 ];
-const CONTENT_OPTIONS = ["lines", "bars", "points", "areas"];
-const ASPECT_RATIO_OPTIONS = ["none", "video", "square", "ideal"];
+
+const DIS_DISPLAY_OPTIONS_TABLE = [
+    { value: "row", label: "Rows" },
+    { value: "col", label: "Columns" },
+    { value: "cell", label: "Grid cells" },
+    { value: "indicator", label: "Indicator axis" },
+    { value: "replicant", label: "Different charts" },
+];
+
+const DIS_DISPLAY_OPTIONS_TIMESERIES = [
+    { value: "series", label: "Series (lines/bars)" },
+    { value: "row", label: "Row groups" },
+    { value: "col", label: "Column groups" },
+    { value: "cell", label: "Grid cells" },
+    { value: "replicant", label: "Different charts" },
+];
+
+const DIS_DISPLAY_OPTIONS_CHART = [
+    { value: "indicator", label: "Indicator axis" },
+    { value: "series", label: "Series (sub-bars)" },
+    { value: "row", label: "Row groups" },
+    { value: "col", label: "Column groups" },
+    { value: "cell", label: "Grid cells" },
+    { value: "replicant", label: "Different charts" },
+];
+
+function getDisplayOptions(type: string) {
+    if (type === "table") return DIS_DISPLAY_OPTIONS_TABLE;
+    if (type === "timeseries") return DIS_DISPLAY_OPTIONS_TIMESERIES;
+    return DIS_DISPLAY_OPTIONS_CHART;
+}
+
 const CONDITIONAL_FORMATTING_OPTIONS = [
-    "none", "fmt-90-80", "fmt-80-70", "fmt-10-20", "fmt-05-10",
-    "fmt-01-03", "fmt-neg10-pos10", "fmt-thresholds-1-2-5",
-    "fmt-thresholds-2-5-10", "fmt-thresholds-5-10-20",
+    "none",
+    "fmt-90-80",
+    "fmt-80-70",
+    "fmt-10-20",
+    "fmt-05-10",
+    "fmt-01-03",
+    "fmt-neg10-pos10",
+    "fmt-thresholds-1-2-5",
+    "fmt-thresholds-2-5-10",
+    "fmt-thresholds-5-10-20",
 ];
+
 const COLOR_SCALE_OPTIONS = [
-    "pastel-discrete", "alt-discrete", "red-green", "blue-green", "single-grey", "custom",
-];
-const SORT_OPTIONS = ["none", "ascending", "descending"];
-
-interface StyleFieldDef {
-    key: string;
-    label: string;
-    type: "boolean" | "number" | "select";
-    default: any;
-    options?: string[];
-    min?: number;
-    max?: number;
-    step?: number;
-}
-
-const STYLE_FIELD_DEFS: StyleFieldDef[] = [
-    { key: "content", label: "Display Format", type: "select", default: "bars", options: CONTENT_OPTIONS },
-    { key: "scale", label: "Scale", type: "number", default: 3, min: 0.1, max: 5, step: 0.1 },
-    { key: "idealAspectRatio", label: "Aspect Ratio", type: "select", default: "none", options: ASPECT_RATIO_OPTIONS },
-    { key: "decimalPlaces", label: "Decimal Places", type: "number", default: 0, min: 0, max: 3, step: 1 },
-    { key: "conditionalFormatting", label: "Conditional Formatting", type: "select", default: "none", options: CONDITIONAL_FORMATTING_OPTIONS },
-    { key: "colorScale", label: "Color Scale", type: "select", default: "pastel-discrete", options: COLOR_SCALE_OPTIONS },
-    { key: "sortIndicatorValues", label: "Sort Values", type: "select", default: "none", options: SORT_OPTIONS },
-    { key: "showDataLabels", label: "Show Data Labels", type: "boolean", default: false },
-    { key: "showDataLabelsLineCharts", label: "Show Data Labels (Lines)", type: "boolean", default: false },
-    { key: "barsStacked", label: "Stacked Bars", type: "boolean", default: false },
-    { key: "verticalTickLabels", label: "Vertical Tick Labels", type: "boolean", default: false },
-    { key: "forceYMax1", label: "Force Y-axis Max 100%", type: "boolean", default: false },
-    { key: "forceYMinAuto", label: "Allow Auto Y-axis Min", type: "boolean", default: false },
-    { key: "hideLegend", label: "Hide Legend", type: "boolean", default: false },
-    { key: "allowIndividualRowLimits", label: "Allow Row Limits", type: "boolean", default: true },
-    { key: "allowVerticalColHeaders", label: "Vertical Col Headers", type: "boolean", default: true },
-    { key: "specialCoverageChart", label: "Special Coverage Chart", type: "boolean", default: false },
-    { key: "specialBarChart", label: "Special % Change Chart", type: "boolean", default: false },
-    { key: "specialBarChartDiffThreshold", label: "Change Threshold", type: "number", default: 0.1, min: 0, max: 0.25, step: 0.01 },
-    { key: "specialBarChartInverted", label: "Invert Change Colors", type: "boolean", default: false },
-    { key: "specialBarChartDataLabels", label: "Change Data Labels", type: "select", default: "threshold-values", options: ["all-values", "threshold-values"] },
-    { key: "specialScorecardTable", label: "Special Scorecard", type: "boolean", default: false },
-    { key: "diffAreas", label: "Diff Areas", type: "boolean", default: false },
-    { key: "diffInverted", label: "Invert Diff Colors", type: "boolean", default: false },
+    { value: "pastel-discrete", label: "Discrete 1" },
+    { value: "alt-discrete", label: "Discrete 2" },
+    { value: "red-green", label: "Red-green" },
+    { value: "blue-green", label: "Blue-green" },
+    { value: "single-grey", label: "Single grey" },
+    { value: "custom", label: "Custom colours" },
 ];
 
-// === Main Component ===
+const SQL_TYPE_OPTIONS = [
+    "TEXT",
+    "TEXT NOT NULL",
+    "INTEGER",
+    "INTEGER NOT NULL",
+    "REAL",
+    "REAL NOT NULL",
+    "NUMERIC",
+    "NUMERIC NOT NULL",
+];
 
-interface Props {
-    fileContent: string;
-    onFileContentChange: (content: string) => void;
-}
-
-export function VizPresetFormEditor(props: Props) {
-    const extractedPresets = createMemo(() => extractPresetsFromFile(props.fileContent));
-
-    const [selectedKey, setSelectedKey] = createSignal<string | null>(null);
-    const [activeTab, setActiveTab] = createSignal<"general" | "data" | "style" | "text">("general");
-    const [formDirty, setFormDirty] = createSignal(false);
-
-    const [form, setForm] = createStore<{ preset: any }>({ preset: null });
-
-    function makeKey(p: ExtractedPreset): string {
-        return `${p.metricId}::${p.preset.id}::${p.presetIndex}`;
-    }
-
-    const selectedExtracted = createMemo(() => {
-        const key = selectedKey();
-        if (!key) return null;
-        return extractedPresets().find((p) => makeKey(p) === key) || null;
-    });
-
-    function selectPreset(key: string) {
-        if (formDirty() && selectedExtracted()) {
-            applyToCode();
-        }
-        const preset = extractedPresets().find((p) => makeKey(p) === key);
-        if (!preset) return;
-
-        setSelectedKey(key);
-        setForm("preset", structuredClone(preset.preset));
-        setFormDirty(false);
-    }
-
-    function updateField(updater: (draft: any) => void) {
-        setForm("preset", produce(updater));
-        setFormDirty(true);
-    }
-
-    function applyToCode() {
-        const extracted = selectedExtracted();
-        if (!extracted || !form.preset) return;
-
-        const newContent = replacePresetInFile(props.fileContent, extracted, form.preset);
-        props.onFileContentChange(newContent);
-
-        const newKey = `${extracted.metricId}::${form.preset.id}::${extracted.presetIndex}`;
-        setSelectedKey(newKey);
-        setFormDirty(false);
-    }
-
-    // --- New preset ---
-    const [showNewPanel, setShowNewPanel] = createSignal(false);
-    const [newMetricId, setNewMetricId] = createSignal("");
-
-    const availableMetrics = createMemo(() => extractMetricsFromFile(props.fileContent));
-
-    function createNewPreset() {
-        const metricId = newMetricId();
-        if (!metricId) return;
-
-        const newPreset = {
-            id: "new-viz-preset",
-            label: { en: "New Visualization", fr: "Nouvelle visualisation" },
-            description: { en: "", fr: "" },
-            createDefaultVisualizationOnInstall: crypto.randomUUID(),
-            config: {
-                d: {
-                    type: "timeseries",
-                    periodOpt: "period_id",
-                    valuesDisDisplayOpt: "series",
-                    disaggregateBy: [],
-                    filterBy: [],
-                },
+function defaultPreset(): PresetFormData {
+    return {
+        id: "new-preset",
+        label: { en: "New Preset", fr: "" },
+        description: { en: "", fr: "" },
+        config: {
+            d: {
+                type: "table",
+                periodOpt: "period_id",
+                valuesDisDisplayOpt: "col",
+                disaggregateBy: [],
+                filterBy: [],
             },
-        };
+        },
+    };
+}
 
-        const result = insertPresetInFile(props.fileContent, metricId, newPreset);
-        if (!result) return;
+// ────────────────────────────────────────────
+// Reusable sub-components (platform-matching)
+// ────────────────────────────────────────────
 
-        props.onFileContentChange(result.content);
-        setShowNewPanel(false);
-        setNewMetricId("");
-
-        // Select the newly created preset
-        queueMicrotask(() => {
-            setSelectedKey(result.insertedKey);
-            const presets = extractPresetsFromFile(result.content);
-            const found = presets.find((p) => makeKey(p) === result.insertedKey);
-            if (found) {
-                setForm("preset", structuredClone(found.preset));
-                setFormDirty(false);
-                setActiveTab("general");
-            }
-        });
-    }
-
-    // --- Delete preset ---
-    function deleteSelectedPreset() {
-        const extracted = selectedExtracted();
-        if (!extracted) return;
-
-        const label = extracted.preset.label?.en || extracted.preset.id;
-        if (!confirm(`Delete vizPreset "${label}" from ${extracted.metricId}?`)) return;
-
-        const newContent = deletePresetFromFile(props.fileContent, extracted);
-        props.onFileContentChange(newContent);
-        setSelectedKey(null);
-        setForm("preset", null);
-        setFormDirty(false);
-    }
-
-    // Group presets by metric for the selector
-    const groupedPresets = createMemo(() => {
-        const groups: { metricId: string; metricLabel: string; presets: ExtractedPreset[] }[] = [];
-        for (const p of extractedPresets()) {
-            let group = groups.find((g) => g.metricId === p.metricId);
-            if (!group) {
-                group = { metricId: p.metricId, metricLabel: p.metricLabel, presets: [] };
-                groups.push(group);
-            }
-            group.presets.push(p);
-        }
-        return groups;
-    });
-
+function PRadioGroup(p: {
+    label: string;
+    options: { value: string; label: string }[];
+    value: string | undefined;
+    onChange: (v: string) => void;
+    horizontal?: boolean;
+}) {
     return (
-        <div class="form-editor-layout">
-            {/* Header: preset selector + action buttons */}
-            <div class="form-editor-header">
-                <div class="preset-selector">
-                    <label>VizPreset:</label>
-                    <select
-                        value={selectedKey() || ""}
-                        onChange={(e) => {
-                            const val = e.currentTarget.value;
-                            if (val) selectPreset(val);
-                        }}
-                    >
-                        <option value="">-- Choose a vizPreset --</option>
-                        <For each={groupedPresets()}>
-                            {(group) => (
-                                <optgroup label={`${group.metricId} - ${group.metricLabel}`}>
-                                    <For each={group.presets}>
-                                        {(p) => (
-                                            <option value={makeKey(p)}>
-                                                {p.preset.label?.en || p.preset.id}
-                                            </option>
-                                        )}
-                                    </For>
-                                </optgroup>
-                            )}
-                        </For>
-                    </select>
-                </div>
-                <div class="form-editor-actions">
-                    <button
-                        class="new-preset-btn"
-                        onClick={() => setShowNewPanel(!showNewPanel())}
-                    >
-                        {showNewPanel() ? "Cancel" : "New VizPreset"}
-                    </button>
-                    <Show when={selectedKey()}>
-                        <button class="delete-preset-btn" onClick={deleteSelectedPreset}>
-                            Delete
-                        </button>
-                    </Show>
-                    <Show when={formDirty()}>
-                        <button class="apply-btn" onClick={applyToCode}>
-                            Apply to Code
-                        </button>
-                    </Show>
-                </div>
-            </div>
-
-            {/* Inline panel for creating a new preset */}
-            <Show when={showNewPanel()}>
-                <div class="new-preset-panel">
-                    <label>Add to metric:</label>
-                    <select
-                        value={newMetricId()}
-                        onChange={(e) => setNewMetricId(e.currentTarget.value)}
-                    >
-                        <option value="">-- Select metric --</option>
-                        <For each={availableMetrics()}>
-                            {(m) => (
-                                <option value={m.metricId}>
-                                    {m.metricId} - {m.metricLabel} ({m.presetCount} presets)
-                                </option>
-                            )}
-                        </For>
-                    </select>
-                    <button
-                        class="add-btn"
-                        disabled={!newMetricId()}
-                        onClick={createNewPreset}
-                    >
-                        Create
-                    </button>
-                </div>
-            </Show>
-
-            <Show
-                when={form.preset}
-                fallback={
-                    <div class="form-editor-empty">
-                        Select a vizPreset from the dropdown above to edit its configuration
-                    </div>
-                }
+        <div class="p-radio-group">
+            <legend>{p.label}</legend>
+            <div
+                class="p-radio-options"
+                data-horizontal={p.horizontal ? "true" : "false"}
             >
-                {/* Parse error warning */}
-                <Show when={form.preset?._parseError}>
-                    <div class="form-parse-error">
-                        This preset could not be fully parsed. Some fields may be missing. Edit in code view for full control.
-                    </div>
-                </Show>
+                <For each={p.options}>
+                    {(opt) => (
+                        <label class="p-radio-label">
+                            <div class="p-radio-wrapper">
+                                <input
+                                    type="radio"
+                                    class="p-radio-input"
+                                    name={p.label.replace(/\s/g, "-")}
+                                    checked={p.value === opt.value}
+                                    onChange={() => p.onChange(opt.value)}
+                                />
+                                <div class="p-radio-dot" />
+                            </div>
+                            <span class="p-radio-text">{opt.label}</span>
+                        </label>
+                    )}
+                </For>
+            </div>
+        </div>
+    );
+}
 
-                {/* Tab bar */}
-                <div class="form-tabs">
-                    <For each={["general", "data", "style", "text"] as const}>
-                        {(tab) => (
-                            <button
-                                class="form-tab"
-                                data-selected={activeTab() === tab}
-                                onClick={() => setActiveTab(tab)}
+function PCheckbox(p: {
+    label: string | JSX.Element;
+    checked: boolean | undefined;
+    onChange: (v: boolean) => void;
+    disabled?: boolean;
+}) {
+    return (
+        <label
+            class="p-checkbox-label"
+            data-disabled={p.disabled ? "true" : "false"}
+        >
+            <div class="p-checkbox-wrapper">
+                <input
+                    type="checkbox"
+                    class="p-checkbox-input"
+                    checked={!!p.checked}
+                    onChange={(e) => p.onChange(e.currentTarget.checked)}
+                    disabled={p.disabled}
+                />
+                <svg
+                    class="p-checkbox-icon"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M5 10l4 4l6 -7" />
+                </svg>
+            </div>
+            <span class="p-checkbox-text">{p.label}</span>
+        </label>
+    );
+}
+
+function PLabelHolder(p: { label: string; children: JSX.Element }) {
+    return (
+        <div class="p-label-holder">
+            <div class="p-label">{p.label}</div>
+            {p.children}
+        </div>
+    );
+}
+
+function PSelect(p: {
+    label?: string;
+    options: { value: string; label: string }[];
+    value: string | undefined;
+    onChange: (v: string) => void;
+}) {
+    return (
+        <div class="p-select-container">
+            <Show when={p.label}>
+                <div class="p-label">{p.label}</div>
+            </Show>
+            <div class="p-select-wrapper">
+                <select
+                    class="p-select-input"
+                    value={p.value ?? ""}
+                    onChange={(e) => p.onChange(e.currentTarget.value)}
+                >
+                    <For each={p.options}>
+                        {(opt) => (
+                            <option value={opt.value}>{opt.label}</option>
+                        )}
+                    </For>
+                </select>
+                <div class="p-select-chevron">
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function PInput(p: {
+    label?: string;
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+    type?: string;
+}) {
+    return (
+        <div class="p-input-container">
+            <Show when={p.label}>
+                <div class="p-label">{p.label}</div>
+            </Show>
+            <input
+                class="p-input"
+                type={p.type ?? "text"}
+                value={p.value}
+                onInput={(e) => p.onChange(e.currentTarget.value)}
+                placeholder={p.placeholder}
+            />
+        </div>
+    );
+}
+
+function PTextArea(p: {
+    label?: string;
+    value: string;
+    onChange: (v: string) => void;
+    height?: string;
+}) {
+    return (
+        <div class="p-textarea-container">
+            <Show when={p.label}>
+                <div class="p-label">{p.label}</div>
+            </Show>
+            <textarea
+                class="p-textarea"
+                value={p.value}
+                onInput={(e) => p.onChange(e.currentTarget.value)}
+                style={{ height: p.height ?? "80px" }}
+            />
+        </div>
+    );
+}
+
+function PSlider(p: {
+    label: string;
+    min: number;
+    max: number;
+    step: number;
+    value: number;
+    onChange: (v: number) => void;
+}) {
+    return (
+        <div class="p-slider-container">
+            <div class="p-slider-label-row">
+                <div class="p-label">{p.label}</div>
+                <span class="p-slider-value">{p.value}</span>
+            </div>
+            <input
+                class="p-slider-input"
+                type="range"
+                min={p.min}
+                max={p.max}
+                step={p.step}
+                value={p.value}
+                onInput={(e) => p.onChange(Number(e.currentTarget.value))}
+            />
+        </div>
+    );
+}
+
+// ────────────────────────────────────────────
+// Filter/chip value editors
+// ────────────────────────────────────────────
+
+function FilterValuesEditor(p: {
+    values: string[];
+    onChange: (v: string[]) => void;
+}) {
+    const [inputValue, setInputValue] = createSignal("");
+
+    function addValue() {
+        const v = inputValue().trim();
+        if (v && !p.values.includes(v)) {
+            p.onChange([...p.values, v]);
+            setInputValue("");
+        }
+    }
+
+    function removeValue(val: string) {
+        p.onChange(p.values.filter((v) => v !== val));
+    }
+
+    return (
+        <div class="p-filter-values">
+            <For each={p.values}>
+                {(val) => (
+                    <span class="p-filter-chip">
+                        {val}
+                        <button onClick={() => removeValue(val)}>&times;</button>
+                    </span>
+                )}
+            </For>
+            <input
+                value={inputValue()}
+                onInput={(e) => setInputValue(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        addValue();
+                    }
+                }}
+                placeholder="Type and press Enter..."
+            />
+        </div>
+    );
+}
+
+// Key-value pair editor (for columns, valueLabelReplacements)
+function KeyValueEditor(p: {
+    entries: Record<string, string>;
+    onChange: (entries: Record<string, string>) => void;
+    keyLabel?: string;
+    valueLabel?: string;
+    valueOptions?: string[];
+}) {
+    const pairs = () => Object.entries(p.entries);
+
+    function updateKey(oldKey: string, newKey: string) {
+        const newEntries: Record<string, string> = {};
+        for (const [k, v] of Object.entries(p.entries)) {
+            newEntries[k === oldKey ? newKey : k] = v;
+        }
+        p.onChange(newEntries);
+    }
+
+    function updateValue(key: string, newValue: string) {
+        p.onChange({ ...p.entries, [key]: newValue });
+    }
+
+    function removeEntry(key: string) {
+        const { [key]: _, ...rest } = p.entries;
+        p.onChange(rest);
+    }
+
+    function addEntry() {
+        const newKey = `new_column_${Object.keys(p.entries).length}`;
+        p.onChange({ ...p.entries, [newKey]: p.valueOptions?.[0] ?? "" });
+    }
+
+    return (
+        <div class="p-spy-sm">
+            <For each={pairs()}>
+                {([key, value]) => (
+                    <div class="p-kv-row">
+                        <input
+                            class="p-input"
+                            value={key}
+                            onInput={(e) => updateKey(key, e.currentTarget.value)}
+                            placeholder={p.keyLabel ?? "Key"}
+                        />
+                        <Show
+                            when={p.valueOptions}
+                            fallback={
+                                <input
+                                    class="p-input"
+                                    value={value}
+                                    onInput={(e) =>
+                                        updateValue(key, e.currentTarget.value)
+                                    }
+                                    placeholder={p.valueLabel ?? "Value"}
+                                />
+                            }
+                        >
+                            <select
+                                class="p-select-input"
+                                onChange={(e) =>
+                                    updateValue(key, e.currentTarget.value)
+                                }
                             >
-                                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                            </button>
-                        )}
-                    </For>
-                </div>
-
-                {/* Tab content */}
-                <div class="form-tab-content">
-                    <Show when={activeTab() === "general"}>
-                        <GeneralTab preset={form.preset} updateField={updateField} />
-                    </Show>
-                    <Show when={activeTab() === "data"}>
-                        <DataTab preset={form.preset} updateField={updateField} />
-                    </Show>
-                    <Show when={activeTab() === "style"}>
-                        <StyleTab preset={form.preset} updateField={updateField} />
-                    </Show>
-                    <Show when={activeTab() === "text"}>
-                        <TextTab preset={form.preset} updateField={updateField} />
-                    </Show>
-                </div>
-            </Show>
-        </div>
-    );
-}
-
-// === Tab Components ===
-
-interface TabProps {
-    preset: any;
-    updateField: (fn: (d: any) => void) => void;
-}
-
-// --- General Tab ---
-
-function GeneralTab(props: TabProps) {
-    return (
-        <div class="form-section">
-            <div class="form-group">
-                <label>ID</label>
-                <input
-                    type="text"
-                    value={props.preset.id || ""}
-                    onInput={(e) => props.updateField((d) => { d.id = e.currentTarget.value; })}
-                />
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Label (EN)</label>
-                    <input
-                        type="text"
-                        value={props.preset.label?.en || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            if (!d.label) d.label = { en: "", fr: "" };
-                            d.label.en = e.currentTarget.value;
-                        })}
-                    />
-                </div>
-                <div class="form-group">
-                    <label>Label (FR)</label>
-                    <input
-                        type="text"
-                        value={props.preset.label?.fr || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            if (!d.label) d.label = { en: "", fr: "" };
-                            d.label.fr = e.currentTarget.value;
-                        })}
-                    />
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Description (EN)</label>
-                    <textarea
-                        value={props.preset.description?.en || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            if (!d.description) d.description = { en: "", fr: "" };
-                            d.description.en = e.currentTarget.value;
-                        })}
-                        rows={3}
-                    />
-                </div>
-                <div class="form-group">
-                    <label>Description (FR)</label>
-                    <textarea
-                        value={props.preset.description?.fr || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            if (!d.description) d.description = { en: "", fr: "" };
-                            d.description.fr = e.currentTarget.value;
-                        })}
-                        rows={3}
-                    />
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label class="checkbox-label">
-                    <input
-                        type="checkbox"
-                        checked={props.preset.needsReplicant || false}
-                        onChange={(e) => props.updateField((d) => {
-                            if (e.currentTarget.checked) {
-                                d.needsReplicant = true;
-                            } else {
-                                delete d.needsReplicant;
-                            }
-                        })}
-                    />
-                    Needs Replicant
-                </label>
-            </div>
-
-            <div class="form-group">
-                <label>Default Visualization UUID</label>
-                <input
-                    type="text"
-                    value={props.preset.createDefaultVisualizationOnInstall || ""}
-                    onInput={(e) => props.updateField((d) => {
-                        const val = e.currentTarget.value.trim();
-                        if (val) {
-                            d.createDefaultVisualizationOnInstall = val;
-                        } else {
-                            delete d.createDefaultVisualizationOnInstall;
-                        }
-                    })}
-                    placeholder="UUID (optional)"
-                />
-            </div>
-
-            <div class="form-group">
-                <label>Default Period Filter (months)</label>
-                <input
-                    type="number"
-                    value={props.preset.defaultPeriodFilterForDefaultVisualizations?.nMonths ?? ""}
-                    onInput={(e) => props.updateField((d) => {
-                        const val = parseInt(e.currentTarget.value);
-                        if (!isNaN(val) && val > 0) {
-                            d.defaultPeriodFilterForDefaultVisualizations = { nMonths: val };
-                        } else {
-                            delete d.defaultPeriodFilterForDefaultVisualizations;
-                        }
-                    })}
-                    min={1}
-                    max={60}
-                />
-            </div>
-
-            <div class="form-group">
-                <label>Allowed Filters</label>
-                <div class="chip-group">
-                    <For each={DISAGGREGATION_OPTIONS}>
-                        {(opt) => {
-                            const isChecked = () => (props.preset.allowedFilters || []).includes(opt);
-                            return (
-                                <label class="chip-label" data-checked={isChecked()}>
-                                    <input
-                                        type="checkbox"
-                                        checked={isChecked()}
-                                        onChange={(e) => props.updateField((d) => {
-                                            if (!d.allowedFilters) d.allowedFilters = [];
-                                            if (e.currentTarget.checked) {
-                                                d.allowedFilters.push(opt);
-                                            } else {
-                                                d.allowedFilters = d.allowedFilters.filter((f: string) => f !== opt);
-                                            }
-                                            if (d.allowedFilters.length === 0) delete d.allowedFilters;
-                                        })}
-                                    />
-                                    {opt.replace(/_/g, " ")}
-                                </label>
-                            );
-                        }}
-                    </For>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// --- Data Tab ---
-
-function DataTab(props: TabProps) {
-    const config = () => props.preset.config?.d || {};
-
-    return (
-        <div class="form-section">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Presentation Type</label>
-                    <select
-                        value={config().type || "table"}
-                        onChange={(e) => props.updateField((d) => { d.config.d.type = e.currentTarget.value; })}
-                    >
-                        <For each={PRESENTATION_TYPES}>
-                            {(t) => <option value={t}>{t}</option>}
-                        </For>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Period Option</label>
-                    <select
-                        value={config().periodOpt || "period_id"}
-                        onChange={(e) => props.updateField((d) => { d.config.d.periodOpt = e.currentTarget.value; })}
-                    >
-                        <For each={PERIOD_OPTIONS}>
-                            {(t) => <option value={t}>{t}</option>}
-                        </For>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Values Display</label>
-                    <select
-                        value={config().valuesDisDisplayOpt || "col"}
-                        onChange={(e) => props.updateField((d) => { d.config.d.valuesDisDisplayOpt = e.currentTarget.value; })}
-                    >
-                        <For each={DIS_DISPLAY_OPTIONS}>
-                            {(t) => <option value={t}>{t}</option>}
-                        </For>
-                    </select>
-                </div>
-            </div>
-
-            {/* Disaggregate By */}
-            <div class="form-group">
-                <label>Disaggregate By</label>
-                <div class="list-editor">
-                    <For each={config().disaggregateBy || []}>
-                        {(entry: any, idx) => (
-                            <div class="list-editor-row">
-                                <select
-                                    value={entry.disOpt}
-                                    onChange={(e) => props.updateField((d) => {
-                                        d.config.d.disaggregateBy[idx()].disOpt = e.currentTarget.value;
-                                    })}
-                                >
-                                    <For each={DISAGGREGATION_OPTIONS}>
-                                        {(opt) => <option value={opt}>{opt.replace(/_/g, " ")}</option>}
-                                    </For>
-                                </select>
-                                <select
-                                    value={entry.disDisplayOpt}
-                                    onChange={(e) => props.updateField((d) => {
-                                        d.config.d.disaggregateBy[idx()].disDisplayOpt = e.currentTarget.value;
-                                    })}
-                                >
-                                    <For each={DIS_DISPLAY_OPTIONS}>
-                                        {(opt) => <option value={opt}>{opt}</option>}
-                                    </For>
-                                </select>
-                                <button
-                                    class="remove-btn"
-                                    onClick={() => props.updateField((d) => {
-                                        d.config.d.disaggregateBy.splice(idx(), 1);
-                                    })}
-                                >
-                                    &times;
-                                </button>
-                            </div>
-                        )}
-                    </For>
-                    <button
-                        class="add-btn"
-                        onClick={() => props.updateField((d) => {
-                            if (!d.config.d.disaggregateBy) d.config.d.disaggregateBy = [];
-                            d.config.d.disaggregateBy.push({ disOpt: "indicator_common_id", disDisplayOpt: "row" });
-                        })}
-                    >
-                        + Add Disaggregation
-                    </button>
-                </div>
-            </div>
-
-            {/* Filter By */}
-            <div class="form-group">
-                <label>Filter By</label>
-                <div class="list-editor">
-                    <For each={config().filterBy || []}>
-                        {(entry: any, idx) => (
-                            <div class="list-editor-row">
-                                <select
-                                    value={entry.disOpt}
-                                    onChange={(e) => props.updateField((d) => {
-                                        d.config.d.filterBy[idx()].disOpt = e.currentTarget.value;
-                                    })}
-                                >
-                                    <For each={DISAGGREGATION_OPTIONS}>
-                                        {(opt) => <option value={opt}>{opt.replace(/_/g, " ")}</option>}
-                                    </For>
-                                </select>
-                                <input
-                                    type="text"
-                                    value={(entry.values || []).join(", ")}
-                                    onInput={(e) => props.updateField((d) => {
-                                        d.config.d.filterBy[idx()].values = e.currentTarget.value
-                                            .split(",")
-                                            .map((s: string) => s.trim())
-                                            .filter(Boolean);
-                                    })}
-                                    placeholder="Comma-separated values"
-                                />
-                                <button
-                                    class="remove-btn"
-                                    onClick={() => props.updateField((d) => {
-                                        d.config.d.filterBy.splice(idx(), 1);
-                                    })}
-                                >
-                                    &times;
-                                </button>
-                            </div>
-                        )}
-                    </For>
-                    <button
-                        class="add-btn"
-                        onClick={() => props.updateField((d) => {
-                            if (!d.config.d.filterBy) d.config.d.filterBy = [];
-                            d.config.d.filterBy.push({ disOpt: "indicator_common_id", values: [] });
-                        })}
-                    >
-                        + Add Filter
-                    </button>
-                </div>
-            </div>
-
-            {/* Values Filter */}
-            <div class="form-group">
-                <label>Values Filter</label>
-                <input
-                    type="text"
-                    value={(config().valuesFilter || []).join(", ")}
-                    onInput={(e) => props.updateField((d) => {
-                        const vals = e.currentTarget.value.split(",").map((s: string) => s.trim()).filter(Boolean);
-                        if (vals.length > 0) {
-                            d.config.d.valuesFilter = vals;
-                        } else {
-                            delete d.config.d.valuesFilter;
-                        }
-                    })}
-                    placeholder="Comma-separated value prop names (optional)"
-                />
-            </div>
-
-            {/* Replicant */}
-            <Show when={props.preset.needsReplicant}>
-                <div class="form-group">
-                    <label>Selected Replicant Value</label>
-                    <input
-                        type="text"
-                        value={config().selectedReplicantValue || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            const val = e.currentTarget.value.trim();
-                            if (val) d.config.d.selectedReplicantValue = val;
-                            else delete d.config.d.selectedReplicantValue;
-                        })}
-                    />
-                </div>
-            </Show>
-
-            {/* National options */}
-            <div class="form-group">
-                <label class="checkbox-label">
-                    <input
-                        type="checkbox"
-                        checked={config().includeNationalForAdminArea2 || false}
-                        onChange={(e) => props.updateField((d) => {
-                            if (e.currentTarget.checked) {
-                                d.config.d.includeNationalForAdminArea2 = true;
-                            } else {
-                                delete d.config.d.includeNationalForAdminArea2;
-                                delete d.config.d.includeNationalPosition;
-                            }
-                        })}
-                    />
-                    Include National for Admin Area 2
-                </label>
-            </div>
-            <Show when={config().includeNationalForAdminArea2}>
-                <div class="form-group">
-                    <label>National Position</label>
-                    <select
-                        value={config().includeNationalPosition || "bottom"}
-                        onChange={(e) => props.updateField((d) => {
-                            d.config.d.includeNationalPosition = e.currentTarget.value;
-                        })}
-                    >
-                        <option value="top">Top</option>
-                        <option value="bottom">Bottom</option>
-                    </select>
-                </div>
-            </Show>
-        </div>
-    );
-}
-
-// --- Style Tab ---
-
-function StyleTab(props: TabProps) {
-    const style = () => props.preset.config?.s || {};
-    const presentKeys = createMemo(() => new Set(Object.keys(style())));
-
-    const activeFields = createMemo(() =>
-        STYLE_FIELD_DEFS.filter((f) => presentKeys().has(f.key))
-    );
-    const availableFields = createMemo(() =>
-        STYLE_FIELD_DEFS.filter((f) => !presentKeys().has(f.key))
-    );
-
-    const [addFieldKey, setAddFieldKey] = createSignal("");
-
-    function addStyleField(key: string) {
-        const def = STYLE_FIELD_DEFS.find((f) => f.key === key);
-        if (!def) return;
-        props.updateField((d) => {
-            if (!d.config.s) d.config.s = {};
-            d.config.s[key] = def.default;
-        });
-        setAddFieldKey("");
-    }
-
-    function removeStyleField(key: string) {
-        props.updateField((d) => {
-            if (d.config.s) {
-                delete d.config.s[key];
-                if (Object.keys(d.config.s).length === 0) {
-                    delete d.config.s;
-                }
-            }
-        });
-    }
-
-    return (
-        <div class="form-section">
-            <Show when={activeFields().length === 0}>
-                <p class="form-hint">No style properties set. Add properties below.</p>
-            </Show>
-
-            <For each={activeFields()}>
-                {(field) => (
-                    <div class="style-field-row">
-                        <div class="form-group" style={{ flex: "1" }}>
-                            <Show when={field.type === "boolean"}>
-                                <label class="checkbox-label">
-                                    <input
-                                        type="checkbox"
-                                        checked={style()[field.key] || false}
-                                        onChange={(e) => props.updateField((d) => {
-                                            if (!d.config.s) d.config.s = {};
-                                            d.config.s[field.key] = e.currentTarget.checked;
-                                        })}
-                                    />
-                                    {field.label}
-                                </label>
-                            </Show>
-                            <Show when={field.type === "select"}>
-                                <label>{field.label}</label>
-                                <select
-                                    value={style()[field.key] ?? field.default}
-                                    onChange={(e) => props.updateField((d) => {
-                                        if (!d.config.s) d.config.s = {};
-                                        d.config.s[field.key] = e.currentTarget.value;
-                                    })}
-                                >
-                                    <For each={field.options || []}>
-                                        {(opt) => <option value={opt}>{opt}</option>}
-                                    </For>
-                                </select>
-                            </Show>
-                            <Show when={field.type === "number"}>
-                                <label>{field.label}: {style()[field.key] ?? field.default}</label>
-                                <input
-                                    type="range"
-                                    min={field.min ?? 0}
-                                    max={field.max ?? 10}
-                                    step={field.step ?? 1}
-                                    value={style()[field.key] ?? field.default}
-                                    onInput={(e) => props.updateField((d) => {
-                                        if (!d.config.s) d.config.s = {};
-                                        d.config.s[field.key] = parseFloat(e.currentTarget.value);
-                                    })}
-                                />
-                            </Show>
-                        </div>
+                                <For each={p.valueOptions!}>
+                                    {(opt) => (
+                                        <option value={opt} selected={opt === value}>
+                                            {opt}
+                                        </option>
+                                    )}
+                                </For>
+                                <Show when={!p.valueOptions!.includes(value)}>
+                                    <option value={value} selected>
+                                        {value}
+                                    </option>
+                                </Show>
+                            </select>
+                        </Show>
                         <button
-                            class="remove-btn"
-                            onClick={() => removeStyleField(field.key)}
-                            title="Remove property"
+                            class="p-btn-remove"
+                            onClick={() => removeEntry(key)}
                         >
                             &times;
                         </button>
                     </div>
                 )}
             </For>
+            <button class="p-btn-sm p-btn-primary" onClick={addEntry}>
+                + Add
+            </button>
+        </div>
+    );
+}
 
-            {/* Add style property */}
-            <Show when={availableFields().length > 0}>
-                <div class="add-field-row">
-                    <select
-                        value={addFieldKey()}
-                        onChange={(e) => setAddFieldKey(e.currentTarget.value)}
-                    >
-                        <option value="">+ Add style property...</option>
-                        <For each={availableFields()}>
-                            {(f) => <option value={f.key}>{f.label}</option>}
-                        </For>
-                    </select>
-                    <Show when={addFieldKey()}>
-                        <button class="add-btn" onClick={() => addStyleField(addFieldKey())}>
-                            Add
+// ────────────────────────────────────────────
+// ResultsObject editor
+// ────────────────────────────────────────────
+
+function ResultsObjectEditor(p: {
+    form: ResultsObjectFormData;
+    setForm: SetStoreFunction<ResultsObjectFormData>;
+}) {
+    return (
+        <div class="p-pad p-spy">
+            <PInput
+                label="ID"
+                value={p.form.id}
+                onChange={(v) => p.setForm("id", v)}
+            />
+            <PTextArea
+                label="Description"
+                value={p.form.description}
+                onChange={(v) => p.setForm("description", v)}
+            />
+            <PLabelHolder label="Columns (createTableStatementPossibleColumns)">
+                <Show
+                    when={p.form.createTableStatementPossibleColumns}
+                    fallback={
+                        <button
+                            class="p-btn-sm p-btn-primary"
+                            onClick={() =>
+                                p.setForm("createTableStatementPossibleColumns", {})
+                            }
+                        >
+                            + Add columns
                         </button>
-                    </Show>
+                    }
+                >
+                    <KeyValueEditor
+                        entries={p.form.createTableStatementPossibleColumns!}
+                        onChange={(entries) =>
+                            p.setForm("createTableStatementPossibleColumns", reconcile(entries))
+                        }
+                        keyLabel="Column name"
+                        valueLabel="SQL type"
+                        valueOptions={SQL_TYPE_OPTIONS}
+                    />
+                </Show>
+            </PLabelHolder>
+        </div>
+    );
+}
+
+// ────────────────────────────────────────────
+// Metric editor
+// ────────────────────────────────────────────
+
+function MetricEditor(p: {
+    form: MetricFormData;
+    setForm: SetStoreFunction<MetricFormData>;
+    resultsObjectIds: string[];
+}) {
+    return (
+        <div class="p-pad p-spy">
+            {/* Identity */}
+            <div class="p-form-section-title">Identity</div>
+            <PInput
+                label="ID"
+                value={p.form.id}
+                onChange={(v) => p.setForm("id", v)}
+            />
+            <PSelect
+                label="Results Object"
+                options={p.resultsObjectIds.map((id) => ({ value: id, label: id }))}
+                value={p.form.resultsObjectId}
+                onChange={(v) => p.setForm("resultsObjectId", v)}
+            />
+            <div class="p-form-row">
+                <PInput
+                    label="Label (EN)"
+                    value={p.form.label.en}
+                    onChange={(v) => p.setForm("label", "en", v)}
+                />
+                <PInput
+                    label="Label (FR)"
+                    value={p.form.label.fr}
+                    onChange={(v) => p.setForm("label", "fr", v)}
+                />
+            </div>
+            <Show when={p.form.variantLabel !== undefined}>
+                <div class="p-form-row">
+                    <PInput
+                        label="Variant Label (EN)"
+                        value={p.form.variantLabel?.en ?? ""}
+                        onChange={(v) => (p.setForm as any)("variantLabel", "en", v)}
+                    />
+                    <PInput
+                        label="Variant Label (FR)"
+                        value={p.form.variantLabel?.fr ?? ""}
+                        onChange={(v) => (p.setForm as any)("variantLabel", "fr", v)}
+                    />
+                </div>
+            </Show>
+            <PCheckbox
+                label="Add variant label"
+                checked={p.form.variantLabel !== undefined}
+                onChange={(checked) =>
+                    p.setForm("variantLabel", checked ? { en: "", fr: "" } : undefined)
+                }
+            />
+            <PCheckbox
+                label="Hidden"
+                checked={p.form.hide}
+                onChange={(v) => p.setForm("hide", v || undefined)}
+            />
+
+            {/* Data */}
+            <div class="p-form-section-title">Data</div>
+            <PLabelHolder label="Value props">
+                <FilterValuesEditor
+                    values={p.form.valueProps}
+                    onChange={(vals) => p.setForm("valueProps", vals)}
+                />
+            </PLabelHolder>
+            <PRadioGroup
+                label="Value function"
+                options={[
+                    { value: "COUNT", label: "COUNT" },
+                    { value: "AVG", label: "AVG" },
+                    { value: "SUM", label: "SUM" },
+                    { value: "identity", label: "Identity" },
+                ]}
+                value={p.form.valueFunc}
+                onChange={(v) => p.setForm("valueFunc", v)}
+            />
+            <PRadioGroup
+                label="Format as"
+                options={[
+                    { value: "number", label: "Number" },
+                    { value: "percent", label: "Percent" },
+                ]}
+                value={p.form.formatAs}
+                onChange={(v) => p.setForm("formatAs", v)}
+                horizontal
+            />
+            <PLabelHolder label="Period options">
+                <div style={{ display: "flex", "flex-wrap": "wrap", gap: "4px" }}>
+                    <For each={["period_id", "quarter_id", "year"]}>
+                        {(opt) => (
+                            <PCheckbox
+                                label={opt}
+                                checked={p.form.periodOptions.includes(opt)}
+                                onChange={(checked) =>
+                                    p.setForm("periodOptions", (prev) =>
+                                        checked
+                                            ? prev.includes(opt) ? prev : [...prev, opt]
+                                            : prev.filter((x) => x !== opt)
+                                    )
+                                }
+                            />
+                        )}
+                    </For>
+                </div>
+            </PLabelHolder>
+            <PLabelHolder label="Required disaggregation options">
+                <div style={{ display: "flex", "flex-wrap": "wrap", gap: "4px" }}>
+                    <For each={DISAGGREGATION_OPTIONS}>
+                        {(opt) => (
+                            <PCheckbox
+                                label={opt}
+                                checked={p.form.requiredDisaggregationOptions.includes(opt)}
+                                onChange={(checked) =>
+                                    p.setForm("requiredDisaggregationOptions", (prev) =>
+                                        checked
+                                            ? prev.includes(opt) ? prev : [...prev, opt]
+                                            : prev.filter((x) => x !== opt)
+                                    )
+                                }
+                            />
+                        )}
+                    </For>
+                </div>
+            </PLabelHolder>
+
+            {/* Advanced */}
+            <div class="p-form-section-title">Advanced</div>
+            <PLabelHolder label="Value label replacements">
+                <Show
+                    when={p.form.valueLabelReplacements}
+                    fallback={
+                        <button
+                            class="p-btn-sm p-btn-primary"
+                            onClick={() =>
+                                p.setForm("valueLabelReplacements", {})
+                            }
+                        >
+                            + Add replacements
+                        </button>
+                    }
+                >
+                    <KeyValueEditor
+                        entries={p.form.valueLabelReplacements!}
+                        onChange={(entries) =>
+                            p.setForm("valueLabelReplacements",
+                                Object.keys(entries).length > 0
+                                    ? reconcile(entries)
+                                    : undefined
+                            )
+                        }
+                        keyLabel="Prop name"
+                        valueLabel="Display label"
+                    />
+                </Show>
+            </PLabelHolder>
+
+            {/* Post aggregation expression */}
+            <PLabelHolder label="Post aggregation expression">
+                <Show
+                    when={p.form.postAggregationExpression}
+                    fallback={
+                        <button
+                            class="p-btn-sm p-btn-primary"
+                            onClick={() =>
+                                p.setForm("postAggregationExpression", {
+                                    ingredientValues: [],
+                                    expression: "",
+                                })
+                            }
+                        >
+                            + Add expression
+                        </button>
+                    }
+                >
+                    <div class="p-spy-sm">
+                        <PLabelHolder label="Ingredient values">
+                            <div class="p-spy-sm">
+                                <For
+                                    each={
+                                        p.form.postAggregationExpression!
+                                            .ingredientValues
+                                    }
+                                >
+                                    {(iv, idx) => (
+                                        <div class="p-kv-row">
+                                            <input
+                                                class="p-input"
+                                                value={iv.prop}
+                                                onInput={(e) =>
+                                                    (p.setForm as any)(
+                                                        "postAggregationExpression",
+                                                        "ingredientValues",
+                                                        idx(),
+                                                        "prop",
+                                                        e.currentTarget.value
+                                                    )
+                                                }
+                                                placeholder="prop"
+                                            />
+                                            <select
+                                                class="p-select-input"
+                                                value={iv.func}
+                                                onChange={(e) =>
+                                                    (p.setForm as any)(
+                                                        "postAggregationExpression",
+                                                        "ingredientValues",
+                                                        idx(),
+                                                        "func",
+                                                        e.currentTarget.value
+                                                    )
+                                                }
+                                            >
+                                                <For
+                                                    each={[
+                                                        "COUNT",
+                                                        "AVG",
+                                                        "SUM",
+                                                        "identity",
+                                                    ]}
+                                                >
+                                                    {(f) => (
+                                                        <option value={f}>
+                                                            {f}
+                                                        </option>
+                                                    )}
+                                                </For>
+                                            </select>
+                                            <button
+                                                class="p-btn-remove"
+                                                onClick={() =>
+                                                    (p.setForm as any)(
+                                                        "postAggregationExpression",
+                                                        "ingredientValues",
+                                                        (prev: any[]) => [
+                                                            ...prev.slice(0, idx()),
+                                                            ...prev.slice(idx() + 1),
+                                                        ]
+                                                    )
+                                                }
+                                            >
+                                                &times;
+                                            </button>
+                                        </div>
+                                    )}
+                                </For>
+                                <button
+                                    class="p-btn-sm p-btn-primary"
+                                    onClick={() =>
+                                        (p.setForm as any)(
+                                            "postAggregationExpression",
+                                            "ingredientValues",
+                                            (prev: any[]) => [
+                                                ...prev,
+                                                { prop: "", func: "SUM" },
+                                            ]
+                                        )
+                                    }
+                                >
+                                    + Add ingredient
+                                </button>
+                            </div>
+                        </PLabelHolder>
+                        <PInput
+                            label="Expression"
+                            value={
+                                p.form.postAggregationExpression!.expression
+                            }
+                            onChange={(v) =>
+                                (p.setForm as any)(
+                                    "postAggregationExpression",
+                                    "expression",
+                                    v
+                                )
+                            }
+                            placeholder="e.g. result = A/B"
+                        />
+                        <button
+                            class="p-btn-sm p-btn-danger"
+                            onClick={() =>
+                                p.setForm("postAggregationExpression", undefined)
+                            }
+                        >
+                            Remove expression
+                        </button>
+                    </div>
+                </Show>
+            </PLabelHolder>
+
+            {/* Important notes */}
+            <PCheckbox
+                label="Has important notes"
+                checked={p.form.importantNotes !== undefined}
+                onChange={(checked) =>
+                    p.setForm("importantNotes", checked ? { en: "", fr: "" } : undefined)
+                }
+            />
+            <Show when={p.form.importantNotes}>
+                <div class="p-form-row">
+                    <PTextArea
+                        label="Important Notes (EN)"
+                        value={p.form.importantNotes!.en}
+                        onChange={(v) =>
+                            (p.setForm as any)("importantNotes", "en", v)
+                        }
+                    />
+                    <PTextArea
+                        label="Important Notes (FR)"
+                        value={p.form.importantNotes!.fr}
+                        onChange={(v) =>
+                            (p.setForm as any)("importantNotes", "fr", v)
+                        }
+                    />
                 </div>
             </Show>
 
-            {/* Unknown/custom style fields */}
-            <Show when={Object.keys(style()).some((k) => !STYLE_FIELD_DEFS.find((f) => f.key === k))}>
-                <div class="form-group" style={{ "margin-top": "16px" }}>
-                    <label>Other Properties (edit in code view)</label>
-                    <div class="unknown-fields">
-                        <For each={Object.keys(style()).filter((k) => !STYLE_FIELD_DEFS.find((f) => f.key === k))}>
-                            {(key) => (
-                                <span class="unknown-field">
-                                    {key}: {JSON.stringify(style()[key])}
-                                </span>
-                            )}
-                        </For>
-                    </div>
+            {/* AI Description (raw JSON) */}
+            <Show when={p.form.aiDescription !== undefined}>
+                <PTextArea
+                    label="AI Description (JSON)"
+                    value={JSON.stringify(p.form.aiDescription, null, 2)}
+                    onChange={(v) => {
+                        try {
+                            p.setForm("aiDescription", JSON.parse(v));
+                        } catch {
+                            // keep as-is until valid JSON
+                        }
+                    }}
+                    height="200px"
+                />
+            </Show>
+        </div>
+    );
+}
+
+// ────────────────────────────────────────────
+// VizPreset tab panels (unchanged from original)
+// ────────────────────────────────────────────
+
+function InfoTab(p: {
+    form: PresetFormData;
+    setForm: SetStoreFunction<PresetFormData>;
+}) {
+    return (
+        <div class="p-pad p-spy">
+            <PInput
+                label="ID"
+                value={p.form.id}
+                onChange={(v) => p.setForm("id", v)}
+            />
+            <div class="p-form-row">
+                <PInput
+                    label="Label (EN)"
+                    value={p.form.label.en}
+                    onChange={(v) => p.setForm("label", "en", v)}
+                />
+                <PInput
+                    label="Label (FR)"
+                    value={p.form.label.fr}
+                    onChange={(v) => p.setForm("label", "fr", v)}
+                />
+            </div>
+            <div class="p-form-row">
+                <PTextArea
+                    label="Description (EN)"
+                    value={p.form.description.en}
+                    onChange={(v) => p.setForm("description", "en", v)}
+                />
+                <PTextArea
+                    label="Description (FR)"
+                    value={p.form.description.fr}
+                    onChange={(v) => p.setForm("description", "fr", v)}
+                />
+            </div>
+            <PCheckbox
+                label="Needs replicant"
+                checked={p.form.needsReplicant}
+                onChange={(v) => p.setForm("needsReplicant", v || undefined)}
+            />
+            <PLabelHolder label="Allowed filters">
+                <div style={{ display: "flex", "flex-wrap": "wrap", gap: "4px" }}>
+                    <For each={DISAGGREGATION_OPTIONS}>
+                        {(opt) => (
+                            <PCheckbox
+                                label={opt}
+                                checked={p.form.allowedFilters?.includes(opt)}
+                                onChange={(checked) => {
+                                    const arr = p.form.allowedFilters ?? [];
+                                    if (checked) {
+                                        if (!arr.includes(opt))
+                                            p.setForm("allowedFilters", [...arr, opt]);
+                                    } else {
+                                        const filtered = arr.filter((x) => x !== opt);
+                                        p.setForm("allowedFilters",
+                                            filtered.length > 0 ? filtered : undefined
+                                        );
+                                    }
+                                }}
+                            />
+                        )}
+                    </For>
+                </div>
+            </PLabelHolder>
+            <PInput
+                label="createDefaultVisualizationOnInstall"
+                value={p.form.createDefaultVisualizationOnInstall ?? ""}
+                onChange={(v) => p.setForm("createDefaultVisualizationOnInstall", v || undefined)}
+                placeholder="UUID (optional)"
+            />
+            <PInput
+                label="Default period filter (nMonths)"
+                value={String(
+                    p.form.defaultPeriodFilterForDefaultVisualizations?.nMonths ?? ""
+                )}
+                onChange={(v) => {
+                    const n = parseInt(v, 10);
+                    p.setForm("defaultPeriodFilterForDefaultVisualizations",
+                        isNaN(n) || v === "" ? undefined : { nMonths: n }
+                    );
+                }}
+                type="number"
+            />
+        </div>
+    );
+}
+
+function DataTab(p: {
+    form: PresetFormData;
+    setForm: SetStoreFunction<PresetFormData>;
+}) {
+    const d = () => p.form.config.d;
+    const disDisplayOpts = () => getDisplayOptions(d().type);
+
+    return (
+        <div class="p-pad p-spy">
+            <PRadioGroup
+                label="Present as"
+                options={[
+                    { value: "table", label: "Table" },
+                    { value: "timeseries", label: "Timeseries" },
+                    { value: "chart", label: "Bar chart" },
+                ]}
+                value={d().type}
+                onChange={(v) =>
+                    p.setForm("config", "d", "type", v as DataConfig["type"])
+                }
+            />
+            <PRadioGroup
+                label="Period"
+                options={[
+                    { value: "period_id", label: "Monthly" },
+                    { value: "quarter_id", label: "Quarterly" },
+                    { value: "year", label: "Yearly" },
+                ]}
+                value={d().periodOpt}
+                onChange={(v) => p.setForm("config", "d", "periodOpt", v)}
+            />
+            <PSelect
+                label="Data values display"
+                options={disDisplayOpts()}
+                value={d().valuesDisDisplayOpt}
+                onChange={(v) =>
+                    p.setForm("config", "d", "valuesDisDisplayOpt", v)
+                }
+            />
+
+            {/* Disaggregate by */}
+            <PLabelHolder label="Disaggregate by">
+                <div class="p-spy-sm">
+                    <For each={d().disaggregateBy}>
+                        {(entry, idx) => (
+                            <div class="p-dis-row">
+                                <select
+                                    class="p-select-input"
+                                    value={entry.disOpt}
+                                    onChange={(e) =>
+                                        p.setForm("config", "d", "disaggregateBy", idx(), "disOpt",
+                                            e.currentTarget.value
+                                        )
+                                    }
+                                >
+                                    <For each={DISAGGREGATION_OPTIONS}>
+                                        {(opt) => (
+                                            <option value={opt}>{opt}</option>
+                                        )}
+                                    </For>
+                                </select>
+                                <select
+                                    class="p-select-input"
+                                    value={entry.disDisplayOpt}
+                                    onChange={(e) =>
+                                        p.setForm("config", "d", "disaggregateBy", idx(), "disDisplayOpt",
+                                            e.currentTarget.value
+                                        )
+                                    }
+                                >
+                                    <For each={disDisplayOpts()}>
+                                        {(opt) => (
+                                            <option value={opt.value}>
+                                                {opt.label}
+                                            </option>
+                                        )}
+                                    </For>
+                                </select>
+                                <button
+                                    class="p-btn-remove"
+                                    onClick={() =>
+                                        p.setForm("config", "d", "disaggregateBy", (prev) => [
+                                            ...prev.slice(0, idx()),
+                                            ...prev.slice(idx() + 1),
+                                        ])
+                                    }
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                        )}
+                    </For>
+                    <button
+                        class="p-btn-sm p-btn-primary"
+                        onClick={() =>
+                            p.setForm("config", "d", "disaggregateBy", (prev) => [
+                                ...prev,
+                                { disOpt: "indicator_common_id", disDisplayOpt: "row" },
+                            ])
+                        }
+                    >
+                        + Add disaggregation
+                    </button>
+                </div>
+            </PLabelHolder>
+
+            {/* Filter by */}
+            <PLabelHolder label="Filter by">
+                <div class="p-spy-sm">
+                    <For each={d().filterBy}>
+                        {(entry, idx) => (
+                            <div class="p-spy-sm">
+                                <div class="p-dis-row">
+                                    <select
+                                        class="p-select-input"
+                                        value={entry.disOpt}
+                                        onChange={(e) =>
+                                            p.setForm("config", "d", "filterBy", idx(), "disOpt",
+                                                e.currentTarget.value
+                                            )
+                                        }
+                                    >
+                                        <For each={DISAGGREGATION_OPTIONS}>
+                                            {(opt) => (
+                                                <option value={opt}>
+                                                    {opt}
+                                                </option>
+                                            )}
+                                        </For>
+                                    </select>
+                                    <button
+                                        class="p-btn-remove"
+                                        onClick={() =>
+                                            p.setForm("config", "d", "filterBy", (prev) => [
+                                                ...prev.slice(0, idx()),
+                                                ...prev.slice(idx() + 1),
+                                            ])
+                                        }
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
+                                <FilterValuesEditor
+                                    values={entry.values}
+                                    onChange={(vals) =>
+                                        p.setForm("config", "d", "filterBy", idx(), "values", vals)
+                                    }
+                                />
+                            </div>
+                        )}
+                    </For>
+                    <button
+                        class="p-btn-sm p-btn-primary"
+                        onClick={() =>
+                            p.setForm("config", "d", "filterBy", (prev) => [
+                                ...prev,
+                                { disOpt: "indicator_common_id", values: [] },
+                            ])
+                        }
+                    >
+                        + Add filter
+                    </button>
+                </div>
+            </PLabelHolder>
+
+            {/* Values filter */}
+            <PLabelHolder label="Values filter">
+                <FilterValuesEditor
+                    values={d().valuesFilter ?? []}
+                    onChange={(vals) =>
+                        p.setForm("config", "d", "valuesFilter",
+                            vals.length > 0 ? vals : undefined
+                        )
+                    }
+                />
+            </PLabelHolder>
+
+            {/* Include national */}
+            <Show
+                when={d().disaggregateBy.some(
+                    (x) => x.disOpt === "admin_area_2"
+                )}
+            >
+                <div class="p-spy-sm">
+                    <PCheckbox
+                        label="Include National results"
+                        checked={d().includeNationalForAdminArea2}
+                        onChange={(v) =>
+                            p.setForm("config", "d", "includeNationalForAdminArea2",
+                                v || undefined
+                            )
+                        }
+                    />
+                    <Show when={d().includeNationalForAdminArea2}>
+                        <PRadioGroup
+                            label="National position"
+                            options={[
+                                { value: "top", label: "Top" },
+                                { value: "bottom", label: "Bottom" },
+                            ]}
+                            value={d().includeNationalPosition ?? "bottom"}
+                            onChange={(v) =>
+                                p.setForm("config", "d", "includeNationalPosition",
+                                    v as "top" | "bottom"
+                                )
+                            }
+                            horizontal
+                        />
+                    </Show>
                 </div>
             </Show>
         </div>
     );
 }
 
-// --- Text Tab ---
+function PresentationTab(p: {
+    form: PresetFormData;
+    setForm: SetStoreFunction<PresetFormData>;
+}) {
+    const s = () => p.form.config.s ?? {};
+    const type = () => p.form.config.d.type;
 
-function TextTab(props: TabProps) {
-    const text = () => props.preset.config?.t || {};
-
-    function ensureTextConfig(d: any) {
-        if (!d.config.t) d.config.t = {};
+    function setS<K extends keyof StyleConfig>(key: K, value: StyleConfig[K]) {
+        if (!p.form.config.s) p.setForm("config", "s", {} as StyleConfig);
+        (p.setForm as any)("config", "s", key, value === false ? undefined : value);
     }
 
     return (
-        <div class="form-section">
-            {/* Caption */}
-            <h4 class="form-section-title">Caption</h4>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>EN</label>
-                    <textarea
-                        value={text().caption?.en || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            ensureTextConfig(d);
-                            if (!d.config.t.caption) d.config.t.caption = { en: "", fr: "" };
-                            d.config.t.caption.en = e.currentTarget.value;
-                        })}
-                        rows={3}
+        <div class="p-pad p-spy">
+            <PSlider
+                label="Scale"
+                min={0.1}
+                max={5}
+                step={0.1}
+                value={s().scale ?? 1}
+                onChange={(v) => setS("scale", v)}
+            />
+
+            {/* Aspect ratio */}
+            <Show when={type() !== "table"}>
+                <PRadioGroup
+                    label="Aspect ratio"
+                    options={[
+                        { value: "none", label: "Fit to area" },
+                        { value: "video", label: "16 x 9" },
+                        { value: "square", label: "1 x 1" },
+                    ]}
+                    value={s().idealAspectRatio ?? "none"}
+                    onChange={(v) => setS("idealAspectRatio", v)}
+                />
+            </Show>
+            <Show when={type() === "table"}>
+                <PRadioGroup
+                    label="Aspect ratio"
+                    options={[
+                        { value: "none", label: "Fit to area" },
+                        { value: "ideal", label: "Ideal for table" },
+                    ]}
+                    value={s().idealAspectRatio ?? "none"}
+                    onChange={(v) => setS("idealAspectRatio", v)}
+                />
+            </Show>
+
+            {/* Table-specific */}
+            <Show when={type() === "table"}>
+                <PCheckbox
+                    label="Allow vertical column headers"
+                    checked={s().allowVerticalColHeaders}
+                    onChange={(v) => setS("allowVerticalColHeaders", v || undefined)}
+                />
+                <PCheckbox
+                    label="Special RMNCAH Scorecard table"
+                    checked={s().specialScorecardTable}
+                    onChange={(v) => setS("specialScorecardTable", v || undefined)}
+                />
+            </Show>
+
+            {/* Display format - timeseries */}
+            <Show when={type() === "timeseries"}>
+                <PRadioGroup
+                    label="Display format"
+                    options={[
+                        { value: "lines", label: "Lines" },
+                        { value: "areas", label: "Areas" },
+                        { value: "bars", label: "Bars" },
+                    ]}
+                    value={s().content ?? "lines"}
+                    onChange={(v) => setS("content", v)}
+                />
+                <PCheckbox
+                    label="Special coverage chart"
+                    checked={s().specialCoverageChart}
+                    onChange={(v) => setS("specialCoverageChart", v || undefined)}
+                />
+            </Show>
+
+            {/* Display format - chart */}
+            <Show when={type() === "chart"}>
+                <PRadioGroup
+                    label="Display format"
+                    options={[
+                        { value: "bars", label: "Bars" },
+                        { value: "points", label: "Points" },
+                        { value: "lines", label: "Lines" },
+                    ]}
+                    value={s().content ?? "bars"}
+                    onChange={(v) => setS("content", v)}
+                />
+                <PLabelHolder label="Sort indicator values">
+                    <div class="p-spy-sm">
+                        <PCheckbox
+                            label="Descending"
+                            checked={s().sortIndicatorValues === "descending"}
+                            onChange={(v) =>
+                                setS(
+                                    "sortIndicatorValues",
+                                    v ? "descending" : undefined
+                                )
+                            }
+                        />
+                        <PCheckbox
+                            label="Ascending"
+                            checked={s().sortIndicatorValues === "ascending"}
+                            onChange={(v) =>
+                                setS(
+                                    "sortIndicatorValues",
+                                    v ? "ascending" : undefined
+                                )
+                            }
+                        />
+                    </div>
+                </PLabelHolder>
+                <PCheckbox
+                    label="Vertical tick labels"
+                    checked={s().verticalTickLabels}
+                    onChange={(v) => setS("verticalTickLabels", v || undefined)}
+                />
+            </Show>
+
+            {/* Stacked bars */}
+            <Show
+                when={
+                    type() !== "table" && s().content === "bars"
+                }
+            >
+                <PCheckbox
+                    label="Stacked bars"
+                    checked={s().barsStacked}
+                    onChange={(v) => setS("barsStacked", v || undefined)}
+                />
+            </Show>
+
+            {/* Data labels */}
+            <Show when={type() !== "table"}>
+                <Show
+                    when={
+                        s().content === "bars" || s().content === "points"
+                    }
+                >
+                    <PCheckbox
+                        label="Show data labels"
+                        checked={s().showDataLabels}
+                        onChange={(v) => setS("showDataLabels", v || undefined)}
                     />
-                </div>
-                <div class="form-group">
-                    <label>FR</label>
-                    <textarea
-                        value={text().caption?.fr || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            ensureTextConfig(d);
-                            if (!d.config.t.caption) d.config.t.caption = { en: "", fr: "" };
-                            d.config.t.caption.fr = e.currentTarget.value;
-                        })}
-                        rows={3}
+                </Show>
+                <Show
+                    when={
+                        s().content === "lines" || s().content === "areas"
+                    }
+                >
+                    <PCheckbox
+                        label="Show data labels in line charts"
+                        checked={s().showDataLabelsLineCharts}
+                        onChange={(v) =>
+                            setS("showDataLabelsLineCharts", v || undefined)
+                        }
                     />
-                </div>
-            </div>
-            <Show when={text().captionRelFontSize !== undefined}>
-                <div class="form-group">
-                    <label>Font Size: {text().captionRelFontSize}</label>
-                    <input
-                        type="range"
-                        min={0.5} max={3} step={0.1}
-                        value={text().captionRelFontSize || 2}
-                        onInput={(e) => props.updateField((d) => {
-                            ensureTextConfig(d);
-                            d.config.t.captionRelFontSize = parseFloat(e.currentTarget.value);
-                        })}
+                </Show>
+                <PCheckbox
+                    label="Force y-axis max of 100%"
+                    checked={s().forceYMax1}
+                    onChange={(v) => setS("forceYMax1", v || undefined)}
+                />
+                <PCheckbox
+                    label="Allow auto y-axis min"
+                    checked={s().forceYMinAuto}
+                    onChange={(v) => setS("forceYMinAuto", v || undefined)}
+                />
+                <PCheckbox
+                    label="Allow individual row limits"
+                    checked={s().allowIndividualRowLimits}
+                    onChange={(v) => setS("allowIndividualRowLimits", v || undefined)}
+                />
+            </Show>
+
+            {/* Diff areas */}
+            <Show when={type() === "timeseries" && s().content === "areas"}>
+                <div class="p-spy-sm">
+                    <PCheckbox
+                        label="Diff areas"
+                        checked={s().diffAreas}
+                        onChange={(v) => setS("diffAreas", v || undefined)}
                     />
+                    <Show when={s().diffAreas}>
+                        <PCheckbox
+                            label="Invert red/green for surplus/disruptions"
+                            checked={s().diffInverted}
+                            onChange={(v) => setS("diffInverted", v || undefined)}
+                        />
+                    </Show>
                 </div>
             </Show>
 
-            {/* Sub-Caption */}
-            <h4 class="form-section-title">Sub-Caption</h4>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>EN</label>
-                    <textarea
-                        value={text().subCaption?.en || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            ensureTextConfig(d);
-                            if (!d.config.t.subCaption) d.config.t.subCaption = { en: "", fr: "" };
-                            d.config.t.subCaption.en = e.currentTarget.value;
-                        })}
-                        rows={3}
-                    />
-                </div>
-                <div class="form-group">
-                    <label>FR</label>
-                    <textarea
-                        value={text().subCaption?.fr || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            ensureTextConfig(d);
-                            if (!d.config.t.subCaption) d.config.t.subCaption = { en: "", fr: "" };
-                            d.config.t.subCaption.fr = e.currentTarget.value;
-                        })}
-                        rows={3}
-                    />
-                </div>
-            </div>
-            <Show when={text().subCaptionRelFontSize !== undefined}>
-                <div class="form-group">
-                    <label>Font Size: {text().subCaptionRelFontSize}</label>
-                    <input
-                        type="range"
-                        min={0.5} max={3} step={0.1}
-                        value={text().subCaptionRelFontSize || 1.3}
-                        onInput={(e) => props.updateField((d) => {
-                            ensureTextConfig(d);
-                            d.config.t.subCaptionRelFontSize = parseFloat(e.currentTarget.value);
-                        })}
-                    />
-                </div>
+            {/* Decimal places */}
+            <PRadioGroup
+                label="Decimal places"
+                options={[
+                    { value: "0", label: "0" },
+                    { value: "1", label: "1" },
+                    { value: "2", label: "2" },
+                    { value: "3", label: "3" },
+                ]}
+                value={String(s().decimalPlaces ?? 0)}
+                onChange={(v) => setS("decimalPlaces", Number(v))}
+                horizontal
+            />
+
+            {/* Conditional formatting */}
+            <PRadioGroup
+                label="Conditional formatting"
+                options={CONDITIONAL_FORMATTING_OPTIONS.map((v) => ({
+                    value: v,
+                    label: v === "none" ? "None" : v,
+                }))}
+                value={s().conditionalFormatting ?? "none"}
+                onChange={(v) =>
+                    setS("conditionalFormatting", v === "none" ? undefined : v)
+                }
+            />
+
+            {/* Color scale */}
+            <Show when={type() !== "table"}>
+                <PRadioGroup
+                    label="Color scale"
+                    options={COLOR_SCALE_OPTIONS}
+                    value={s().colorScale ?? "pastel-discrete"}
+                    onChange={(v) => setS("colorScale", v)}
+                />
+                <PSelect
+                    label="Color scale mapping"
+                    options={
+                        type() === "timeseries"
+                            ? [
+                                  { value: "series", label: "Series (lines/bars)" },
+                                  { value: "cell", label: "Grid cells" },
+                                  { value: "col", label: "Column groups" },
+                                  { value: "row", label: "Row groups" },
+                              ]
+                            : [
+                                  { value: "series", label: "Series (sub-bars)" },
+                                  { value: "cell", label: "Grid cells" },
+                                  { value: "col", label: "Column groups" },
+                                  { value: "row", label: "Row groups" },
+                              ]
+                    }
+                    value={s().seriesColorFuncPropToUse ?? "series"}
+                    onChange={(v) => setS("seriesColorFuncPropToUse", v)}
+                />
             </Show>
 
-            {/* Footnote */}
-            <h4 class="form-section-title">Footnote</h4>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>EN</label>
-                    <textarea
-                        value={text().footnote?.en || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            ensureTextConfig(d);
-                            if (!d.config.t.footnote) d.config.t.footnote = { en: "", fr: "" };
-                            d.config.t.footnote.en = e.currentTarget.value;
-                        })}
-                        rows={6}
+            {/* Hide legend */}
+            <PCheckbox
+                label="Hide legend"
+                checked={s().hideLegend}
+                onChange={(v) => setS("hideLegend", v || undefined)}
+            />
+        </div>
+    );
+}
+
+function TextTab(p: {
+    form: PresetFormData;
+    setForm: SetStoreFunction<PresetFormData>;
+}) {
+    const t = () => p.form.config.t ?? {};
+
+    function ensureT() {
+        if (!p.form.config.t) p.setForm("config", "t", {} as TextConfig);
+    }
+
+    function setTextProp(field: "caption" | "subCaption" | "footnote", lang: "en" | "fr", v: string) {
+        ensureT();
+        if (!(p.form.config.t as any)?.[field]) {
+            (p.setForm as any)("config", "t", field, { en: "", fr: "" });
+        }
+        (p.setForm as any)("config", "t", field, lang, v);
+    }
+
+    function setTextSize(field: string, v: number) {
+        ensureT();
+        (p.setForm as any)("config", "t", field, v);
+    }
+
+    return (
+        <div class="p-pad p-spy">
+            <div class="p-spy-sm">
+                <div class="p-form-row">
+                    <PTextArea
+                        label="Caption (EN)"
+                        value={t().caption?.en ?? ""}
+                        onChange={(v) => setTextProp("caption", "en", v)}
+                    />
+                    <PTextArea
+                        label="Caption (FR)"
+                        value={t().caption?.fr ?? ""}
+                        onChange={(v) => setTextProp("caption", "fr", v)}
                     />
                 </div>
-                <div class="form-group">
-                    <label>FR</label>
-                    <textarea
-                        value={text().footnote?.fr || ""}
-                        onInput={(e) => props.updateField((d) => {
-                            ensureTextConfig(d);
-                            if (!d.config.t.footnote) d.config.t.footnote = { en: "", fr: "" };
-                            d.config.t.footnote.fr = e.currentTarget.value;
-                        })}
-                        rows={6}
+                <PSlider
+                    label="Caption font size"
+                    min={0.5}
+                    max={3}
+                    step={0.1}
+                    value={t().captionRelFontSize ?? 2}
+                    onChange={(v) => setTextSize("captionRelFontSize", v)}
+                />
+            </div>
+
+            <div class="p-spy-sm">
+                <div class="p-form-row">
+                    <PTextArea
+                        label="Sub-caption (EN)"
+                        value={t().subCaption?.en ?? ""}
+                        onChange={(v) => setTextProp("subCaption", "en", v)}
                     />
+                    <PTextArea
+                        label="Sub-caption (FR)"
+                        value={t().subCaption?.fr ?? ""}
+                        onChange={(v) => setTextProp("subCaption", "fr", v)}
+                    />
+                </div>
+                <PSlider
+                    label="Sub-caption font size"
+                    min={0.5}
+                    max={3}
+                    step={0.1}
+                    value={t().subCaptionRelFontSize ?? 1.3}
+                    onChange={(v) => setTextSize("subCaptionRelFontSize", v)}
+                />
+            </div>
+
+            <div class="p-spy-sm">
+                <div class="p-form-row">
+                    <PTextArea
+                        label="Footnote (EN)"
+                        value={t().footnote?.en ?? ""}
+                        onChange={(v) => setTextProp("footnote", "en", v)}
+                        height="160px"
+                    />
+                    <PTextArea
+                        label="Footnote (FR)"
+                        value={t().footnote?.fr ?? ""}
+                        onChange={(v) => setTextProp("footnote", "fr", v)}
+                        height="160px"
+                    />
+                </div>
+                <PSlider
+                    label="Footnote font size"
+                    min={0.1}
+                    max={3}
+                    step={0.1}
+                    value={t().footnoteRelFontSize ?? 0.9}
+                    onChange={(v) => setTextSize("footnoteRelFontSize", v)}
+                />
+            </div>
+
+            <div class="p-info-text p-spy-sm">
+                <div>
+                    In the text fields above, you can use special words to dynamically
+                    insert text.
+                </div>
+                <div>
+                    Use <strong>DATE_RANGE</strong> or{" "}
+                    <strong>PLAGE_DE_DATES</strong> to insert the date range of the
+                    data shown in the figure.
+                </div>
+                <div>
+                    Use <strong>REPLICANT</strong> to insert the full replicant name
+                    (e.g. an indicator, or an admin area).
                 </div>
             </div>
-            <Show when={text().footnoteRelFontSize !== undefined}>
-                <div class="form-group">
-                    <label>Font Size: {text().footnoteRelFontSize}</label>
-                    <input
-                        type="range"
-                        min={0.1} max={3} step={0.1}
-                        value={text().footnoteRelFontSize || 0.9}
-                        onInput={(e) => props.updateField((d) => {
-                            ensureTextConfig(d);
-                            d.config.t.footnoteRelFontSize = parseFloat(e.currentTarget.value);
-                        })}
-                    />
-                </div>
-            </Show>
+        </div>
+    );
+}
 
-            <p class="form-hint">
-                Special tokens: <code>DATE_RANGE</code> (inserts date range), <code>REPLICANT</code> (inserts indicator name)
-            </p>
+// ────────────────────────────────────────────
+// Main component
+// ────────────────────────────────────────────
+
+type VizPresetFormEditorProps = {
+    fileContent: string;
+    onFileContentChange: (content: string) => void;
+};
+
+export function VizPresetFormEditor(p: VizPresetFormEditorProps) {
+    // ── Selection state ──
+    const [selectedROId, setSelectedROId] = createSignal<string | null>(null);
+    const [selectedMetricId, setSelectedMetricId] = createSignal<string | null>(null);
+    const [selectedPresetKey, setSelectedPresetKey] = createSignal<string | null>(null);
+    const [editLevel, setEditLevel] = createSignal<EditLevel>("preset");
+
+    // ── Form state (one per level, stores with direct types — platform pattern) ──
+    const [roForm, setRoForm] = createStore<ResultsObjectFormData>({ id: "", description: "" });
+    const [metricForm, setMetricForm] = createStore<MetricFormData>({
+        id: "", resultsObjectId: "", label: { en: "", fr: "" },
+        valueProps: [], valueFunc: "COUNT", formatAs: "number",
+        requiredDisaggregationOptions: [], periodOptions: [],
+    });
+    const [presetForm, setPresetForm] = createStore<PresetFormData>(defaultPreset());
+
+    // ── Dirty state ──
+    const [roDirty, setRoDirty] = createSignal(false);
+    const [metricDirty, setMetricDirty] = createSignal(false);
+    const [presetDirty, setPresetDirty] = createSignal(false);
+    const anyDirty = () => roDirty() || metricDirty() || presetDirty();
+
+    // ── Preset tab state ──
+    const [presetTab, setPresetTab] = createSignal<"info" | "data" | "style" | "text">("info");
+
+    // ── Derived data from file content ──
+    const resultsObjects = () => extractResultsObjectsFromFile(p.fileContent);
+    const allMetrics = () => extractFullMetricsFromFile(p.fileContent);
+    const allPresets = () => extractPresetsFromFile(p.fileContent);
+
+    // Filtered by parent selection
+    const metricsForSelectedRO = () => {
+        const roId = selectedROId();
+        if (!roId) return [];
+        return allMetrics().filter((m) => m.resultsObjectId === roId);
+    };
+
+    const presetsForSelectedMetric = () => {
+        const mId = selectedMetricId();
+        if (!mId) return [];
+        return allPresets().filter((ep) => ep.metricId === mId);
+    };
+
+    const presetOptions = () => {
+        return presetsForSelectedMetric().map((ep) => ({
+            key: `${ep.metricId}::${ep.preset.id ?? ""}::${ep.presetIndex}`,
+            label: ep.preset.label?.en ?? ep.preset.id ?? `Preset ${ep.presetIndex}`,
+            extracted: ep,
+        }));
+    };
+
+    // ── Selection helpers ──
+
+    function selectResultsObject(roId: string, force = false) {
+        if (!force && anyDirty()) {
+            if (!confirm("You have unsaved changes. Discard and switch?")) return;
+        }
+        setSelectedROId(roId);
+        setSelectedMetricId(null);
+        setSelectedPresetKey(null);
+
+        const ro = resultsObjects().find((r) => r.id === roId);
+        if (ro) {
+            setRoForm(reconcile(ro.data));
+            setRoDirty(false);
+        }
+        setMetricDirty(false);
+        setPresetDirty(false);
+        setEditLevel("resultsObject");
+
+        // Auto-select first metric for this RO
+        const roMetrics = allMetrics().filter((m) => m.resultsObjectId === roId);
+        if (roMetrics.length > 0) {
+            loadMetric(roMetrics[0]);
+        }
+    }
+
+    function selectMetric(metricId: string, force = false) {
+        if (!force && (metricDirty() || presetDirty())) {
+            if (!confirm("You have unsaved changes. Discard and switch?")) return;
+        }
+        setSelectedMetricId(metricId);
+        setSelectedPresetKey(null);
+
+        const m = allMetrics().find((m) => m.metricId === metricId);
+        if (m) {
+            loadMetric(m);
+        }
+        setPresetDirty(false);
+        setEditLevel("metric");
+
+        // Auto-select first preset for this metric
+        const metricPresets = allPresets().filter((ep) => ep.metricId === metricId);
+        if (metricPresets.length > 0) {
+            loadPreset(metricPresets[0]);
+        }
+    }
+
+    function loadMetric(m: ExtractedMetric) {
+        setSelectedMetricId(m.metricId);
+        if (m.data) {
+            const formData: MetricFormData = {
+                id: m.data.id ?? m.metricId,
+                resultsObjectId: m.data.resultsObjectId ?? m.resultsObjectId,
+                label: m.data.label ?? { en: "", fr: "" },
+                valueProps: m.data.valueProps ?? [],
+                valueFunc: m.data.valueFunc ?? "COUNT",
+                formatAs: m.data.formatAs ?? "number",
+                requiredDisaggregationOptions: m.data.requiredDisaggregationOptions ?? [],
+                periodOptions: m.data.periodOptions ?? [],
+                valueLabelReplacements: m.data.valueLabelReplacements,
+                postAggregationExpression: m.data.postAggregationExpression,
+                hide: m.data.hide,
+                variantLabel: m.data.variantLabel,
+                importantNotes: m.data.importantNotes,
+                aiDescription: m.data.aiDescription,
+            };
+            setMetricForm(reconcile(formData));
+        }
+        setMetricDirty(false);
+    }
+
+    function selectPreset(key: string, force = false) {
+        if (!force && presetDirty()) {
+            if (!confirm("You have unsaved changes. Discard and switch?")) return;
+        }
+        const opt = presetOptions().find((o) => o.key === key);
+        if (opt) {
+            loadPreset(opt.extracted);
+        }
+        setEditLevel("preset");
+    }
+
+    function loadPreset(ep: ExtractedPreset) {
+        const key = `${ep.metricId}::${ep.preset.id ?? ""}::${ep.presetIndex}`;
+        setSelectedPresetKey(key);
+        setPresetForm(reconcile(ep.preset));
+        setPresetDirty(false);
+        setPresetTab("info");
+    }
+
+    // ── Auto-select first RO on file load or module switch ──
+    createEffect(
+        on(
+            () => p.fileContent,
+            () => {
+                const ros = resultsObjects();
+                const currentRO = selectedROId();
+
+                // If no ROs, clear everything
+                if (ros.length === 0) {
+                    setSelectedROId(null);
+                    setSelectedMetricId(null);
+                    setSelectedPresetKey(null);
+                    setRoDirty(false);
+                    setMetricDirty(false);
+                    setPresetDirty(false);
+                    return;
+                }
+
+                // If current selection is invalid (module switch), reset and select first
+                if (!currentRO || !ros.some((r) => r.id === currentRO)) {
+                    setSelectedROId(null);
+                    setSelectedMetricId(null);
+                    setSelectedPresetKey(null);
+                    setRoDirty(false);
+                    setMetricDirty(false);
+                    setPresetDirty(false);
+                    selectResultsObject(ros[0].id, true);
+                }
+            }
+        )
+    );
+
+    // ── Dirty-tracking store wrappers (platform pattern) ──
+
+    const trackRoForm: SetStoreFunction<ResultsObjectFormData> = (...args: any[]) => {
+        (setRoForm as any)(...args);
+        setRoDirty(true);
+    };
+
+    const trackMetricForm: SetStoreFunction<MetricFormData> = (...args: any[]) => {
+        (setMetricForm as any)(...args);
+        setMetricDirty(true);
+    };
+
+    const trackPresetForm: SetStoreFunction<PresetFormData> = (...args: any[]) => {
+        (setPresetForm as any)(...args);
+        setPresetDirty(true);
+    };
+
+    // ── Apply functions ──
+
+    function applyResultsObjectChanges() {
+        const roId = selectedROId();
+        if (!roId) return;
+
+        const ro = resultsObjects().find((r) => r.id === roId);
+        if (!ro) return;
+
+        const formData = unwrap(roForm);
+        const newContent = replaceResultsObjectInFile(p.fileContent, ro, formData);
+        p.onFileContentChange(newContent);
+        setRoDirty(false);
+        setSelectedROId(formData.id);
+    }
+
+    function applyMetricChanges() {
+        const mId = selectedMetricId();
+        if (!mId) return;
+
+        const m = allMetrics().find((m) => m.metricId === mId);
+        if (!m) return;
+
+        const formData = unwrap(metricForm);
+        const newContent = replaceMetricInFile(p.fileContent, m, formData);
+        p.onFileContentChange(newContent);
+        setMetricDirty(false);
+        setSelectedMetricId(formData.id);
+    }
+
+    function applyPresetChanges() {
+        const key = selectedPresetKey();
+        if (!key) return;
+
+        const opt = presetOptions().find((o) => o.key === key);
+        if (!opt) return;
+
+        const formData = unwrap(presetForm);
+        const preset = cleanPreset(formData);
+        const newContent = replacePresetInFile(p.fileContent, opt.extracted, preset);
+        p.onFileContentChange(newContent);
+        setPresetDirty(false);
+
+        const newKey = `${opt.extracted.metricId}::${preset.id}::${opt.extracted.presetIndex}`;
+        setSelectedPresetKey(newKey);
+    }
+
+    function cleanPreset(f: PresetFormData): any {
+        const result: any = {
+            id: f.id,
+            label: f.label,
+            description: f.description,
+            config: {
+                d: { ...f.config.d },
+            },
+        };
+
+        if (!result.config.d.valuesFilter || result.config.d.valuesFilter.length === 0) {
+            delete result.config.d.valuesFilter;
+        }
+        if (!result.config.d.includeNationalForAdminArea2) {
+            delete result.config.d.includeNationalForAdminArea2;
+            delete result.config.d.includeNationalPosition;
+        }
+        if (!result.config.d.selectedReplicantValue) {
+            delete result.config.d.selectedReplicantValue;
+        }
+
+        if (f.needsReplicant) result.needsReplicant = true;
+        if (f.allowedFilters && f.allowedFilters.length > 0)
+            result.allowedFilters = f.allowedFilters;
+        if (f.createDefaultVisualizationOnInstall)
+            result.createDefaultVisualizationOnInstall = f.createDefaultVisualizationOnInstall;
+        if (f.defaultPeriodFilterForDefaultVisualizations)
+            result.defaultPeriodFilterForDefaultVisualizations =
+                f.defaultPeriodFilterForDefaultVisualizations;
+
+        if (f.config.s && Object.keys(f.config.s).length > 0) {
+            result.config.s = { ...f.config.s };
+        }
+
+        if (f.config.t) {
+            const t = f.config.t;
+            const hasContent =
+                t.caption?.en || t.caption?.fr ||
+                t.subCaption?.en || t.subCaption?.fr ||
+                t.footnote?.en || t.footnote?.fr;
+            if (hasContent) {
+                result.config.t = {};
+                if (t.caption?.en || t.caption?.fr) result.config.t.caption = t.caption;
+                if (t.subCaption?.en || t.subCaption?.fr) result.config.t.subCaption = t.subCaption;
+                if (t.footnote?.en || t.footnote?.fr) result.config.t.footnote = t.footnote;
+                if (t.captionRelFontSize !== undefined)
+                    result.config.t.captionRelFontSize = t.captionRelFontSize;
+                if (t.subCaptionRelFontSize !== undefined)
+                    result.config.t.subCaptionRelFontSize = t.subCaptionRelFontSize;
+                if (t.footnoteRelFontSize !== undefined)
+                    result.config.t.footnoteRelFontSize = t.footnoteRelFontSize;
+            }
+        }
+
+        return result;
+    }
+
+    // ── New / Delete preset ──
+
+    function addNewPreset() {
+        const metricId = selectedMetricId();
+        if (!metricId) return;
+        const preset = defaultPreset();
+        const result = insertPresetInFile(p.fileContent, metricId, preset);
+        if (result) {
+            p.onFileContentChange(result.content);
+            setPresetDirty(false);
+            setSelectedPresetKey(null);
+            setTimeout(() => {
+                const opts = presetOptions();
+                const newOpt = opts.find((o) => o.key === result.insertedKey);
+                if (newOpt) selectPreset(newOpt.key, true);
+                else if (opts.length > 0) selectPreset(opts[opts.length - 1].key, true);
+            }, 0);
+        }
+    }
+
+    function deleteCurrentPreset() {
+        const key = selectedPresetKey();
+        if (!key) return;
+        const opt = presetOptions().find((o) => o.key === key);
+        if (!opt) return;
+        if (!confirm(`Delete preset "${opt.extracted.preset.label?.en ?? opt.extracted.preset.id}"?`))
+            return;
+        const newContent = deletePresetFromFile(p.fileContent, opt.extracted);
+        p.onFileContentChange(newContent);
+        setSelectedPresetKey(null);
+        setPresetDirty(false);
+        setTimeout(() => {
+            const opts = presetOptions();
+            if (opts.length > 0) selectPreset(opts[0].key, true);
+        }, 0);
+    }
+
+    // ── Render ──
+
+    return (
+        <div
+            style={{
+                display: "flex",
+                "flex-direction": "column",
+                height: "100%",
+                overflow: "hidden",
+            }}
+        >
+            {/* Hierarchy selectors */}
+            <div class="p-hierarchy-selectors">
+                {/* Row 1: Results Object */}
+                <div class="p-hierarchy-row">
+                    <span class="p-hierarchy-label">Results Object</span>
+                    <select
+                        class="p-select-input"
+                        value={selectedROId() ?? ""}
+                        onChange={(e) => {
+                            if (e.currentTarget.value) {
+                                selectResultsObject(e.currentTarget.value);
+                            }
+                        }}
+                    >
+                        <option value="" disabled>
+                            Select...
+                        </option>
+                        <For each={resultsObjects()}>
+                            {(ro) => <option value={ro.id}>{ro.id}</option>}
+                        </For>
+                    </select>
+                    <div class="p-hierarchy-actions">
+                        <button
+                            class="p-edit-level-btn"
+                            data-active={editLevel() === "resultsObject"}
+                            onClick={() => setEditLevel("resultsObject")}
+                            disabled={!selectedROId()}
+                        >
+                            Edit
+                        </button>
+                    </div>
+                </div>
+
+                {/* Row 2: Metric */}
+                <div class="p-hierarchy-row">
+                    <span class="p-hierarchy-label">Metric</span>
+                    <select
+                        class="p-select-input"
+                        value={selectedMetricId() ?? ""}
+                        onChange={(e) => {
+                            if (e.currentTarget.value) {
+                                selectMetric(e.currentTarget.value);
+                            }
+                        }}
+                        disabled={!selectedROId()}
+                    >
+                        <option value="" disabled>
+                            {selectedROId()
+                                ? metricsForSelectedRO().length === 0
+                                    ? "No metrics for this RO"
+                                    : "Select..."
+                                : "Select a Results Object first"}
+                        </option>
+                        <For each={metricsForSelectedRO()}>
+                            {(m) => (
+                                <option value={m.metricId}>
+                                    {m.label.en} ({m.metricId})
+                                </option>
+                            )}
+                        </For>
+                    </select>
+                    <div class="p-hierarchy-actions">
+                        <button
+                            class="p-edit-level-btn"
+                            data-active={editLevel() === "metric"}
+                            onClick={() => setEditLevel("metric")}
+                            disabled={!selectedMetricId()}
+                        >
+                            Edit
+                        </button>
+                    </div>
+                </div>
+
+                {/* Row 3: VizPreset */}
+                <div class="p-hierarchy-row">
+                    <span class="p-hierarchy-label">Viz Preset</span>
+                    <select
+                        class="p-select-input"
+                        value={selectedPresetKey() ?? ""}
+                        onChange={(e) => {
+                            if (e.currentTarget.value) {
+                                selectPreset(e.currentTarget.value);
+                            }
+                        }}
+                        disabled={!selectedMetricId()}
+                    >
+                        <option value="" disabled>
+                            {selectedMetricId()
+                                ? presetOptions().length === 0
+                                    ? "No presets for this metric"
+                                    : "Select..."
+                                : "Select a Metric first"}
+                        </option>
+                        <For each={presetOptions()}>
+                            {(opt) => (
+                                <option value={opt.key}>{opt.label}</option>
+                            )}
+                        </For>
+                    </select>
+                    <div class="p-hierarchy-actions">
+                        <Show when={selectedMetricId()}>
+                            <button
+                                class="p-btn-sm p-btn-primary"
+                                onClick={() => addNewPreset()}
+                            >
+                                + New
+                            </button>
+                        </Show>
+                        <Show when={selectedPresetKey()}>
+                            <button
+                                class="p-btn-sm p-btn-danger"
+                                onClick={deleteCurrentPreset}
+                            >
+                                Delete
+                            </button>
+                        </Show>
+                        <button
+                            class="p-edit-level-btn"
+                            data-active={editLevel() === "preset"}
+                            onClick={() => setEditLevel("preset")}
+                            disabled={!selectedPresetKey()}
+                        >
+                            Edit
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main form area */}
+            <div
+                style={{
+                    flex: "1",
+                    "overflow-y": "auto",
+                    "min-height": "0",
+                }}
+            >
+                {/* ResultsObject editor */}
+                <Show when={editLevel() === "resultsObject" && selectedROId()}>
+                    <ResultsObjectEditor
+                        form={roForm}
+                        setForm={trackRoForm}
+                    />
+                </Show>
+
+                {/* Metric editor */}
+                <Show when={editLevel() === "metric" && selectedMetricId()}>
+                    <MetricEditor
+                        form={metricForm}
+                        setForm={trackMetricForm}
+                        resultsObjectIds={resultsObjects().map((r) => r.id)}
+                    />
+                </Show>
+
+                {/* VizPreset editor */}
+                <Show when={editLevel() === "preset" && selectedPresetKey()}>
+                    <div class="p-tabs">
+                        <button
+                            class="p-tab"
+                            data-selected={presetTab() === "info"}
+                            onClick={() => setPresetTab("info")}
+                        >
+                            Info
+                        </button>
+                        <button
+                            class="p-tab"
+                            data-selected={presetTab() === "data"}
+                            onClick={() => setPresetTab("data")}
+                        >
+                            Data
+                        </button>
+                        <button
+                            class="p-tab"
+                            data-selected={presetTab() === "style"}
+                            onClick={() => setPresetTab("style")}
+                        >
+                            Presentation
+                        </button>
+                        <button
+                            class="p-tab"
+                            data-selected={presetTab() === "text"}
+                            onClick={() => setPresetTab("text")}
+                        >
+                            Text
+                        </button>
+                    </div>
+                    <Show when={presetTab() === "info"}>
+                        <InfoTab form={presetForm} setForm={trackPresetForm} />
+                    </Show>
+                    <Show when={presetTab() === "data"}>
+                        <DataTab form={presetForm} setForm={trackPresetForm} />
+                    </Show>
+                    <Show when={presetTab() === "style"}>
+                        <PresentationTab form={presetForm} setForm={trackPresetForm} />
+                    </Show>
+                    <Show when={presetTab() === "text"}>
+                        <TextTab form={presetForm} setForm={trackPresetForm} />
+                    </Show>
+                </Show>
+
+                {/* Empty state */}
+                <Show
+                    when={
+                        (editLevel() === "resultsObject" && !selectedROId()) ||
+                        (editLevel() === "metric" && !selectedMetricId()) ||
+                        (editLevel() === "preset" && !selectedPresetKey())
+                    }
+                >
+                    <div
+                        style={{
+                            display: "flex",
+                            "align-items": "center",
+                            "justify-content": "center",
+                            padding: "40px",
+                            color: "#a1a1a1",
+                            "font-size": "14px",
+                        }}
+                    >
+                        {editLevel() === "resultsObject"
+                            ? "Select a Results Object to edit"
+                            : editLevel() === "metric"
+                            ? "Select a Metric to edit"
+                            : "Select a Viz Preset to edit"}
+                    </div>
+                </Show>
+            </div>
+
+            {/* Apply bar */}
+            <div class="p-apply-bar">
+                <div style={{ display: "flex", gap: "12px", "align-items": "center" }}>
+                    <Show when={roDirty()}>
+                        <span class="p-dirty-indicator">RO: unsaved</span>
+                    </Show>
+                    <Show when={metricDirty()}>
+                        <span class="p-dirty-indicator">Metric: unsaved</span>
+                    </Show>
+                    <Show when={presetDirty()}>
+                        <span class="p-dirty-indicator">Preset: unsaved</span>
+                    </Show>
+                </div>
+                <div style={{ "margin-left": "auto", display: "flex", gap: "8px" }}>
+                    <Show when={roDirty() && editLevel() === "resultsObject"}>
+                        <button
+                            class="p-btn-sm p-btn-primary"
+                            onClick={applyResultsObjectChanges}
+                        >
+                            Apply Results Object
+                        </button>
+                    </Show>
+                    <Show when={metricDirty() && editLevel() === "metric"}>
+                        <button
+                            class="p-btn-sm p-btn-primary"
+                            onClick={applyMetricChanges}
+                        >
+                            Apply Metric
+                        </button>
+                    </Show>
+                    <Show when={presetDirty() && editLevel() === "preset"}>
+                        <button
+                            class="p-btn-sm p-btn-primary"
+                            onClick={applyPresetChanges}
+                        >
+                            Apply Preset
+                        </button>
+                    </Show>
+                </div>
+            </div>
         </div>
     );
 }

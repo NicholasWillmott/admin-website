@@ -62,14 +62,7 @@ async function requireAdmin(c: any) {
     const isAdmin = user.public_metadata?.isAdmin === true;
 
     if (!isAdmin) {
-      return c.json({
-        error: "Forbidden - Admin access required",
-        debug: {
-          userId: userId,
-          hasPublicMetadata: !!user.public_metadata,
-          publicMetadata: user.public_metadata
-        }
-      }, 403);
+      return c.json({ error: "Forbidden - Admin access required" }, 403);
     }
 
     return null; // User is authenticated and is admin
@@ -79,9 +72,13 @@ async function requireAdmin(c: any) {
   }
 }
 
-// Droplet IP where all servers are hosted
 const DROPLET_IP = Deno.env.get("DROPLET_IP") || "";
-const ADMIN_DROPLET_IP = Deno.env.get("ADMIN_DROPLET_IP") || "";
+
+// Validate that a parameter only contains safe characters
+// Allows alphanumeric, hyphens, dots, and underscores (e.g. "nick-testing-01", "1.9.1")
+function isSafeParam(value: string): boolean {
+  return /^[a-zA-Z0-9._-]+$/.test(value) && value.length <= 100;
+}
 
 // Get indiviudal server's info for the cards
 async function getServerInfo(serverId: string) {
@@ -99,7 +96,15 @@ app.post("/api/docker/pull/:version", async (c) => {
 
     const versionToPull = c.req.param("version");
 
+    if (!isSafeParam(versionToPull)) {
+        return c.json({ error: "Invalid version format" }, 400);
+    }
+
     const command = `docker pull timroberton/comb:wb-fastr-server-v${versionToPull}`;
+
+    if(!isCommandAllowed(command)) {
+        return c.json({ error: "Command not allowed" }, 403);
+    }
 
     try{
         const result = await executeCommand(DROPLET_IP, command);
@@ -120,6 +125,11 @@ app.post("/api/servers/:id/restart", async (c) => {
     if (authError) return authError;
 
     const serverId = c.req.param("id");
+
+    if (!isSafeParam(serverId)) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
     const server = await getServerInfo(serverId);
 
     if(!server || !server.id) {
@@ -130,9 +140,9 @@ app.post("/api/servers/:id/restart", async (c) => {
 
     console.log(command);
 
-    // if(!isCommandAllowed(command)) {
-    //     return c.json({ error: "Command not allowed" }, 403);
-    // }
+    if(!isCommandAllowed(command)) {
+        return c.json({ error: "Command not allowed" }, 403);
+    }
 
     try{
         const result = await executeCommand(DROPLET_IP, command);
@@ -161,6 +171,11 @@ app.get("/api/servers/:id/status", async (c) => {
     if (authError) return authError;
 
     const serverId = c.req.param("id");
+
+    if (!isSafeParam(serverId)) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
     try{
        const response = await fetch(`https://${serverId}.fastr-analytics.org/health_check`);
        const data = await response.json();
@@ -178,6 +193,10 @@ app.post("/api/servers/:id/update", async (c) => {
     const serverId = c.req.param("id");
     const { version } = await c.req.json();
 
+    if (!isSafeParam(serverId) || !isSafeParam(version)) {
+        return c.json({ error: "Invalid server ID or version format" }, 400);
+    }
+
     const server = await getServerInfo(serverId);
 
     if(!server || !server.id) {
@@ -188,10 +207,9 @@ app.post("/api/servers/:id/update", async (c) => {
 
     console.log(command);
 
-    // if(!isCommandAllowed(command)) {
-    //     return c.json({ error: "Command not allowed" }, 403);
-    // }
-
+    if(!isCommandAllowed(command)) {
+        return c.json({ error: "Command not allowed" }, 403);
+    }
 
     // update server
     try{
@@ -213,6 +231,10 @@ app.get("/api/versions", async (c) => {
     if (authError) return authError;
 
     const command = `docker images --format "{{.Tag}}" timroberton/comb`;
+
+    if(!isCommandAllowed(command)) {
+        return c.json({ error: "Command not allowed" }, 403);
+    }
 
     try{
         const result = await executeCommand(DROPLET_IP, command);
@@ -253,7 +275,17 @@ app.get("/api/servers/:id/logs", async (c) =>{
     if (authError) return authError;
 
     const serverId = c.req.param("id");
+
+    if (!isSafeParam(serverId)) {
+        return c.json({ success: false, logs: '', error: "Invalid server ID" });
+    }
+
     const command = `docker logs ${serverId}`;
+
+    if(!isCommandAllowed(command)) {
+        return c.json({ success: false, logs: '', error: "Command not allowed" });
+    }
+
     try {
         const result = await executeCommand(DROPLET_IP, command);
 

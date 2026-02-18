@@ -11,6 +11,28 @@ export interface ExtractedPreset {
     indent: number;
 }
 
+export interface ExtractedResultsObject {
+    id: string;
+    data: any;
+    startPos: number;
+    endPos: number;
+    indent: number;
+    index: number;
+}
+
+export interface ExtractedMetric {
+    metricId: string;
+    resultsObjectId: string;
+    label: { en: string; fr: string };
+    data: any;           // full parsed metric data (excluding vizPresets)
+    startPos: number;
+    endPos: number;
+    indent: number;
+    index: number;
+    vizPresetsArrayOpen: number;
+    vizPresetsArrayClose: number;
+}
+
 /**
  * Find the matching closing bracket for an opening bracket.
  * Correctly handles nested brackets and string boundaries.
@@ -530,4 +552,223 @@ export function deletePresetFromFile(
     }
 
     return fileContent.substring(0, start) + fileContent.substring(end);
+}
+
+// ────────────────────────────────────────────
+// ResultsObject extraction and replacement
+// ────────────────────────────────────────────
+
+/**
+ * Extract all resultsObjects from a module definition file.
+ */
+export function extractResultsObjectsFromFile(fileContent: string): ExtractedResultsObject[] {
+    const results: ExtractedResultsObject[] = [];
+
+    const roMatch = fileContent.match(/resultsObjects:\s*\[/);
+    if (!roMatch || roMatch.index === undefined) return results;
+
+    const arrayOpen = fileContent.indexOf("[", roMatch.index);
+    const arrayClose = findMatchingBracket(fileContent, arrayOpen);
+    if (arrayClose === -1) return results;
+
+    let pos = arrayOpen + 1;
+    let index = 0;
+
+    while (pos < arrayClose) {
+        while (pos < arrayClose && /[\s,]/.test(fileContent[pos])) pos++;
+        if (pos >= arrayClose) break;
+
+        if (fileContent[pos] === "{") {
+            const objClose = findMatchingBracket(fileContent, pos);
+            if (objClose === -1) break;
+
+            const objStr = fileContent.substring(pos, objClose + 1);
+            const lineStart = fileContent.lastIndexOf("\n", pos) + 1;
+            const indentSpaces = pos - lineStart;
+
+            try {
+                const jsonStr = tsLiteralToJson(objStr);
+                const data = JSON.parse(jsonStr);
+
+                results.push({
+                    id: data.id ?? `ro-${index}`,
+                    data,
+                    startPos: pos,
+                    endPos: objClose + 1,
+                    indent: Math.floor(indentSpaces / 2),
+                    index,
+                });
+            } catch {
+                // Skip unparseable objects
+            }
+
+            pos = objClose + 1;
+            index++;
+        } else {
+            pos++;
+        }
+    }
+
+    return results;
+}
+
+/**
+ * Replace a resultsObject in the file content.
+ */
+export function replaceResultsObjectInFile(
+    fileContent: string,
+    extracted: ExtractedResultsObject,
+    newData: any
+): string {
+    const newTsLiteral = toTsLiteral(newData, extracted.indent);
+    return (
+        fileContent.substring(0, extracted.startPos) +
+        newTsLiteral +
+        fileContent.substring(extracted.endPos)
+    );
+}
+
+// ────────────────────────────────────────────
+// Full metric extraction and replacement
+// ────────────────────────────────────────────
+
+/**
+ * Extract all metrics with full parsed data from a module definition file.
+ * The `data` field contains the parsed metric WITHOUT the vizPresets array.
+ */
+export function extractFullMetricsFromFile(fileContent: string): ExtractedMetric[] {
+    const results: ExtractedMetric[] = [];
+
+    const metricsMatch = fileContent.match(/metrics:\s*\[/);
+    if (!metricsMatch || metricsMatch.index === undefined) return results;
+
+    const metricsArrayOpen = fileContent.indexOf("[", metricsMatch.index);
+    const metricsArrayClose = findMatchingBracket(fileContent, metricsArrayOpen);
+    if (metricsArrayClose === -1) return results;
+
+    let pos = metricsArrayOpen + 1;
+    let index = 0;
+
+    while (pos < metricsArrayClose) {
+        while (pos < metricsArrayClose && /[\s,]/.test(fileContent[pos])) pos++;
+        if (pos >= metricsArrayClose) break;
+
+        if (fileContent[pos] === "{") {
+            const metricClose = findMatchingBracket(fileContent, pos);
+            if (metricClose === -1) break;
+
+            const metricStr = fileContent.substring(pos, metricClose + 1);
+            const lineStart = fileContent.lastIndexOf("\n", pos) + 1;
+            const indentSpaces = pos - lineStart;
+
+            // Find vizPresets array bounds within this metric
+            let vizPresetsArrayOpen = -1;
+            let vizPresetsArrayClose = -1;
+            const vpMatch = metricStr.match(/vizPresets:\s*\[/);
+            if (vpMatch && vpMatch.index !== undefined) {
+                const relArrayOpen = metricStr.indexOf("[", vpMatch.index);
+                vizPresetsArrayOpen = pos + relArrayOpen;
+                vizPresetsArrayClose = findMatchingBracket(fileContent, vizPresetsArrayOpen);
+            }
+
+            try {
+                const jsonStr = tsLiteralToJson(metricStr);
+                const fullData = JSON.parse(jsonStr);
+
+                // Remove vizPresets from parsed data (edited separately)
+                const { vizPresets: _, ...dataWithoutPresets } = fullData;
+
+                const metricId = fullData.id ?? `metric-${index}`;
+                const resultsObjectId = fullData.resultsObjectId ?? "";
+                const labelEn = fullData.label?.en ?? metricId;
+                const labelFr = fullData.label?.fr ?? "";
+
+                results.push({
+                    metricId,
+                    resultsObjectId,
+                    label: { en: labelEn, fr: labelFr },
+                    data: dataWithoutPresets,
+                    startPos: pos,
+                    endPos: metricClose + 1,
+                    indent: Math.floor(indentSpaces / 2),
+                    index,
+                    vizPresetsArrayOpen,
+                    vizPresetsArrayClose,
+                });
+            } catch {
+                // Fallback: extract basic info from regex
+                const idMatch = metricStr.match(/id:\s*"([^"]+)"/);
+                const roIdMatch = metricStr.match(/resultsObjectId:\s*"([^"]+)"/);
+                const labelMatch = metricStr.match(/label:\s*\{\s*en:\s*"([^"]+)"/);
+
+                if (idMatch) {
+                    results.push({
+                        metricId: idMatch[1],
+                        resultsObjectId: roIdMatch ? roIdMatch[1] : "",
+                        label: {
+                            en: labelMatch ? labelMatch[1] : idMatch[1],
+                            fr: "",
+                        },
+                        data: null,  // parse failed
+                        startPos: pos,
+                        endPos: metricClose + 1,
+                        indent: Math.floor(indentSpaces / 2),
+                        index,
+                        vizPresetsArrayOpen,
+                        vizPresetsArrayClose,
+                    });
+                }
+            }
+
+            pos = metricClose + 1;
+            index++;
+        } else {
+            pos++;
+        }
+    }
+
+    return results;
+}
+
+/**
+ * Replace a metric in the file content, preserving the original vizPresets text.
+ */
+export function replaceMetricInFile(
+    fileContent: string,
+    extracted: ExtractedMetric,
+    newMetricData: any
+): string {
+    // Extract the original vizPresets text from the file (if it exists)
+    let vizPresetsText = "";
+    if (extracted.vizPresetsArrayOpen !== -1 && extracted.vizPresetsArrayClose !== -1) {
+        const metricText = fileContent.substring(extracted.startPos, extracted.endPos);
+        const vpKeyMatch = metricText.match(/vizPresets:\s*\[/);
+        if (vpKeyMatch && vpKeyMatch.index !== undefined) {
+            const vpStart = extracted.startPos + vpKeyMatch.index;
+            let vpEnd = extracted.vizPresetsArrayClose + 1;
+            // Include trailing comma if present
+            if (vpEnd < fileContent.length && fileContent[vpEnd] === ",") vpEnd++;
+            vizPresetsText = fileContent.substring(vpStart, vpEnd);
+        }
+    }
+
+    // Build new metric object (without vizPresets)
+    let newTsLiteral = toTsLiteral(newMetricData, extracted.indent);
+
+    // If there were vizPresets, inject them before the closing }
+    if (vizPresetsText) {
+        const closingBrace = newTsLiteral.lastIndexOf("}");
+        const innerPad = "  ".repeat(extracted.indent + 1);
+        const outerPad = "  ".repeat(extracted.indent);
+        newTsLiteral =
+            newTsLiteral.substring(0, closingBrace) +
+            innerPad + vizPresetsText + "\n" +
+            outerPad + "}";
+    }
+
+    return (
+        fileContent.substring(0, extracted.startPos) +
+        newTsLiteral +
+        fileContent.substring(extracted.endPos)
+    );
 }

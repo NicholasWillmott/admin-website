@@ -3,9 +3,13 @@ import { Octokit } from "@octokit/rest";
 const REPO_OWNER = "FASTR-Analytics";
 const REPO_NAME = "modules";
 
-export const octokit = new Octokit({
-    auth: Deno.env.get("GITHUB_TOKEN")
-});
+let _octokit: Octokit | null = null;
+function getOctokit(): Octokit {
+    if (!_octokit) {
+        _octokit = new Octokit({ auth: Deno.env.get("GITHUB_TOKEN") });
+    }
+    return _octokit;
+}
 
 export interface ModuleInfo {
     moduleId: string;
@@ -32,7 +36,7 @@ const MODULE_FILES: Record<string, string> = {
 
 // Helper to get file by exact name
 async function getDefinitionFileByName(filename: string): Promise<string> {
-    const { data } = await octokit.rest.repos.getContent({
+    const { data } = await getOctokit().rest.repos.getContent({
         owner: REPO_OWNER,
         repo: REPO_NAME,
         path: filename,
@@ -46,7 +50,7 @@ async function getDefinitionFileByName(filename: string): Promise<string> {
 
 // List all module files from GitHub
 export async function listModules(): Promise<ModuleInfo[]> {
-    const { data } = await octokit.rest.repos.getContent({
+    const { data } = await getOctokit().rest.repos.getContent({
         owner: REPO_OWNER,
         repo: REPO_NAME,
         path: "",
@@ -103,7 +107,7 @@ export async function commitBatchChanges(
     commitMessage: string
 ): Promise<{ success: boolean; commitSha?: string }> {
     // Get the latest commit SHA on main branch
-    const { data: refData } = await octokit.rest.git.getRef({
+    const { data: refData } = await getOctokit().rest.git.getRef({
         owner: REPO_OWNER,
         repo: REPO_NAME,
         ref: "heads/main",
@@ -111,7 +115,7 @@ export async function commitBatchChanges(
     const latestCommitSha = refData.object.sha;
 
     // Get the tree SHA from that commit
-    const { data: commitData } = await octokit.rest.git.getCommit({
+    const { data: commitData } = await getOctokit().rest.git.getCommit({
         owner: REPO_OWNER,
         repo: REPO_NAME,
         commit_sha: latestCommitSha,
@@ -127,7 +131,7 @@ export async function commitBatchChanges(
                 throw new Error(`Unknown module ID: ${change.moduleId}`);
             }
 
-            const { data: blob } = await octokit.rest.git.createBlob({
+            const { data: blob } = await getOctokit().rest.git.createBlob({
                 owner: REPO_OWNER,
                 repo: REPO_NAME,
                 content: btoa(change.newContent), // Use btoa instead of Buffer in Deno
@@ -144,7 +148,7 @@ export async function commitBatchChanges(
     );
 
     // Create new tree
-    const { data: newTree } = await octokit.rest.git.createTree({
+    const { data: newTree } = await getOctokit().rest.git.createTree({
         owner: REPO_OWNER,
         repo: REPO_NAME,
         base_tree: baseTreeSha,
@@ -152,7 +156,7 @@ export async function commitBatchChanges(
     });
 
     // Create commit
-    const { data: newCommit } = await octokit.rest.git.createCommit({
+    const { data: newCommit } = await getOctokit().rest.git.createCommit({
         owner: REPO_OWNER,
         repo: REPO_NAME,
         message: commitMessage,
@@ -161,7 +165,7 @@ export async function commitBatchChanges(
     });
 
     // Update main branch reference
-    await octokit.rest.git.updateRef({
+    await getOctokit().rest.git.updateRef({
         owner: REPO_OWNER,
         repo: REPO_NAME,
         ref: "heads/main",
