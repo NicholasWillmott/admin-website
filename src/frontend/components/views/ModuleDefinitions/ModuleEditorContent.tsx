@@ -1,7 +1,7 @@
 import { useAuth } from "clerk-solidjs";
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createEffect, createResource, createSignal, For, Show } from "solid-js";
 import { VizPresetFormEditor } from "./VizPresetFormEditor.tsx";
-import { MonacoEditor } from "./MonacoEditor.tsx";
+import { MonacoEditor, MonacoDiffEditor } from "./MonacoEditor.tsx";
 import { addToast } from "../../../stores/toastStore.ts";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
@@ -15,6 +15,7 @@ interface ModuleInfo {
 
 interface PendingChange {
     moduleId: string;
+    originalContent: string;
     newContent: string;
 }
 
@@ -26,7 +27,20 @@ export function ModuleEditorContent() {
     const [fileContent, setFileContent] = createSignal<string>("");
     const [originalContent, setOriginalContent] = createSignal<string>("");
     const [editorView, setEditorView] = createSignal<"code" | "form">("code");
-    const [pendingChanges, setPendingChanges] = createSignal<PendingChange[]>([]);
+    const STAGED_KEY = "module-editor:staged-changes";
+    const [pendingChanges, setPendingChanges] = createSignal<PendingChange[]>(
+        (() => { try { return JSON.parse(localStorage.getItem(STAGED_KEY) || "[]"); } catch { return []; } })()
+    );
+    createEffect(() => {
+        const changes = pendingChanges();
+        if (changes.length > 0) {
+            localStorage.setItem(STAGED_KEY, JSON.stringify(changes));
+        } else {
+            localStorage.removeItem(STAGED_KEY);
+        }
+    });
+    const [diffingChangeId, setDiffingChangeId] = createSignal<string | null>(null);
+    const [editorTheme, setEditorTheme] = createSignal<"monokai" | "monokai-light">("monokai");
     const [commitMessage, setCommitMessage] = createSignal("");
     const [committing, setCommitting] = createSignal(false);
 
@@ -96,7 +110,7 @@ export function ModuleEditorContent() {
         setPendingChanges((prev) => {
             // Replace if already staged for this module, otherwise add
             const filtered = prev.filter((c) => c.moduleId !== modId);
-            return [...filtered, { moduleId: modId, newContent: fileContent() }];
+            return [...filtered, { moduleId: modId, originalContent: originalContent(), newContent: fileContent() }];
         });
         setOriginalContent(fileContent());
         cacheSet(modId, fileContent(), originalContent());
@@ -127,6 +141,7 @@ export function ModuleEditorContent() {
             }
             setPendingChanges([]);
             setCommitMessage("");
+            setDiffingChangeId(null);
             // Re-fetch current module to get the committed state
             const currentId = selectedModuleId();
             if (currentId) {
@@ -172,30 +187,42 @@ export function ModuleEditorContent() {
             </div>
 
             {/* Main area */}
-            <div class="module-editor-main">
+            <div class="module-editor-main" data-theme={editorTheme() === "monokai" ? "dark" : "light"}>
                 <Show when={selectedModuleId()} fallback={
                     <div class="module-editor-placeholder">Select a module to edit</div>
                 }>
                     {/* Toolebar */}
                     <div class="module-editor-toolbar">
-                        <div class="editor-view-toggle">
+                        <div style={{ display: "flex", "align-items": "center", gap: "10px" }}>
+                            <div class="editor-view-toggle">
+                                <button
+                                    type="button"
+                                    data-selected={editorView() === "code"}
+                                    onClick={() => setEditorView("code")}
+                                >
+                                    Code
+                                </button>
+                                <button
+                                    type="button"
+                                    data-selected={editorView() === "form"}
+                                    onClick={() => setEditorView("form")}
+                                >
+                                    Form
+                                </button>
+                            </div>
                             <button
-                                data-selected={editorView() === "code"}
-                                onClick={() => setEditorView("code")}
+                                type="button"
+                                class="theme-toggle-btn"
+                                onClick={() => setEditorTheme(t => t === "monokai" ? "monokai-light" : "monokai")}
+                                title={editorTheme() === "monokai" ? "Switch to light mode" : "Switch to dark mode"}
                             >
-                                Code
-                            </button>
-                            <button
-                                data-selected={editorView() === "form"}
-                                onClick={() => setEditorView("form")}
-                            >
-                                Form
+                                {editorTheme() === "monokai" ? "Light" : "Dark"}
                             </button>
                         </div>
                         <div>
                             <Show when={isDirty()}>
-                                <button 
-                                    class="stage-btn" 
+                                <button
+                                    class="stage-btn"
                                     onClick={stageChanges}
                                 >
                                     Stage Changes
@@ -206,14 +233,42 @@ export function ModuleEditorContent() {
 
                     {/* Editor */}
                     <div class="module-editor-content-area">
-                        <Show when={editorView() === "code"}>
+                        <Show when={!diffingChangeId() && editorView() === "code"}>
                             <MonacoEditor
                                 language="typescript"
                                 value={fileContent}
                                 onChange={setFileContent}
+                                theme={editorTheme}
                             />
                         </Show>
-                        <Show when={editorView() === "form"}>
+                        <Show when={diffingChangeId()}>
+                            {(changeId) => {
+                                const change = () => pendingChanges().find(c => c.moduleId === changeId());
+                                return (
+                                    <Show when={change()}>
+                                        {(c) => (
+                                            <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                                                <button
+                                                    type="button"
+                                                    class="diff-close-btn"
+                                                    onClick={() => setDiffingChangeId(null)}
+                                                    aria-label="Close diff view"
+                                                >
+                                                    &times;
+                                                </button>
+                                                <MonacoDiffEditor
+                                                    language="typescript"
+                                                    original={() => c().originalContent}
+                                                    modified={() => c().newContent}
+                                                    theme={editorTheme}
+                                                />
+                                            </div>
+                                        )}
+                                    </Show>
+                                );
+                            }}
+                        </Show>
+                        <Show when={!diffingChangeId() && editorView() === "form"}>
                             <VizPresetFormEditor
                                 fileContent={fileContent()}
                                 onFileContentChange={setFileContent}
@@ -227,7 +282,18 @@ export function ModuleEditorContent() {
                             {pendingChanges().length} staged change(s)
                             <Show when={pendingChanges().length > 0}>
                                 <For each={pendingChanges()}>
-                                    {(c) => <span class="pending-badge">{c.moduleId}</span>}
+                                    {(c) => (
+                                        <span
+                                            class="pending-badge"
+                                            data-active={diffingChangeId() === c.moduleId}
+                                            onClick={() => setDiffingChangeId(
+                                                diffingChangeId() === c.moduleId ? null : c.moduleId
+                                            )}
+                                            style={{ cursor: "pointer" }}
+                                        >
+                                            {c.moduleId}
+                                        </span>
+                                    )}
                                 </For>
                             </Show>
                         </div>
@@ -246,7 +312,7 @@ export function ModuleEditorContent() {
                                 {committing() ? "Committing..." : "Commit to GitHub"}
                             </button>
                             <Show when={pendingChanges().length > 0}>
-                                <button class="discard-btn" onClick={() => setPendingChanges([])}>Discard All</button>
+                                <button class="discard-btn" onClick={() => { setPendingChanges([]); setDiffingChangeId(null); }}>Discard All</button>
                             </Show>
                         </div>
                     </div>

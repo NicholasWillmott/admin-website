@@ -1,4 +1,8 @@
 /* General Styles */
+html {
+  overflow-y: scroll;
+}
+
 #root {
   margin: 0 auto;
   padding: 2rem;
@@ -1174,6 +1178,12 @@ h1 {
   border-right: 1px solid #e0e0e0;
 }
 
+.editor-view-toggle button:not(:first-child):not(:last-child) {
+  border-radius: 0;
+  border-right: 1px solid #e0e0e0;
+  border-left: 1px solid #e0e0e0;
+}
+
 .editor-view-toggle button:last-child {
   border-radius: 0 8px 8px 0;
   border-left: 1px solid #e0e0e0;
@@ -1205,6 +1215,23 @@ h1 {
 .stage-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(1, 232, 39, 0.4);
+}
+
+.theme-toggle-btn {
+  padding: 8px 14px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2c3e50;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
 }
 
 /* Editor content */
@@ -1340,6 +1367,555 @@ h1 {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* Dark theme overrides for toolbar and commit panel */
+.module-editor-main[data-theme="dark"] {
+  background: #1e1e1e;
+}
+
+.module-editor-main[data-theme="dark"] .module-editor-placeholder {
+  color: #888;
+}
+
+.module-editor-main[data-theme="dark"] .module-editor-toolbar {
+  background: #272822;
+  border-bottom-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .editor-view-toggle button {
+  background: #3E3D32;
+  border-color: #555;
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .editor-view-toggle button:hover {
+  background: #49483E;
+}
+
+.module-editor-main[data-theme="dark"] .editor-view-toggle button[data-selected="true"] {
+  background: linear-gradient(135deg, #16c9c9 0%, #066464 100%);
+  color: white;
+  border-color: #066464;
+}
+
+.module-editor-main[data-theme="dark"] .theme-toggle-btn {
+  background: #3E3D32;
+  border-color: #555;
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .theme-toggle-btn:hover {
+  background: #49483E;
+  border-color: #777;
+}
+
+.module-editor-main[data-theme="dark"] .module-editor-commit-panel {
+  background: #272822;
+  border-top-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .pending-changes-info {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .commit-controls input {
+  background: #3E3D32;
+  color: #F8F8F2;
+  border-color: #667eea;
+}
+
+.module-editor-main[data-theme="dark"] .commit-controls input::placeholder {
+  color: #90908A;
+}
+
+.module-editor-main[data-theme="dark"] .commit-controls button {
+  background: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .commit-controls button:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.module-editor-main[data-theme="dark"] .commit-controls button.commit-btn {
+  background: linear-gradient(135deg, #16c9c9 0%, #066464 100%);
+  color: white;
+  border: none;
+}
+
+.module-editor-main[data-theme="dark"] .commit-controls button.discard-btn {
+  background: #3E3D32;
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+
+.module-editor-main[data-theme="dark"] .commit-controls button.discard-btn:hover {
+  background: #e74c3c;
+  color: white;
+}
+
+/* ===== Form Editor Dark Mode ===== */
+
+/* Shared dark colors: bg #1e1e1e, surface #272822, border #3E3D32, text #F8F8F2, muted #90908A, input-bg #3E3D32 */
+
+.module-editor-main[data-theme="dark"] .form-editor-header {
+  background: #272822;
+  border-bottom-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .form-editor-empty {
+  color: #90908A;
+}
+
+.module-editor-main[data-theme="dark"] .form-parse-error {
+  background: #3E3D32;
+  color: #E6DB74;
+  border-bottom-color: #555;
+}
+
+/* Preset selector */
+.module-editor-main[data-theme="dark"] .preset-selector label {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .preset-selector select {
+  background: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .preset-selector select:focus {
+  border-color: #16c9c9;
+  box-shadow: 0 0 0 3px rgba(22, 201, 201, 0.2);
+}
+
+.module-editor-main[data-theme="dark"] .delete-preset-btn {
+  background: #3E3D32;
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+
+.module-editor-main[data-theme="dark"] .delete-preset-btn:hover {
+  background: #e74c3c;
+  color: white;
+}
+
+/* New preset panel */
+.module-editor-main[data-theme="dark"] .new-preset-panel {
+  background: linear-gradient(135deg, rgba(22, 201, 201, 0.1), rgba(6, 100, 100, 0.08));
+  border-bottom-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .new-preset-panel label {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .new-preset-panel select {
+  background: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+/* Tabs */
+.module-editor-main[data-theme="dark"] .form-tabs {
+  background: #272822;
+  border-bottom-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .form-tab {
+  color: #90908A;
+}
+
+.module-editor-main[data-theme="dark"] .form-tab:hover {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .form-tab[data-selected="true"] {
+  color: #16c9c9;
+  border-bottom-color: #16c9c9;
+}
+
+/* Tab content area */
+.module-editor-main[data-theme="dark"] .form-tab-content {
+  background: #1e1e1e;
+}
+
+/* Section titles */
+.module-editor-main[data-theme="dark"] .form-section-title {
+  color: #F8F8F2;
+  border-bottom-color: #3E3D32;
+}
+
+/* Form groups - labels */
+.module-editor-main[data-theme="dark"] .form-group > label {
+  color: #A6E22E;
+}
+
+/* Form groups - inputs, selects, textareas */
+.module-editor-main[data-theme="dark"] .form-group input[type="text"],
+.module-editor-main[data-theme="dark"] .form-group input[type="number"],
+.module-editor-main[data-theme="dark"] .form-group select,
+.module-editor-main[data-theme="dark"] .form-group textarea {
+  background: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .form-group input:focus,
+.module-editor-main[data-theme="dark"] .form-group select:focus,
+.module-editor-main[data-theme="dark"] .form-group textarea:focus {
+  border-color: #16c9c9;
+  box-shadow: 0 0 0 3px rgba(22, 201, 201, 0.2);
+}
+
+/* Checkbox labels */
+.module-editor-main[data-theme="dark"] .checkbox-label {
+  color: #F8F8F2;
+}
+
+/* Chips */
+.module-editor-main[data-theme="dark"] .chip-label {
+  background: #3E3D32;
+  border-color: #555;
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .chip-label:hover {
+  border-color: #16c9c9;
+  background: rgba(22, 201, 201, 0.15);
+}
+
+.module-editor-main[data-theme="dark"] .chip-label[data-checked="true"] {
+  background: rgba(22, 201, 201, 0.2);
+  border-color: #16c9c9;
+  color: #16c9c9;
+}
+
+/* List editor rows */
+.module-editor-main[data-theme="dark"] .list-editor-row select,
+.module-editor-main[data-theme="dark"] .list-editor-row input[type="text"] {
+  background: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .list-editor-row select:focus,
+.module-editor-main[data-theme="dark"] .list-editor-row input:focus {
+  border-color: #16c9c9;
+  box-shadow: 0 0 0 3px rgba(22, 201, 201, 0.2);
+}
+
+/* Remove buttons */
+.module-editor-main[data-theme="dark"] .remove-btn {
+  background: #3E3D32;
+  border-color: #555;
+  color: #90908A;
+}
+
+.module-editor-main[data-theme="dark"] .remove-btn:hover {
+  background: #e74c3c;
+  color: white;
+  border-color: #e74c3c;
+}
+
+/* Style field rows */
+.module-editor-main[data-theme="dark"] .style-field-row {
+  border-bottom-color: #3E3D32;
+}
+
+/* Add field row */
+.module-editor-main[data-theme="dark"] .add-field-row {
+  border-top-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .add-field-row select {
+  background: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+/* Unknown fields */
+.module-editor-main[data-theme="dark"] .unknown-field {
+  background: #3E3D32;
+  color: #90908A;
+}
+
+/* Form hints */
+.module-editor-main[data-theme="dark"] .form-hint {
+  color: #90908A;
+}
+
+.module-editor-main[data-theme="dark"] .form-hint code {
+  background: #3E3D32;
+  color: #E6DB74;
+}
+
+/* ---- Platform-style components (p-*) dark mode ---- */
+
+/* Labels */
+.module-editor-main[data-theme="dark"] .p-label {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-radio-group legend {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-section-title {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-form-section-title {
+  color: #F8F8F2;
+  border-bottom-color: #3E3D32;
+}
+
+/* Radio */
+.module-editor-main[data-theme="dark"] .p-radio-input {
+  background-color: #3E3D32;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-radio-input:focus-visible {
+  box-shadow: 0 0 0 2px #272822, 0 0 0 4px #16c9c9;
+}
+
+.module-editor-main[data-theme="dark"] .p-radio-dot {
+  background-color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-radio-text {
+  color: #F8F8F2;
+}
+
+/* Checkbox */
+.module-editor-main[data-theme="dark"] .p-checkbox-label {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-checkbox-input {
+  background-color: #3E3D32;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-checkbox-input:focus-visible {
+  box-shadow: 0 0 0 2px #272822, 0 0 0 4px #16c9c9;
+}
+
+.module-editor-main[data-theme="dark"] .p-checkbox-icon {
+  color: #F8F8F2;
+}
+
+/* Select */
+.module-editor-main[data-theme="dark"] .p-select-container > .p-label,
+.module-editor-main[data-theme="dark"] .p-label-holder > .p-label {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-select-input {
+  background-color: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-select-input:focus-visible {
+  box-shadow: 0 0 0 2px #272822, 0 0 0 4px #16c9c9;
+}
+
+.module-editor-main[data-theme="dark"] .p-select-chevron {
+  color: #F8F8F2;
+}
+
+/* Input */
+.module-editor-main[data-theme="dark"] .p-input-container > .p-label {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-input {
+  background-color: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-input:focus-visible {
+  box-shadow: 0 0 0 2px #272822, 0 0 0 4px #16c9c9;
+}
+
+/* Textarea */
+.module-editor-main[data-theme="dark"] .p-textarea-container > .p-label {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-textarea {
+  background-color: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-textarea:focus-visible {
+  box-shadow: 0 0 0 2px #272822, 0 0 0 4px #16c9c9;
+}
+
+/* Slider */
+.module-editor-main[data-theme="dark"] .p-slider-label-row .p-label {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-slider-value {
+  color: #90908A;
+}
+
+.module-editor-main[data-theme="dark"] .p-slider-input::-webkit-slider-runnable-track {
+  background-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-slider-input::-moz-range-track {
+  background-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-slider-input::-webkit-slider-thumb {
+  background-color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-slider-input::-moz-range-thumb {
+  background-color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-slider-input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px #272822, 0 0 0 4px #16c9c9;
+}
+
+.module-editor-main[data-theme="dark"] .p-slider-input:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 2px #272822, 0 0 0 4px #16c9c9;
+}
+
+/* Platform Tabs */
+.module-editor-main[data-theme="dark"] .p-tabs {
+  border-bottom-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .p-tab {
+  color: #90908A;
+  border-right-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .p-tab:hover {
+  background-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .p-tab[data-selected="true"] {
+  background-color: #3E3D32;
+  color: #F8F8F2;
+}
+
+/* Buttons */
+.module-editor-main[data-theme="dark"] .p-btn-sm {
+  background: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-btn-sm:hover {
+  background-color: #49483E;
+}
+
+.module-editor-main[data-theme="dark"] .p-btn-remove {
+  background: #3E3D32;
+  color: #90908A;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-btn-remove:hover {
+  background-color: #f04d44;
+  color: #ffffff;
+  border-color: #f04d44;
+}
+
+/* Filter values */
+.module-editor-main[data-theme="dark"] .p-filter-values {
+  background: #3E3D32;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-filter-values input {
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-filter-chip {
+  background-color: #49483E;
+  color: #F8F8F2;
+}
+
+.module-editor-main[data-theme="dark"] .p-filter-chip button {
+  color: #90908A;
+}
+
+.module-editor-main[data-theme="dark"] .p-filter-chip button:hover {
+  color: #f04d44;
+}
+
+/* Preset header */
+.module-editor-main[data-theme="dark"] .p-preset-header {
+  background: #272822;
+  border-bottom-color: #3E3D32;
+}
+
+/* Apply bar */
+.module-editor-main[data-theme="dark"] .p-apply-bar {
+  background: #272822;
+  border-top-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .p-apply-bar .p-dirty-indicator {
+  color: #16c9c9;
+}
+
+/* Info text */
+.module-editor-main[data-theme="dark"] .p-info-text {
+  color: #90908A;
+}
+
+.module-editor-main[data-theme="dark"] .p-info-text strong {
+  color: #F8F8F2;
+}
+
+/* Hierarchy */
+.module-editor-main[data-theme="dark"] .p-hierarchy-selectors {
+  border-bottom-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .p-hierarchy-row {
+  border-bottom-color: #3E3D32;
+}
+
+.module-editor-main[data-theme="dark"] .p-hierarchy-label {
+  color: #90908A;
+}
+
+.module-editor-main[data-theme="dark"] .p-edit-level-btn {
+  background: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
+}
+
+.module-editor-main[data-theme="dark"] .p-edit-level-btn:hover {
+  background: #49483E;
+}
+
+.module-editor-main[data-theme="dark"] .p-edit-level-btn[data-active="true"] {
+  background-color: #0e706c;
+  color: #ffffff;
+  border-color: #0e706c;
+}
+
+/* KV rows */
+.module-editor-main[data-theme="dark"] .p-kv-row .p-input {
+  background-color: #3E3D32;
+  color: #F8F8F2;
+  border-color: #555;
 }
 
 /* ===== Form Editor ===== */
@@ -2544,3 +3120,13 @@ h1 {
 .toast-success { background: #2e7d32; }
 .toast-error { background: #c62828; }
 .toast-info { background: #1565c0; }
+
+
+
+.diff-close-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    /* style to taste */
+}

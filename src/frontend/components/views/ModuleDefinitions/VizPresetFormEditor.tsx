@@ -11,6 +11,10 @@ import {
     replaceMetricInFile,
     insertPresetInFile,
     deletePresetFromFile,
+    insertResultsObjectInFile,
+    deleteResultsObjectFromFile,
+    insertMetricInFile,
+    deleteMetricFromFile,
 } from "./vizPresetParser.ts";
 
 // ────────────────────────────────────────────
@@ -232,6 +236,26 @@ function defaultPreset(): PresetFormData {
                 filterBy: [],
             },
         },
+    };
+}
+
+function defaultResultsObject(): ResultsObjectFormData {
+    return {
+        id: "new-results-object",
+        description: "",
+    };
+}
+
+function defaultMetric(resultsObjectId: string): MetricFormData {
+    return {
+        id: "new-metric",
+        resultsObjectId,
+        label: { en: "New Metric", fr: "" },
+        valueProps: [],
+        valueFunc: "COUNT",
+        formatAs: "number",
+        requiredDisaggregationOptions: [],
+        periodOptions: ["period_id"],
     };
 }
 
@@ -1984,6 +2008,82 @@ export function VizPresetFormEditor(p: VizPresetFormEditorProps) {
         }, 0);
     }
 
+    // ── New / Delete results object ──
+
+    function addNewResultsObject() {
+        const ro = defaultResultsObject();
+        const result = insertResultsObjectInFile(p.fileContent, ro);
+        if (result) {
+            p.onFileContentChange(result.content);
+            setRoDirty(false);
+            setSelectedROId(null);
+            setTimeout(() => {
+                const ros = resultsObjects();
+                const newRo = ros.find((r) => r.id === result.insertedId);
+                if (newRo) selectResultsObject(newRo.id, true);
+                else if (ros.length > 0) selectResultsObject(ros[ros.length - 1].id, true);
+            }, 0);
+        }
+    }
+
+    function deleteCurrentResultsObject() {
+        const roId = selectedROId();
+        if (!roId) return;
+        const ro = resultsObjects().find((r) => r.id === roId);
+        if (!ro) return;
+        if (!confirm(`Delete results object "${roId}"? This will NOT remove associated metrics.`)) return;
+        const newContent = deleteResultsObjectFromFile(p.fileContent, ro);
+        p.onFileContentChange(newContent);
+        setSelectedROId(null);
+        setSelectedMetricId(null);
+        setSelectedPresetKey(null);
+        setRoDirty(false);
+        setMetricDirty(false);
+        setPresetDirty(false);
+        setTimeout(() => {
+            const ros = resultsObjects();
+            if (ros.length > 0) selectResultsObject(ros[0].id, true);
+        }, 0);
+    }
+
+    // ── New / Delete metric ──
+
+    function addNewMetric() {
+        const roId = selectedROId();
+        if (!roId) return;
+        const metric = defaultMetric(roId);
+        const result = insertMetricInFile(p.fileContent, metric);
+        if (result) {
+            p.onFileContentChange(result.content);
+            setMetricDirty(false);
+            setSelectedMetricId(null);
+            setTimeout(() => {
+                const metrics = metricsForSelectedRO();
+                const newM = metrics.find((m) => m.metricId === result.insertedId);
+                if (newM) selectMetric(newM.metricId, true);
+                else if (metrics.length > 0) selectMetric(metrics[metrics.length - 1].metricId, true);
+            }, 0);
+        }
+    }
+
+    function deleteCurrentMetric() {
+        const mId = selectedMetricId();
+        if (!mId) return;
+        const m = allMetrics().find((m) => m.metricId === mId);
+        if (!m) return;
+        if (!confirm(`Delete metric "${m.label.en}" (${mId})? This will also remove all its viz presets.`)) return;
+        const newContent = deleteMetricFromFile(p.fileContent, m);
+        p.onFileContentChange(newContent);
+        setSelectedMetricId(null);
+        setSelectedPresetKey(null);
+        setMetricDirty(false);
+        setPresetDirty(false);
+        setTimeout(() => {
+            const metrics = metricsForSelectedRO();
+            if (metrics.length > 0) selectMetric(metrics[0].metricId, true);
+        }, 0);
+    }
+
     // ── Render ──
 
     return (
@@ -2017,6 +2117,22 @@ export function VizPresetFormEditor(p: VizPresetFormEditorProps) {
                         </For>
                     </select>
                     <div class="p-hierarchy-actions">
+                        <button
+                            type="button"
+                            class="p-btn-sm p-btn-primary"
+                            onClick={() => addNewResultsObject()}
+                        >
+                            + New
+                        </button>
+                        <Show when={selectedROId()}>
+                            <button
+                                type="button"
+                                class="p-btn-sm p-btn-danger"
+                                onClick={deleteCurrentResultsObject}
+                            >
+                                Delete
+                            </button>
+                        </Show>
                         <button
                             class="p-edit-level-btn"
                             data-active={editLevel() === "resultsObject"}
@@ -2057,6 +2173,24 @@ export function VizPresetFormEditor(p: VizPresetFormEditorProps) {
                         </For>
                     </select>
                     <div class="p-hierarchy-actions">
+                        <Show when={selectedROId()}>
+                            <button
+                                type="button"
+                                class="p-btn-sm p-btn-primary"
+                                onClick={() => addNewMetric()}
+                            >
+                                + New
+                            </button>
+                        </Show>
+                        <Show when={selectedMetricId()}>
+                            <button
+                                type="button"
+                                class="p-btn-sm p-btn-danger"
+                                onClick={deleteCurrentMetric}
+                            >
+                                Delete
+                            </button>
+                        </Show>
                         <button
                             class="p-edit-level-btn"
                             data-active={editLevel() === "metric"}

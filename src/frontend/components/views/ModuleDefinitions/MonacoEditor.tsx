@@ -5,8 +5,39 @@ interface MonacoEditorProps {
     language: string;
     value: Accessor<string>;
     onChange: (value: string) => void;
-    theme?: string;
+    theme: Accessor<string>;
 }
+
+monaco.editor.defineTheme("monokai-light", {
+    base: "vs",
+    inherit: true,
+    rules: [
+        { token: "", foreground: "272822" },
+        { token: "comment", foreground: "75715E", fontStyle: "italic" },
+        { token: "string", foreground: "9C6B20" },
+        { token: "number", foreground: "7A3DB8" },
+        { token: "keyword", foreground: "D6336C" },
+        { token: "type", foreground: "1A8A8A", fontStyle: "italic" },
+        { token: "type.identifier", foreground: "5B8C2A" },
+        { token: "identifier", foreground: "272822" },
+        { token: "delimiter", foreground: "272822" },
+        { token: "tag", foreground: "D6336C" },
+        { token: "attribute.name", foreground: "5B8C2A" },
+        { token: "attribute.value", foreground: "9C6B20" },
+        { token: "regexp", foreground: "9C6B20" },
+        { token: "constant", foreground: "7A3DB8" },
+    ],
+    colors: {
+        "editor.background": "#FAFAFA",
+        "editor.foreground": "#272822",
+        "editor.lineHighlightBackground": "#F0F0F0",
+        "editor.selectionBackground": "#D6EDFF",
+        "editorCursor.foreground": "#272822",
+        "editorWhitespace.foreground": "#D0D0D0",
+        "editorLineNumber.foreground": "#B0B0B0",
+        "editorLineNumber.activeForeground": "#272822",
+    },
+});
 
 monaco.editor.defineTheme("monokai", {
     base: "vs-dark",
@@ -48,17 +79,32 @@ export function MonacoEditor(props: MonacoEditorProps) {
         editor = monaco.editor.create(containerRef, {
             value: props.value(),
             language: props.language,
-            theme: "monokai",
+            theme: props.theme(),
             cursorStyle: "line",
             automaticLayout: true,
             minimap: { enabled: true },
-            smoothScrolling: true
+            smoothScrolling: true,
+            wordWrap: "on",
+            formatOnPaste: true,
+            cursorSmoothCaretAnimation: "on",
+            cursorBlinking: "smooth",
+            stickyScroll: { enabled: true },
+            foldingHighlight: true,
+            renderWhitespace: "selection",
+            guides: { bracketPairs: true },
+            bracketPairColorization: { enabled: true },
+            fontSize: 14
         });
 
         editor.onDidChangeModelContent(() => {
             if (ignoreChange) return;
             props.onChange(editor!.getValue());
         });
+    });
+
+    createEffect(() => {
+        const theme = props.theme();
+        if (editor) monaco.editor.setTheme(theme);
     });
 
     // Sync external value changes into the editor
@@ -73,6 +119,58 @@ export function MonacoEditor(props: MonacoEditorProps) {
 
     onCleanup(() => {
         editor?.dispose();
+    });
+
+    return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
+}
+
+interface MonacoDiffEditorProps {
+    language: string;
+    original: Accessor<string>;
+    modified: Accessor<string>;
+    theme: Accessor<string>;
+}
+
+export function MonacoDiffEditor(props: MonacoDiffEditorProps) {
+    let containerRef!: HTMLDivElement;
+    let diffEditor: monaco.editor.IStandaloneDiffEditor | undefined;
+
+    onMount(() => {
+        diffEditor = monaco.editor.createDiffEditor(containerRef, {
+            theme: props.theme(),
+            automaticLayout: true,
+            readOnly: true,
+            renderSideBySide: true,
+            minimap: { enabled: false },
+            smoothScrolling: true,
+            fontSize: 14,
+        });
+
+        diffEditor.setModel({
+            original: monaco.editor.createModel(props.original(), props.language),
+            modified: monaco.editor.createModel(props.modified(), props.language),
+        });
+    });
+
+    createEffect(() => {
+        const theme = props.theme();
+        if (diffEditor) monaco.editor.setTheme(theme);
+    });
+
+    createEffect(() => {
+        const model = diffEditor?.getModel();
+        if (!model) return;
+        const orig = props.original();
+        const mod = props.modified();
+        if (model.original.getValue() !== orig) model.original.setValue(orig);
+        if (model.modified.getValue() !== mod) model.modified.setValue(mod);
+    });
+
+    onCleanup(() => {
+        const model = diffEditor?.getModel();
+        model?.original.dispose();
+        model?.modified.dispose();
+        diffEditor?.dispose();
     });
 
     return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;

@@ -613,6 +613,63 @@ export function extractResultsObjectsFromFile(fileContent: string): ExtractedRes
 }
 
 /**
+ * Insert a new resultsObject into the resultsObjects array.
+ */
+export function insertResultsObjectInFile(
+    fileContent: string,
+    newData: any
+): { content: string; insertedId: string } | null {
+    const roMatch = fileContent.match(/resultsObjects:\s*\[/);
+    if (!roMatch || roMatch.index === undefined) return null;
+
+    const arrayOpen = fileContent.indexOf("[", roMatch.index);
+    const arrayClose = findMatchingBracket(fileContent, arrayOpen);
+    if (arrayClose === -1) return null;
+
+    const existing = extractResultsObjectsFromFile(fileContent);
+    const indent = existing.length > 0 ? existing[0].indent : 2;
+
+    const newTsLiteral = toTsLiteral(newData, indent);
+    const pad = "  ".repeat(indent);
+    const outerPad = "  ".repeat(Math.max(0, indent - 1));
+
+    const beforeClose = fileContent.substring(arrayOpen + 1, arrayClose);
+    const hasContent = beforeClose.trim().length > 0;
+
+    let newArrayContent: string;
+    if (hasContent) {
+        newArrayContent = beforeClose.trimEnd() + "\n" + pad + newTsLiteral + ",\n" + outerPad;
+    } else {
+        newArrayContent = "\n" + pad + newTsLiteral + ",\n" + outerPad;
+    }
+
+    const content =
+        fileContent.substring(0, arrayOpen + 1) +
+        newArrayContent +
+        fileContent.substring(arrayClose);
+
+    return { content, insertedId: newData.id };
+}
+
+/**
+ * Delete a resultsObject from the file content.
+ */
+export function deleteResultsObjectFromFile(
+    fileContent: string,
+    extracted: ExtractedResultsObject
+): string {
+    let start = extracted.startPos;
+    let end = extracted.endPos;
+
+    if (end < fileContent.length && fileContent[end] === ",") end++;
+    while (end < fileContent.length && (fileContent[end] === " " || fileContent[end] === "\t")) end++;
+    if (end < fileContent.length && fileContent[end] === "\n") end++;
+    while (start > 0 && (fileContent[start - 1] === " " || fileContent[start - 1] === "\t")) start--;
+
+    return fileContent.substring(0, start) + fileContent.substring(end);
+}
+
+/**
  * Replace a resultsObject in the file content.
  */
 export function replaceResultsObjectInFile(
@@ -728,6 +785,65 @@ export function extractFullMetricsFromFile(fileContent: string): ExtractedMetric
     }
 
     return results;
+}
+
+/**
+ * Insert a new metric into the metrics array.
+ */
+export function insertMetricInFile(
+    fileContent: string,
+    newMetricData: any
+): { content: string; insertedId: string } | null {
+    const metricsMatch = fileContent.match(/metrics:\s*\[/);
+    if (!metricsMatch || metricsMatch.index === undefined) return null;
+
+    const arrayOpen = fileContent.indexOf("[", metricsMatch.index);
+    const arrayClose = findMatchingBracket(fileContent, arrayOpen);
+    if (arrayClose === -1) return null;
+
+    const existing = extractFullMetricsFromFile(fileContent);
+    const indent = existing.length > 0 ? existing[0].indent : 2;
+
+    // New metrics start with an empty vizPresets array
+    const dataWithPresets = { ...newMetricData, vizPresets: [] };
+    const newTsLiteral = toTsLiteral(dataWithPresets, indent);
+    const pad = "  ".repeat(indent);
+    const outerPad = "  ".repeat(Math.max(0, indent - 1));
+
+    const beforeClose = fileContent.substring(arrayOpen + 1, arrayClose);
+    const hasContent = beforeClose.trim().length > 0;
+
+    let newArrayContent: string;
+    if (hasContent) {
+        newArrayContent = beforeClose.trimEnd() + "\n" + pad + newTsLiteral + ",\n" + outerPad;
+    } else {
+        newArrayContent = "\n" + pad + newTsLiteral + ",\n" + outerPad;
+    }
+
+    const content =
+        fileContent.substring(0, arrayOpen + 1) +
+        newArrayContent +
+        fileContent.substring(arrayClose);
+
+    return { content, insertedId: newMetricData.id };
+}
+
+/**
+ * Delete a metric from the file content.
+ */
+export function deleteMetricFromFile(
+    fileContent: string,
+    extracted: ExtractedMetric
+): string {
+    let start = extracted.startPos;
+    let end = extracted.endPos;
+
+    if (end < fileContent.length && fileContent[end] === ",") end++;
+    while (end < fileContent.length && (fileContent[end] === " " || fileContent[end] === "\t")) end++;
+    if (end < fileContent.length && fileContent[end] === "\n") end++;
+    while (start > 0 && (fileContent[start - 1] === " " || fileContent[start - 1] === "\t")) start--;
+
+    return fileContent.substring(0, start) + fileContent.substring(end);
 }
 
 /**
