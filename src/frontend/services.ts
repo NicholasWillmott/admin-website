@@ -1,3 +1,4 @@
+import { addToast } from './stores/toastStore.ts';
 import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
@@ -89,7 +90,7 @@ export async function dockerPull(version: string, token: string | null): Promise
       headers: getAuthHeaders(token),
     });
     if (response.ok) {
-      alert(`Docker image for version ${version} pulled successfully!`);
+      addToast(`Docker image for version ${version} pulled successfully!`, "success");
       return await response.json();
     } else {
       return null;
@@ -108,7 +109,7 @@ export async function downloadBackupFile(serverId: string, folder: string, file:
     );
 
     if (!response.ok) {
-      alert('Failed to download backup file');
+      addToast('Failed to download backup file', "error");
       return;
     }
 
@@ -122,7 +123,7 @@ export async function downloadBackupFile(serverId: string, folder: string, file:
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
   } catch (error) {
-    alert(`Error downloading file: ${error}`);
+    addToast(`Error downloading file: ${error}`, "error");
   }
 }
 
@@ -134,7 +135,7 @@ export async function downloadEntireBackup(serverId: string, folder: string, tok
     );
 
     if (!response.ok) {
-      alert('Failed to download entire backup');
+      addToast('Failed to download entire backup', "error");
       return;
     }
 
@@ -148,7 +149,7 @@ export async function downloadEntireBackup(serverId: string, folder: string, tok
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
   } catch (error) {
-    alert(`Error downloading entire backup: ${error}`);
+    addToast(`Error downloading entire backup: ${error}`, "error");
   }
 }
 

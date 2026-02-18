@@ -43,7 +43,9 @@ async function getDefinitionFileByName(filename: string): Promise<string> {
     });
 
     if ("content" in data) {
-        return atob(data.content); // Use atob instead of Buffer in Deno
+        const binary = atob(data.content);
+        const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+        return new TextDecoder().decode(bytes);
     }
     throw new Error("File not found");
 }
@@ -134,7 +136,7 @@ export async function commitBatchChanges(
             const { data: blob } = await getOctokit().rest.git.createBlob({
                 owner: REPO_OWNER,
                 repo: REPO_NAME,
-                content: btoa(change.newContent), // Use btoa instead of Buffer in Deno
+                content: btoa(String.fromCharCode(...new TextEncoder().encode(change.newContent))),
                 encoding: "base64",
             });
 

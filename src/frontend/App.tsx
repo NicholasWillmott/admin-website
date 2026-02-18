@@ -2,12 +2,12 @@ import { createResource, createSignal, For, Show, createEffect, onCleanup } from
 import './css/App.css'
 import { SERVER_CATEGORIES, ALL_CATEGORIZED_SERVER_IDS } from './serverCategories.ts'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
-import { ModuleEditorContent } from './components/ModuleDefinitions/ModuleEditorContent.tsx';
-import { ServerCard } from './components/ServerCard.tsx';
-import { LogsModal } from './components/LogsModal.tsx';
-import { BackupsModal } from './components/BackupsModal.tsx';
-import { SnapshotsView } from './components/SnapshotsView.tsx';
-import { DockerPullModal } from './components/DockerPullModal.tsx';
+import { ModuleEditorContent } from './components/views/ModuleDefinitions/ModuleEditorContent.tsx';
+import { ServerCard } from './components/views/ServerCard.tsx';
+import { LogsModal } from './components/modals/LogsModal.tsx';
+import { BackupsModal } from './components/modals/BackupsModal.tsx';
+import { SnapshotsView } from './components/views/SnapshotsView.tsx';
+import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import type { ServerRestartStatus, BackupInfo, ViewType } from './types.ts';
 import {
   fetchServerCardData,
@@ -25,6 +25,8 @@ import {
   restartServerApi,
   backupServerApi,
 } from './services.ts';
+import { ToastContainer } from './components/modals/Toast.tsx';
+import { addToast } from './stores/toastStore.ts';
 
 function App() {
   const { getToken } = useAuth();
@@ -198,13 +200,13 @@ function App() {
       const token = await getToken();
       const result = await deleteVolumeSnapshotApi(snapshotId, token);
       if (result.success) {
-        alert('Snapshot deleted successfully!');
+        addToast('Snapshot deleted successfully!', "success");
         refetchSnapshots();
       } else {
-        alert(`Failed to delete snapshot: ${result.error}`);
+        addToast(`Failed to delete snapshot: ${result.error}`, "error");
       }
     } catch (error) {
-      alert(`Error deleting snapshot: ${error}`);
+      addToast(`Error deleting snapshot: ${error}`, "error");
     }
   };
 
@@ -215,12 +217,12 @@ function App() {
       const token = await getToken();
       const result = await createVolumeSnapshotApi(token);
       if (result.success) {
-        alert(`Volume snapshot created successfully!`);
+        addToast(`Volume snapshot created successfully!`, "success");
       } else {
-        alert(`Failed to create snapshot: ${result.error}`);
+        addToast(`Failed to create snapshot: ${result.error}`, "error");
       }
     } catch (error) {
-      alert(`Error creating snapshot: ${error}`);
+      addToast(`Error creating snapshot: ${error}`, "error");
     } finally {
       setSnappingVolume(false);
     }
@@ -238,19 +240,19 @@ function App() {
         const isOnline = await pollServerLogsForStartup(serverId);
         if (isOnline) {
           setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'online' }));
-          alert(`Server ${serverId} restarted successfully and is now online.`);
+          addToast(`Server ${serverId} restarted successfully and is now online.`, "success");
           refetchStatuses();
         } else {
           setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'idle' }));
-          alert(`Server ${serverId} restart command sent, but failed to detect online status.`);
+          addToast(`Server ${serverId} restart command sent, but failed to detect online status.`, "error");
         }
       } else {
         setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'idle' }));
-        alert(`Failed to restart server ${serverId}: ${result.error}`);
+        addToast(`Failed to restart server ${serverId}: ${result.error}`, "error");
       }
     } catch (error) {
       setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'idle' }));
-      alert(`Error restarting server ${serverId}: ${error}`);
+      addToast(`Error restarting server ${serverId}: ${error}`, "error");
     } finally {
       setRestartingServerId(null);
     }
@@ -259,7 +261,7 @@ function App() {
   // update server version
   const updateServerVersion = async (serverId: string, version: string) => {
     if (sshOperationInProgress()) {
-      alert('Another SSH operation is in progress. Please wait.');
+      addToast('Another SSH operation is in progress. Please wait.', "info");
       return;
     }
 
@@ -271,7 +273,7 @@ function App() {
       const result = await updateServerVersionApi(serverId, version, token);
 
       if (result.success) {
-        alert(`${serverId} Server updated successfully to version ${version}.`);
+        addToast(`${serverId} Server updated successfully to version ${version}.`, "success");
 
         const currentServers = servers();
         if (currentServers) {
@@ -287,10 +289,10 @@ function App() {
         setUpdatingServerId(null);
         await restartServerInternal(serverId);
       } else {
-        alert(`Error: ${result.error}`);
+        addToast(`Error: ${result.error}`, "error");
       }
     } catch (error) {
-      alert(`Failed to update server: ${error}`);
+      addToast(`Failed to update server: ${error}`, "error");
     } finally {
       setUpdatingServerId(null);
       setSshOperationInProgress(false);
@@ -300,7 +302,7 @@ function App() {
   // restart server (user-initiated)
   const restartServer = async (serverId: string) => {
     if (sshOperationInProgress()) {
-      alert('Another SSH operation is in progress. Please wait.');
+      addToast('Another SSH operation is in progress. Please wait.', "info");
       return;
     }
 
@@ -321,12 +323,12 @@ function App() {
       const result = await backupServerApi(serverId, token);
 
       if (result.success) {
-        alert(`Backup created successfully for ${serverId}`);
+        addToast(`Backup created successfully for ${serverId}`, "success");
       } else {
-        alert(`Failed to backup ${serverId}: ${result.error}`);
+        addToast(`Failed to backup ${serverId}: ${result.error}`, "error");
       }
     } catch (error) {
-      alert(`Error backing up server ${serverId}: ${error}`);
+      addToast(`Error backing up server ${serverId}: ${error}`, "error");
     } finally {
       setBackingUpServerId(null);
     }
@@ -335,7 +337,7 @@ function App() {
   // docker pull handler
   const handleDockerPull = async (version: string) => {
     if (sshOperationInProgress()) {
-      alert('Please wait for the current operation to complete');
+      addToast('Please wait for the current operation to complete', "info");
       return;
     }
 
@@ -352,6 +354,7 @@ function App() {
 
   return (
     <>
+      <ToastContainer />
       <div class="sticky-header">
         <h1>Fastr Analytics Admin Dashboard</h1>
         <SignedIn>
@@ -441,7 +444,7 @@ function App() {
                             <For each={categoryServers()}>
                               {(server) => (
                                 <ServerCard
-                                  server={server}
+                                  server={server} 
                                   isExpanded={expandedId() === server.id}
                                   onToggle={() => toggleCard(server.id)}
                                   status={statuses()?.[server.id] ?? null}

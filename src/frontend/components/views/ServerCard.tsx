@@ -1,6 +1,6 @@
 import { createSignal, For, Show } from 'solid-js';
-import type { Server, HealthCheckResponse, ServerRestartStatus } from '../types.ts';
-import { filterVersionsForServer, formatUptime } from '../utils.ts';
+import type { Server, HealthCheckResponse, ServerRestartStatus } from '../../types.ts';
+import { filterVersionsForServer, formatUptime } from '../../utils.ts';
 
 interface ServerCardProps {
   server: Server;

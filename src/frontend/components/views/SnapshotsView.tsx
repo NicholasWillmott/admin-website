@@ -1,5 +1,5 @@
 import { For } from 'solid-js';
-import { formatDate } from '../utils.ts';
+import { formatDate } from '../../utils.ts';
 
 interface Snapshot {
   id: string;

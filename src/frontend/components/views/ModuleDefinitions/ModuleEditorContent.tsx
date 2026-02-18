@@ -2,6 +2,7 @@ import { useAuth } from "clerk-solidjs";
 import { createResource, createSignal, For, Show } from "solid-js";
 import { VizPresetFormEditor } from "./VizPresetFormEditor.tsx";
 import { MonacoEditor } from "./MonacoEditor.tsx";
+import { addToast } from "../../../stores/toastStore.ts";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -57,11 +58,13 @@ export function ModuleEditorContent() {
     async function loadModule(moduleId: string) {
         // Save current module's content to cache before switching
         const currentId = selectedModuleId();
-        if (currentId) {
+        if (currentId && fileContent()) {
             cacheSet(currentId, fileContent(), originalContent());
         }
 
         setSelectedModuleId(moduleId);
+        setFileContent("");
+        setOriginalContent("");
 
         // Restore from cache if available
         const cached = cacheGet(moduleId);
@@ -78,6 +81,8 @@ export function ModuleEditorContent() {
         });
         const json = await res.json();
         if (!json.success) throw new Error(json.error);
+        // Guard against stale responses from a slow fetch
+        if (selectedModuleId() !== moduleId) return;
         setFileContent(json.data.content);
         setOriginalContent(json.data.content);
     }
@@ -134,9 +139,9 @@ export function ModuleEditorContent() {
                     setOriginalContent(freshJson.data.content);
                 }
             }
-            alert(`Committed successfully! SHA: ${json.data.commitSha}`);
+            addToast(`Committed successfully! SHA: ${json.data.commitSha}`, "success");
         } catch (error) {
-            alert(`Commit failed: ${error}`);
+            addToast(`Commit failed: ${error}`, "error");
         } finally {
             setCommitting(false);
         }

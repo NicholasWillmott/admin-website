@@ -1,6 +1,6 @@
 import { createSignal, For } from 'solid-js';
-import type { BackupInfo } from '../types.ts';
-import { formatBytes } from '../utils.ts';
+import type { BackupInfo } from '../../types.ts';
+import { formatBytes } from '../../utils.ts';
 
 interface BackupsModalProps {
   serverId: string;
