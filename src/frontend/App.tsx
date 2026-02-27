@@ -24,9 +24,12 @@ import {
   updateServerVersionApi,
   restartServerApi,
   backupServerApi,
+  getUsersApi,
+  getUserSessionsApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
+import { Users } from "./components/views/Users.tsx";
 
 function App() {
   const { getToken } = useAuth();
@@ -48,6 +51,7 @@ function App() {
     const token = await getToken();
     return fetchServerVersions(token);
   });
+
 
   // track setting snapshot
   const [snappingVolume, setSnappingVolume] = createSignal<boolean>(false);
@@ -85,7 +89,13 @@ function App() {
   const [volumeSnapshots, { refetch: refetchSnapshots }] = createResource(async () => {
     const token = await getToken();
     return fetchVolumeSnapshots(token);
-  })
+  });
+
+  // get all users
+  const [clerkUsers, { refetch: refetchClerkUsers }] = createResource(async () => {
+    const token = await getToken();
+    return getUsersApi(token);
+  });
 
   // Track active view
   const [activeView, setActiveView] = createSignal<ViewType>("servers");
@@ -334,6 +344,12 @@ function App() {
     }
   };
 
+  // fetch sessions for a user
+  const handleFetchSessions = async (userId: string) => {
+    const token = await getToken();
+    return getUserSessionsApi(userId, token);
+  };
+
   // docker pull handler
   const handleDockerPull = async (version: string) => {
     if (sshOperationInProgress()) {
@@ -376,9 +392,10 @@ function App() {
               </button>
               <button
                 type="button"
-                onClick={() => setDockerPullModalOpen(true)}
+                data-selected={activeView() === "users"}
+                onClick={() => setActiveView("users")}
               >
-                Docker Pull
+                Users
               </button>
               <button
                 type="button"
@@ -386,6 +403,12 @@ function App() {
                 onClick={() => setActiveView("moduleEditor")}
               >
                 Module Definitions
+              </button>
+              <button
+                type="button"
+                onClick={() => setDockerPullModalOpen(true)}
+              >
+                Docker Pull
               </button>
             </div>
           </Show>
@@ -508,6 +531,16 @@ function App() {
           <Show when={activeView() === "moduleEditor"}>
             <ModuleEditorContent/>
           </Show>
+
+          <Show when={activeView() === "users"}>
+            <Users
+              users={clerkUsers()}
+              loading={clerkUsers.loading}
+              error={clerkUsers.error}
+              onFetchSessions={handleFetchSessions}
+            />
+          </Show>
+
         </Show>
 
         {/* Docker Pull Modal */}

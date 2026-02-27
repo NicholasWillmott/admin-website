@@ -1052,6 +1052,298 @@ h1 {
   }
 }
 
+/* ===== Users View ===== */
+.users-container {
+  position: fixed;
+  top: 140px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  background: linear-gradient(135deg, #006666 0%, #2e2d2e 100%);
+}
+
+.users-content {
+  width: 100%;
+  max-width: 1200px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 10px;
+}
+
+.users-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.users-title {
+  margin: 0;
+  color: white;
+  font-size: 1.4rem;
+  font-weight: 600;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+}
+
+.users-loading,
+.users-error,
+.users-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.users-loading .spinner {
+  border-color: rgba(255,255,255,0.2);
+  border-top-color: white;
+  margin: 0 auto 16px;
+}
+
+.users-loading p {
+  font-size: 16px;
+}
+
+.users-error {
+  color: #ff8a80;
+}
+
+.users-table-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  flex: 1;
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,0.15);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.users-table thead {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(135deg, #16c9c9 0%, #066464 100%);
+  z-index: 10;
+}
+
+.users-table th {
+  padding: 16px 20px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: white;
+  border-bottom: 2px solid rgba(255,255,255,0.3);
+  white-space: nowrap;
+}
+
+.users-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.15s ease;
+}
+
+.users-table tbody tr:hover {
+  background-color: #f0f7f7;
+}
+
+.users-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.users-table td {
+  padding: 14px 20px;
+  font-size: 14px;
+  color: #333;
+  vertical-align: middle;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 180px;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid #e0e0e0;
+}
+
+.user-name {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.user-email-cell {
+  color: #555;
+  font-size: 13px;
+}
+
+.user-date {
+  color: #888;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.activity-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  background: #f5f5f5;
+  color: #444;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.activity-btn:hover {
+  background: #e8e8e8;
+  border-color: #bbb;
+}
+
+/* ===== Sessions Modal / Heatmap ===== */
+
+.sessions-modal-content {
+  width: 780px;
+  max-width: 95vw;
+}
+
+.sessions-modal-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sessions-modal-user h2 {
+  margin: 0 0 2px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.sessions-modal-email {
+  font-size: 13px;
+  color: #666;
+}
+
+.sessions-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 0;
+  color: #666;
+}
+
+.sessions-stats-row {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 20px;
+}
+
+.heatmap-year-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  margin: 0 0 8px 0;
+}
+
+.heatmap-container {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.heatmap-day-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.heatmap-day-label {
+  height: 11px;
+  font-size: 9px;
+  color: #999;
+  line-height: 11px;
+  user-select: none;
+}
+
+.heatmap-right {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.heatmap-grid {
+  display: flex;
+  gap: 2px;
+}
+
+.heatmap-week {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.heatmap-cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: #ebedf0;
+  flex-shrink: 0;
+}
+
+.heatmap-cell.empty {
+  background: transparent;
+}
+
+.heatmap-cell.active {
+  background: #0e706c;
+}
+
+.heatmap-cell.today {
+  outline: 2px solid #0e706c;
+  outline-offset: 1px;
+}
+
+.heatmap-cell.active.today {
+  background: #0e706c;
+  outline-color: #333;
+}
+
+.heatmap-month-row {
+  position: relative;
+  height: 14px;
+}
+
+.heatmap-month-label {
+  position: absolute;
+  font-size: 10px;
+  color: #999;
+  user-select: none;
+  white-space: nowrap;
+}
+
 /* ===== Module Editor ===== */
 .module-editor-layout {
   position: fixed;

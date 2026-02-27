@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -203,4 +203,30 @@ export async function backupServerApi(serverId: string, token: string | null): P
     headers: getAuthHeaders(token),
   });
   return await response.json();
+}
+
+export async function getUsersApi(token: string | null): Promise<ClerkUser[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/users`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch users:", error);
+    return [];
+  }
+}
+
+export async function getUserSessionsApi(userId: string, token: string | null): Promise<ClerkSession[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/users/${userId}/sessions`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error(`Failed to fetch sessions for user ${userId}:`, error);
+    return [];
+  }
 }
