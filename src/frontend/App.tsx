@@ -92,7 +92,7 @@ function App() {
   });
 
   // get all users
-  const [clerkUsers, { refetch: refetchClerkUsers }] = createResource(async () => {
+  const [clerkUsers] = createResource(async () => {
     const token = await getToken();
     return getUsersApi(token);
   });

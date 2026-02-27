@@ -42,6 +42,7 @@ function getActiveDays(sessions: ClerkSession[]): Set<string> {
     const days = new Set<string>();
     for (const session of sessions) {
         days.add(toLocalDateStr(new Date(session.last_active_at)));
+        days.add(toLocalDateStr(new Date(session.created_at)));
     }
     return days;
 }
