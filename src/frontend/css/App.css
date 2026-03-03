@@ -163,6 +163,12 @@ h1 {
   background: linear-gradient(135deg, #16c9c9 0%, #066464 100%);
 }
 
+.role-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 /* Expanded Content */
 .expanded-content {
   margin-top: 20px;

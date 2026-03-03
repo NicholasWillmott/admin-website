@@ -180,12 +180,14 @@ export function Users(p: UsersProps) {
                                                 </td>
                                                 <td class="user-email-cell">{getPrimaryEmail(user)}</td>
                                                 <td>
-                                                    {user.public_metadata.isAdmin === true && (
-                                                        <span class="badge">Super Admin</span>
-                                                    )}
-                                                    {selectedInstance() && instanceAdminEmails().has(getPrimaryEmail(user)) && (
-                                                        <span class="badge badge-instance">Instance Admin</span>
-                                                    )}
+                                                    <div class="role-badges">
+                                                        {user.public_metadata.isAdmin === true && (
+                                                            <span class="badge">Super Admin</span>
+                                                        )}
+                                                        {selectedInstance() && instanceAdminEmails().has(getPrimaryEmail(user)) && (
+                                                            <span class="badge badge-instance">Instance Admin</span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td class="user-date">{formatUnixDate(user.created_at)}</td>
                                                 <td class="user-date">{formatUnixDate(user.last_sign_in_at)}</td>
