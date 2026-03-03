@@ -12,11 +12,11 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 const CELL_STRIDE = 13; // 11px cell + 2px gap
 
 function generateWeeks(year: number): (Date | null)[][] {
-    const jan1 = new Date(year, 0, 1);
-    const dec31 = new Date(year, 11, 31);
+    const jan1 = new Date(Date.UTC(year, 0, 1));
+    const dec31 = new Date(Date.UTC(year, 11, 31));
 
     const start = new Date(jan1);
-    start.setDate(jan1.getDate() - jan1.getDay()); // back to Sunday
+    start.setUTCDate(jan1.getUTCDate() - jan1.getUTCDay()); // back to Sunday
 
     const weeks: (Date | null)[][] = [];
     const current = new Date(start);
@@ -25,8 +25,8 @@ function generateWeeks(year: number): (Date | null)[][] {
         const week: (Date | null)[] = [];
         for (let d = 0; d < 7; d++) {
             const day = new Date(current);
-            week.push(day.getFullYear() === year ? day : null);
-            current.setDate(current.getDate() + 1);
+            week.push(day.getUTCFullYear() === year ? day : null);
+            current.setUTCDate(current.getUTCDate() + 1);
         }
         weeks.push(week);
     }
@@ -34,15 +34,15 @@ function generateWeeks(year: number): (Date | null)[][] {
     return weeks;
 }
 
-function toLocalDateStr(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function toDateStr(d: Date): string {
+    return d.toISOString().split('T')[0];
 }
 
 function getActiveDays(sessions: ClerkSession[]): Set<string> {
     const days = new Set<string>();
     for (const session of sessions) {
-        days.add(toLocalDateStr(new Date(session.last_active_at)));
-        days.add(toLocalDateStr(new Date(session.created_at)));
+        days.add(toDateStr(new Date(session.created_at)));
+        days.add(toDateStr(new Date(session.last_active_at)));
     }
     return days;
 }
@@ -54,7 +54,7 @@ function getMonthLabels(weeks: (Date | null)[][]): { label: string; left: number
     weeks.forEach((week, i) => {
         const firstDay = week.find(d => d !== null);
         if (firstDay) {
-            const month = firstDay.getMonth();
+            const month = firstDay.getUTCMonth();
             if (month !== lastMonth) {
                 labels.push({ label: MONTH_NAMES[month], left: i * CELL_STRIDE });
                 lastMonth = month;
@@ -73,7 +73,7 @@ export function UserSessionsModal(p: UserSessionsModalProps) {
     const year = new Date().getFullYear();
     const weeks = generateWeeks(year);
     const monthLabels = getMonthLabels(weeks);
-    const today = toLocalDateStr(new Date());
+    const today = toDateStr(new Date());
 
     const [sessions] = createResource(() => p.onFetchSessions(p.user.id));
 
@@ -135,7 +135,7 @@ export function UserSessionsModal(p: UserSessionsModalProps) {
                                                     <For each={week}>
                                                         {(day) => {
                                                             if (!day) return <div class="heatmap-cell empty" />;
-                                                            const dateStr = toLocalDateStr(day);
+                                                            const dateStr = toDateStr(day);
                                                             const isActive = activeDays().has(dateStr);
                                                             const isToday = dateStr === today;
                                                             return (

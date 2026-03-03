@@ -62,6 +62,7 @@ export interface HealthCheckResponse {
   databaseFolder: string;
   totalUsers: number;
   adminUsers: string[];
+  serverUsers?: string[];
   projects: string[];
   datasets: {
     hmis: { versionId: number } | null;

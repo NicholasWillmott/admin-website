@@ -13,6 +13,7 @@ import {
   fetchServerCardData,
   fetchServerLogs,
   fetchServerBackups,
+  fetchServerStatus,
   fetchAllServerStatuses,
   fetchServerVersions,
   fetchVolumeSnapshots,
@@ -538,6 +539,11 @@ function App() {
               loading={clerkUsers.loading}
               error={clerkUsers.error}
               onFetchSessions={handleFetchSessions}
+              servers={servers()}
+              onFetchInstanceStatus={async (serverId) => {
+                const token = await getToken();
+                return fetchServerStatus(serverId, token);
+              }}
             />
           </Show>
 

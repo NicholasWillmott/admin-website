@@ -1,5 +1,5 @@
 import { For, createSignal } from 'solid-js';
-import type { ClerkUser, ClerkSession } from "../../types.ts";
+import type { ClerkUser, ClerkSession, Server, HealthCheckResponse } from "../../types.ts";
 import { formatDate } from '../../utils.ts';
 import { UserSessionsModal } from '../modals/UserSessionsModal.tsx';
 
@@ -8,6 +8,8 @@ interface UsersProps {
     loading: boolean;
     error: Error | undefined;
     onFetchSessions: (userId: string) => Promise<ClerkSession[]>;
+    servers: Server[] | undefined;
+    onFetchInstanceStatus: (serverId: string) => Promise<HealthCheckResponse | null>;
 }
 
 function getPrimaryEmail(user: ClerkUser): string {
@@ -20,12 +22,85 @@ function formatUnixDate(ms: number | null): string {
     return formatDate(new Date(ms).toISOString());
 }
 
+type SortKey = 'created_at' | 'last_sign_in_at' | 'role';
+type SortDir = 'asc' | 'desc';
+
 export function Users(p: UsersProps) {
     const [selectedUser, setSelectedUser] = createSignal<ClerkUser | null>(null);
+    const [sortKey, setSortKey] = createSignal<SortKey>('created_at');
+    const [sortDir, setSortDir] = createSignal<SortDir>('desc');
+    const [selectedInstance, setSelectedInstance] = createSignal<string | null>(null);
+    const [instanceEmails, setInstanceEmails] = createSignal<Set<string>>(new Set());
+    const [instanceAdminEmails, setInstanceAdminEmails] = createSignal<Set<string>>(new Set());
+    const [instanceLoading, setInstanceLoading] = createSignal(false);
+    const [selectedDomain, setSelectedDomain] = createSignal<string | null>(null);
+
+    const availableDomains = () => {
+        if (!p.users) return [];
+        const domains = new Set<string>();
+        for (const u of p.users) {
+            const email = getPrimaryEmail(u);
+            const at = email.indexOf('@');
+            if (at !== -1) domains.add(email.slice(at + 1));
+        }
+        return [...domains].sort();
+    };
+
+    function toggleSort(key: SortKey) {
+        if (sortKey() === key) {
+            setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+        } else {
+            setSortKey(key);
+            setSortDir('desc');
+        }
+    }
+
+    async function selectInstance(serverId: string | null) {
+        setSelectedInstance(serverId);
+        if (!serverId) {
+            setInstanceEmails(new Set<string>());
+            setInstanceAdminEmails(new Set<string>());
+            return;
+        }
+        setInstanceLoading(true);
+        const status = await p.onFetchInstanceStatus(serverId);
+        if (status) {
+            const emails: string[] = status.serverUsers ?? status.adminUsers ?? [];
+            setInstanceEmails(new Set<string>(emails));
+            setInstanceAdminEmails(new Set<string>(status.adminUsers ?? []));
+        } else {
+            setInstanceEmails(new Set<string>());
+            setInstanceAdminEmails(new Set<string>());
+        }
+        setInstanceLoading(false);
+    }
 
     const sortedUsers = () => {
         if (!p.users) return [];
-        return [...p.users].sort((a, b) => b.created_at - a.created_at);
+        const key = sortKey();
+        const dir = sortDir();
+        const emailFilter = instanceEmails();
+        const filtering = selectedInstance() !== null;
+
+        const domain = selectedDomain();
+
+        const filtered = p.users.filter(u => {
+            const email = getPrimaryEmail(u);
+            if (filtering && !emailFilter.has(email)) return false;
+            if (domain && !email.endsWith(`@${domain}`)) return false;
+            return true;
+        });
+
+        return [...filtered].sort((a, b) => {
+            if (key === 'role') {
+                const aAdmin = a.public_metadata.isAdmin === true ? 1 : 0;
+                const bAdmin = b.public_metadata.isAdmin === true ? 1 : 0;
+                return dir === 'desc' ? bAdmin - aAdmin : aAdmin - bAdmin;
+            }
+            const aVal = a[key] ?? 0;
+            const bVal = b[key] ?? 0;
+            return dir === 'desc' ? bVal - aVal : aVal - bVal;
+        });
     };
 
     return (
@@ -33,7 +108,28 @@ export function Users(p: UsersProps) {
             <div class="users-container">
                 <div class="users-content">
                     <div class="users-header">
-                        <h2 class="users-title">Users ({p.users?.length ?? 0})</h2>
+                        <h2 class="users-title">Users ({sortedUsers().length}{selectedInstance() ? ` of ${p.users?.length ?? 0}` : ''})</h2>
+                        <div class="users-header-controls">
+                            {instanceLoading() && <div class="spinner spinner-sm"></div>}
+                            <select
+                                class="instance-filter-select"
+                                onChange={(e: { currentTarget: { value: string } }) => setSelectedDomain(e.currentTarget.value || null)}
+                            >
+                                <option value="">All Domains</option>
+                                <For each={availableDomains()}>
+                                    {(d: string) => <option value={d}>{d}</option>}
+                                </For>
+                            </select>
+                            <select
+                                class="instance-filter-select"
+                                onChange={(e: { currentTarget: { value: string } }) => selectInstance(e.currentTarget.value || null)}
+                            >
+                                <option value="">All Instances</option>
+                                <For each={p.servers}>
+                                    {(s) => <option value={s.id}>{s.label}</option>}
+                                </For>
+                            </select>
+                        </div>
                     </div>
 
                     {p.loading ? (
@@ -56,9 +152,15 @@ export function Users(p: UsersProps) {
                                     <tr>
                                         <th>User</th>
                                         <th>Email</th>
-                                        <th>Role</th>
-                                        <th>Joined</th>
-                                        <th>Last Sign In</th>
+                                        <th class="th-sortable" onClick={() => toggleSort('role')}>
+                                            Role {sortKey() === 'role' ? (sortDir() === 'desc' ? '↓' : '↑') : '↕'}
+                                        </th>
+                                        <th class="th-sortable" onClick={() => toggleSort('created_at')}>
+                                            Joined {sortKey() === 'created_at' ? (sortDir() === 'desc' ? '↓' : '↑') : '↕'}
+                                        </th>
+                                        <th class="th-sortable" onClick={() => toggleSort('last_sign_in_at')}>
+                                            Last Sign In {sortKey() === 'last_sign_in_at' ? (sortDir() === 'desc' ? '↓' : '↑') : '↕'}
+                                        </th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -79,7 +181,10 @@ export function Users(p: UsersProps) {
                                                 <td class="user-email-cell">{getPrimaryEmail(user)}</td>
                                                 <td>
                                                     {user.public_metadata.isAdmin === true && (
-                                                        <span class="badge">Admin</span>
+                                                        <span class="badge">Super Admin</span>
+                                                    )}
+                                                    {selectedInstance() && instanceAdminEmails().has(getPrimaryEmail(user)) && (
+                                                        <span class="badge badge-instance">Instance Admin</span>
                                                     )}
                                                 </td>
                                                 <td class="user-date">{formatUnixDate(user.created_at)}</td>
