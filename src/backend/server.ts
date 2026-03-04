@@ -784,6 +784,51 @@ app.get("/api/users/:userId/sessions", async (c) => {
     }
 });
 
+// ---- Server Locks ----
+const LOCKS_FILE = "/mnt/fastr-config/server-locks.json";
+
+async function readLocks(): Promise<string[]> {
+  try {
+    return JSON.parse(await Deno.readTextFile(LOCKS_FILE));
+  } catch {
+    return [];
+  }
+}
+
+async function writeLocks(locks: string[]): Promise<void> {
+  await Deno.mkdir("/mnt/fastr-config", { recursive: true });
+  await Deno.writeTextFile(LOCKS_FILE, JSON.stringify(locks));
+}
+
+app.get("/api/servers/locks", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+  return c.json(await readLocks());
+});
+
+app.post("/api/servers/:id/lock", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+  const id = c.req.param("id");
+  if (!isSafeParam(id)) return c.json({ error: "Invalid server id" }, 400);
+  const locks = await readLocks();
+  if (!locks.includes(id)) {
+    locks.push(id);
+    await writeLocks(locks);
+  }
+  return c.json({ locked: true });
+});
+
+app.delete("/api/servers/:id/lock", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+  const id = c.req.param("id");
+  if (!isSafeParam(id)) return c.json({ error: "Invalid server id" }, 400);
+  const locks = (await readLocks()).filter(l => l !== id);
+  await writeLocks(locks);
+  return c.json({ locked: false });
+});
+
 const PORT = parseInt(Deno.env.get("PORT") || "3001");
 console.log(`🚀 Server running on http://localhost:${PORT}`);
 Deno.serve({ port: PORT }, app.fetch);

@@ -27,6 +27,9 @@ import {
   backupServerApi,
   getUsersApi,
   getUserSessionsApi,
+  fetchLockedServersApi,
+  lockServerApi,
+  unlockServerApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -85,6 +88,24 @@ function App() {
 
   // track when an ssh operation is happening to stop other ssh operations from occuring
   const [sshOperationInProgress, setSshOperationInProgress] = createSignal<boolean>(false);
+
+  // track locked servers (shared, stored server-side)
+  const [lockedServers, setLockedServers] = createSignal<Set<string>>(new Set());
+  createResource(async () => {
+    const token = await getToken();
+    const locks = await fetchLockedServersApi(token);
+    setLockedServers(new Set(locks));
+  });
+  const toggleLock = async (serverId: string) => {
+    const token = await getToken();
+    const isLocked = lockedServers().has(serverId);
+    setLockedServers(prev => {
+      const next = new Set(prev);
+      isLocked ? next.delete(serverId) : next.add(serverId);
+      return next;
+    });
+    isLocked ? await unlockServerApi(serverId, token) : await lockServerApi(serverId, token);
+  };
 
   // track loading volume snapshots
   const [volumeSnapshots, { refetch: refetchSnapshots }] = createResource(async () => {
@@ -483,6 +504,8 @@ function App() {
                                   onBackup={backupServer}
                                   onViewBackups={openBackupsModal}
                                   onViewLogs={openLogsModal}
+                                  isLocked={lockedServers().has(server.id)}
+                                  onToggleLock={toggleLock}
                                 />
                               )}
                             </For>

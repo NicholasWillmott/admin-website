@@ -93,6 +93,27 @@ h1 {
   background-color: #adb5bd;
 }
 
+.lock-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  cursor: pointer;
+  fill: #adb5bd;
+  transition: fill 0.2s ease;
+}
+
+.lock-icon:hover {
+  fill: #6c757d;
+}
+
+.lock-icon.locked {
+  fill: #dc3545;
+}
+
+.lock-icon.locked:hover {
+  fill: #b02a37;
+}
+
 .server-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(0,0,0,0.2);

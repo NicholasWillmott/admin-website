@@ -230,3 +230,38 @@ export async function getUserSessionsApi(userId: string, token: string | null): 
     return [];
   }
 }
+
+export async function fetchLockedServersApi(token: string | null): Promise<string[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/locks`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to fetch locked servers:', error);
+    return [];
+  }
+}
+
+export async function lockServerApi(serverId: string, token: string | null): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/api/servers/${serverId}/lock`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+    });
+  } catch (error) {
+    console.error(`Failed to lock server ${serverId}:`, error);
+  }
+}
+
+export async function unlockServerApi(serverId: string, token: string | null): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/api/servers/${serverId}/lock`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(token),
+    });
+  } catch (error) {
+    console.error(`Failed to unlock server ${serverId}:`, error);
+  }
+}

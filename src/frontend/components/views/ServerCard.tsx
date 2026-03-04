@@ -18,6 +18,8 @@ interface ServerCardProps {
   onBackup: (serverId: string) => void;
   onViewBackups: (serverId: string) => void;
   onViewLogs: (serverId: string) => void;
+  isLocked: boolean;
+  onToggleLock: (serverId: string) => void;
 }
 
 export function ServerCard(props: ServerCardProps) {
@@ -41,6 +43,24 @@ export function ServerCard(props: ServerCardProps) {
               : 'No activity recorded';
             return <div class={`activity-dot ${isActive ? 'active' : 'inactive'}`} title={title} />;
           })()}
+          <span
+            class="lock-icon-wrapper"
+            title={props.isLocked ? 'Locked — click to unlock' : 'Unlocked — click to lock'}
+            onClick={(e) => { e.stopPropagation(); props.onToggleLock(props.server.id); }}
+          >
+            <svg
+              class={`lock-icon ${props.isLocked ? 'locked' : 'unlocked'}`}
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              aria-label={props.isLocked ? 'Locked' : 'Unlocked'}
+            >
+              {props.isLocked ? (
+                <path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3.1-9H8.9V6a3.1 3.1 0 0 1 6.2 0v2z"/>
+              ) : (
+                <path d="M18 8h-1V6A5 5 0 0 0 7 6h2a3 3 0 0 1 6 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+              )}
+            </svg>
+          </span>
         </div>
         <span class="expand-icon">{props.isExpanded ? '▼' : '▶'}</span>
       </div>
@@ -88,9 +108,9 @@ export function ServerCard(props: ServerCardProps) {
             <button
               class="update-btn"
               onClick={() => props.onUpdate(props.server.id, selectedVersion())}
-              disabled={props.updatingServerId === props.server.id || props.sshOperationInProgress}
+              disabled={props.isLocked || props.updatingServerId === props.server.id || props.sshOperationInProgress}
             >
-              {props.updatingServerId === props.server.id ? (
+              {props.isLocked ? 'Server Locked' : props.updatingServerId === props.server.id ? (
                 <>
                   <span class="button-spinner"></span>
                   Updating...
@@ -143,9 +163,9 @@ export function ServerCard(props: ServerCardProps) {
             <button
               class="action-btn restart"
               onClick={() => props.onRestart(props.server.id)}
-              disabled={props.restartingServerId === props.server.id || props.sshOperationInProgress}
+              disabled={props.isLocked || props.restartingServerId === props.server.id || props.sshOperationInProgress}
             >
-              {props.restartingServerId === props.server.id ? (
+              {props.isLocked ? 'Server Locked' : props.restartingServerId === props.server.id ? (
                 <>
                   <span class="button-spinner"></span>
                   Restarting...
