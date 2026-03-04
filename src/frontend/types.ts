@@ -64,6 +64,7 @@ export interface HealthCheckResponse {
   adminUsers: string[];
   serverUsers?: string[];
   projects: string[];
+  lastUserLog: { userEmail: string; endpoint: string; timestamp: string } | null;
   datasets: {
     hmis: { versionId: number } | null;
     hfa: any;

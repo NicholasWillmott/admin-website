@@ -1,6 +1,6 @@
 import { createSignal, For, Show } from 'solid-js';
 import type { Server, HealthCheckResponse, ServerRestartStatus } from '../../types.ts';
-import { filterVersionsForServer, formatUptime } from '../../utils.ts';
+import { filterVersionsForServer, formatUptime, timeAgo } from '../../utils.ts';
 
 interface ServerCardProps {
   server: Server;
@@ -27,9 +27,21 @@ export function ServerCard(props: ServerCardProps) {
     <div class={`server-card ${props.isExpanded ? 'expanded' : ''}`} onClick={() => props.onToggle()}>
       {/*Collapsed View*/}
       <div class="card-header">
-        <a href={`https://${props.server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
-          <h2>{props.server.label}</h2>
-        </a>
+        <div class="card-label">
+          <a href={`https://${props.server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
+            <h2>{props.server.label}</h2>
+          </a>
+          {(() => {
+            const log = props.status?.lastUserLog;
+            const isActive = log
+              ? Date.now() - new Date(log.timestamp).getTime() < 5 * 60 * 1000
+              : false;
+            const title = log
+              ? `Last activity: ${log.userEmail} — ${timeAgo(log.timestamp)}`
+              : 'No activity recorded';
+            return <div class={`activity-dot ${isActive ? 'active' : 'inactive'}`} title={title} />;
+          })()}
+        </div>
         <span class="expand-icon">{props.isExpanded ? '▼' : '▶'}</span>
       </div>
       <p><strong>ID:</strong> {props.server.id}</p>

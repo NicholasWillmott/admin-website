@@ -18,16 +18,19 @@ export const SERVER_CATEGORIES: ServerCategory[] = [
       "nigeria4",
       "nigeria6",
       "senegal",
-      "sierraleone"
+      "sierraleone",
+      "ci",
+      "mauritania",
+      "niger"
     ]
   },
   {
     name: "East Africa",
-    servers: ["ethiopia", "somalia", "somaliland", "uganda", "zambia"]
+    servers: ["ethiopia", "somalia", "somaliland", "uganda", "zambia", "malawi", "kenya"]
   },
   {
     name: "Central Africa",
-    servers: ["cameroun", "rdc"]
+    servers: ["cameroun", "rdc", "chad", "rca"]
   },
   {
     name: "Asia",
@@ -39,7 +42,7 @@ export const SERVER_CATEGORIES: ServerCategory[] = [
   },
   {
     name: "None / Utility / Testing",
-    servers: ["demo", "demo-fr", "testing"]
+    servers: ["demo", "demo-fr", "testing", "testing2"]
   }
 ];
 
