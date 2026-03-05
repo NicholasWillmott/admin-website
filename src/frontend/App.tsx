@@ -33,7 +33,7 @@ import {
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
-import { Users } from "./components/views/Users.tsx";
+import { Users } from "./components/views/users/Users.tsx";
 
 function App() {
   const { getToken } = useAuth();

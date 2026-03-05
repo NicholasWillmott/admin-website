@@ -1,5 +1,7 @@
 import { createSignal, For } from 'solid-js';
-import type { ClerkUser } from '../../types.ts';
+import type { ClerkUser } from '../../../../types.ts';
+
+type TooltipState = { x: number; y: number; text: string };
 
 interface UserActivityGraphProps {
     users: ClerkUser[] | undefined;
@@ -51,8 +53,24 @@ function computePoints(data: { label: string; count: number }[]) {
     }));
 }
 
+function renderTooltip(t: TooltipState) {
+    const tw = Math.max(t.text.length * 6.5 + 16, 50);
+    const th = 20;
+    const tx = Math.min(Math.max(t.x - tw / 2, PAD.left), W - PAD.right - tw);
+    const ty = Math.max(t.y - th - 10, 4);
+    return (
+        <g style={{ "pointer-events": "none" }}>
+            <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="white" stroke="#ddd" stroke-width="1" />
+            <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#333">
+                {t.text}
+            </text>
+        </g>
+    );
+}
+
 export function UserActivityGraph(p: UserActivityGraphProps) {
     const [view, setView] = createSignal<GraphView>('month');
+    const [tooltip, setTooltip] = createSignal<TooltipState | null>(null);
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
@@ -147,9 +165,25 @@ export function UserActivityGraph(p: UserActivityGraphProps) {
 
                 <For each={pts()}>
                     {(pt) => (
-                        <circle cx={pt.x} cy={pt.y} r={pt.count > 0 ? 3 : 2} fill={pt.count > 0 ? '#0e706c' : '#ddd'}>
-                            <title>{pt.label}: {pt.count} user{pt.count !== 1 ? 's' : ''}</title>
-                        </circle>
+                        <g>
+                            <circle
+                                cx={pt.x} cy={pt.y}
+                                r={pt.count > 0 ? 3 : 2}
+                                fill={pt.count > 0 ? '#0e706c' : '#ddd'}
+                                style={{ "pointer-events": "none" }}
+                            />
+                            <circle
+                                cx={pt.x} cy={pt.y} r="8"
+                                fill="transparent"
+                                style={{ cursor: 'default' }}
+                                onMouseEnter={() => setTooltip({
+                                    x: pt.x,
+                                    y: pt.y,
+                                    text: `${view() === 'month' ? 'Day ' : ''}${pt.label}: ${pt.count} user${pt.count !== 1 ? 's' : ''}`,
+                                })}
+                                onMouseLeave={() => setTooltip(null)}
+                            />
+                        </g>
                     )}
                 </For>
 
@@ -163,6 +197,8 @@ export function UserActivityGraph(p: UserActivityGraphProps) {
                         >{pt.label}</text>
                     )}
                 </For>
+
+                {tooltip() && renderTooltip(tooltip()!)}
             </svg>
         </div>
     );

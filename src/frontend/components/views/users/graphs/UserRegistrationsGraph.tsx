@@ -1,5 +1,7 @@
 import { createSignal, For } from 'solid-js';
-import type { ClerkUser } from '../../types.ts';
+import type { ClerkUser } from '../../../../types.ts';
+
+type TooltipState = { x: number; y: number; text: string };
 
 interface UserRegistrationsGraphProps {
     users: ClerkUser[] | undefined;
@@ -25,9 +27,25 @@ function buildYearData(users: ClerkUser[], year: number) {
     return counts.map((count, i) => ({ label: MONTH_NAMES[i], count }));
 }
 
+function renderTooltip(t: TooltipState) {
+    const tw = Math.max(t.text.length * 6.5 + 16, 50);
+    const th = 20;
+    const tx = Math.min(Math.max(t.x - tw / 2, PAD.left), W - PAD.right - tw);
+    const ty = Math.max(t.y - th - 10, 4);
+    return (
+        <g style={{ "pointer-events": "none" }}>
+            <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="white" stroke="#ddd" stroke-width="1" />
+            <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#333">
+                {t.text}
+            </text>
+        </g>
+    );
+}
+
 export function UserRegistrationsGraph(p: UserRegistrationsGraphProps) {
     const currentYear = new Date().getFullYear();
     const [year, setYear] = createSignal(currentYear);
+    const [tooltip, setTooltip] = createSignal<TooltipState | null>(null);
 
     const data = () => buildYearData(p.users ?? [], year());
 
@@ -107,23 +125,31 @@ export function UserRegistrationsGraph(p: UserRegistrationsGraphProps) {
                                 x={bar.x}
                                 y={bar.y}
                                 width={barWidth}
-                                height={bar.height}
+                                height={Math.max(bar.height, 0.5)}
                                 rx="3"
                                 fill={bar.count > 0 ? '#0e706c' : '#e8e8e8'}
                                 fill-opacity={bar.count > 0 ? '0.85' : '1'}
-                            >
-                                <title>{bar.label}: {bar.count} registration{bar.count !== 1 ? 's' : ''}</title>
-                            </rect>
+                                style={{ cursor: 'default' }}
+                                onMouseEnter={() => setTooltip({
+                                    x: bar.x + barWidth / 2,
+                                    y: bar.y,
+                                    text: `${bar.label}: ${bar.count} registration${bar.count !== 1 ? 's' : ''}`,
+                                })}
+                                onMouseLeave={() => setTooltip(null)}
+                            />
                             <text
                                 x={bar.x + barWidth / 2}
                                 y={BASELINE + 14}
                                 text-anchor="middle"
                                 font-size="9"
                                 fill="#bbb"
+                                style={{ "pointer-events": "none" }}
                             >{bar.label}</text>
                         </g>
                     )}
                 </For>
+
+                {tooltip() && renderTooltip(tooltip()!)}
             </svg>
         </div>
     );

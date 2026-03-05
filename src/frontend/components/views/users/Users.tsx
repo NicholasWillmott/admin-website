@@ -1,9 +1,9 @@
 import { For, createSignal } from 'solid-js';
-import type { ClerkUser, ClerkSession, Server, HealthCheckResponse } from "../../types.ts";
-import { formatDate } from '../../utils.ts';
-import { UserSessionsModal } from '../modals/UserSessionsModal.tsx';
-import { UserActivityGraph } from './UserActivityGraph.tsx';
-import { UserRegistrationsGraph } from './UserRegistrationsGraph.tsx';
+import type { ClerkUser, ClerkSession, Server, HealthCheckResponse } from "../../../types.ts";
+import { formatDate } from '../../../utils.ts';
+import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
+import { UserActivityGraph } from './graphs/UserActivityGraph.tsx';
+import { UserRegistrationsGraph } from './graphs/UserRegistrationsGraph.tsx';
 
 interface UsersProps {
     users: ClerkUser[] | undefined;
