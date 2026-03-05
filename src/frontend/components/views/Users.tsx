@@ -3,6 +3,7 @@ import type { ClerkUser, ClerkSession, Server, HealthCheckResponse } from "../..
 import { formatDate } from '../../utils.ts';
 import { UserSessionsModal } from '../modals/UserSessionsModal.tsx';
 import { UserActivityGraph } from './UserActivityGraph.tsx';
+import { UserRegistrationsGraph } from './UserRegistrationsGraph.tsx';
 
 interface UsersProps {
     users: ClerkUser[] | undefined;
@@ -210,6 +211,7 @@ export function Users(p: UsersProps) {
                     )}
 
                     <UserActivityGraph users={p.users} />
+                    <UserRegistrationsGraph users={p.users} />
                 </div>
             </div>
 
