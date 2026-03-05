@@ -208,9 +208,9 @@ export function Users(p: UsersProps) {
                             </table>
                         </div>
                     )}
-                </div>
 
-                <UserActivityGraph users={p.users} />
+                    <UserActivityGraph users={p.users} />
+                </div>
             </div>
 
             {selectedUser() && (
