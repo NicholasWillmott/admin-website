@@ -1438,6 +1438,67 @@ h1 {
   white-space: nowrap;
 }
 
+/* ===== User Activity Graph ===== */
+
+.activity-graph-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.activity-graph-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.activity-graph-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+}
+
+.activity-graph-subtitle {
+  font-size: 11px;
+  color: #bbb;
+  margin-left: 6px;
+}
+
+.activity-graph-toggle {
+  display: flex;
+  gap: 4px;
+  background: #f0f0f0;
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.activity-graph-btn {
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: #777;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.activity-graph-btn.active {
+  background: #fff;
+  color: #1a1a1a;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.activity-graph-btn:hover:not(.active) {
+  color: #333;
+}
+
+.activity-graph-svg {
+  display: block;
+  width: 100%;
+}
+
 /* ===== Module Editor ===== */
 .module-editor-layout {
   position: fixed;

@@ -2,6 +2,7 @@ import { For, createSignal } from 'solid-js';
 import type { ClerkUser, ClerkSession, Server, HealthCheckResponse } from "../../types.ts";
 import { formatDate } from '../../utils.ts';
 import { UserSessionsModal } from '../modals/UserSessionsModal.tsx';
+import { UserActivityGraph } from './UserActivityGraph.tsx';
 
 interface UsersProps {
     users: ClerkUser[] | undefined;
@@ -208,6 +209,8 @@ export function Users(p: UsersProps) {
                         </div>
                     )}
                 </div>
+
+                <UserActivityGraph users={p.users} />
             </div>
 
             {selectedUser() && (
