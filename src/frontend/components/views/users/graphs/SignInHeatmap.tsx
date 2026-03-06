@@ -1,4 +1,4 @@
-import { createSignal, onMount, For } from 'solid-js';
+import { createSignal, createEffect, on, For } from 'solid-js';
 import type { ClerkUser, ClerkSession } from '../../../../types.ts';
 
 interface SignInHeatmapProps {
@@ -68,10 +68,11 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
     const [loading, setLoading] = createSignal(false);
     const [progress, setProgress] = createSignal({ done: 0, total: 0 });
 
-    // Fetch sessions for all users on mount, store keyed by userId
-    onMount(async () => {
-        const users = p.allUsers;
-        if (!users || users.length === 0) return;
+    // Fetch sessions when allUsers becomes available
+    let hasFetched = false;
+    createEffect(on(() => p.allUsers, async (users) => {
+        if (!users || users.length === 0 || hasFetched) return;
+        hasFetched = true;
 
         const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
         const recentUsers = users.filter(u => u.last_sign_in_at && u.last_sign_in_at >= oneWeekAgo);
@@ -99,7 +100,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
         }
 
         setLoading(false);
-    });
+    }));
 
     // Reactively filter sessions based on current users prop
     const filteredSessions = () => {
