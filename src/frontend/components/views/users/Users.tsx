@@ -273,7 +273,7 @@ export function Users(p: UsersProps) {
 
                     <UserActivityGraph users={p.users} />
                     <UserRegistrationsGraph users={p.users} />
-                    <SignInHeatmap users={p.users} />
+                    <SignInHeatmap users={p.users} onFetchSessions={p.onFetchSessions} />
                 </div>
             </div>
 

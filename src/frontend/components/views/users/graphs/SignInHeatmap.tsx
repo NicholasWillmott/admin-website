@@ -1,30 +1,29 @@
-import { createSignal, For } from 'solid-js';
-import type { ClerkUser } from '../../../../types.ts';
+import { createSignal, onMount, For } from 'solid-js';
+import type { ClerkUser, ClerkSession } from '../../../../types.ts';
 
 interface SignInHeatmapProps {
     users: ClerkUser[] | undefined;
+    onFetchSessions: (userId: string) => Promise<ClerkSession[]>;
 }
 
 type TooltipState = { x: number; y: number; text: string };
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 const W = 680;
 const H = 180;
-const PAD = { top: 14, right: 16, bottom: 28, left: 36 };
+const PAD = { top: 14, right: 16, bottom: 28, left: 50 };
 const IW = W - PAD.left - PAD.right;
 const IH = H - PAD.top - PAD.bottom;
 
 const CELL_W = IW / 24;
 const CELL_H = IH / 7;
 
-function buildGrid(users: ClerkUser[]) {
-    // 7 days × 24 hours
+function buildGridFromSessions(sessions: ClerkSession[]) {
     const grid: number[][] = Array.from({ length: 7 }, () => new Array(24).fill(0));
-    for (const u of users) {
-        if (!u.last_sign_in_at) continue;
-        const d = new Date(u.last_sign_in_at);
+    for (const s of sessions) {
+        const d = new Date(s.created_at);
         grid[d.getDay()][d.getHours()]++;
     }
     return grid;
@@ -64,8 +63,33 @@ function renderTooltip(t: TooltipState) {
 
 export function SignInHeatmap(p: SignInHeatmapProps) {
     const [tooltip, setTooltip] = createSignal<TooltipState | null>(null);
+    const [allSessions, setAllSessions] = createSignal<ClerkSession[]>([]);
+    const [loading, setLoading] = createSignal(false);
+    const [progress, setProgress] = createSignal({ done: 0, total: 0 });
 
-    const grid = () => buildGrid(p.users ?? []);
+    onMount(async () => {
+        const users = p.users;
+        if (!users || users.length === 0) return;
+        setLoading(true);
+        setProgress({ done: 0, total: users.length });
+
+        const sessions: ClerkSession[] = [];
+        // Fetch in batches to avoid overwhelming the API
+        const BATCH_SIZE = 10;
+        for (let i = 0; i < users.length; i += BATCH_SIZE) {
+            const batch = users.slice(i, i + BATCH_SIZE);
+            const results = await Promise.all(batch.map(u => p.onFetchSessions(u.id)));
+            for (const r of results) {
+                sessions.push(...r);
+            }
+            setProgress({ done: Math.min(i + BATCH_SIZE, users.length), total: users.length });
+            setAllSessions([...sessions]);
+        }
+
+        setLoading(false);
+    });
+
+    const grid = () => buildGridFromSessions(allSessions());
 
     const max = () => {
         let m = 0;
@@ -77,11 +101,25 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
         return m;
     };
 
+    const totalSessions = () => allSessions().length;
+
     return (
         <div class="activity-graph-section">
             <div class="activity-graph-header">
-                <span class="activity-graph-title">Sign-in Heatmap</span>
-                <span class="activity-graph-subtitle">(by most recent sign-in per user)</span>
+                <div>
+                    <span class="activity-graph-title">Sign-in Heatmap</span>
+                    <span class="activity-graph-subtitle">
+                        ({totalSessions()} total sign-in{totalSessions() !== 1 ? 's' : ''})
+                    </span>
+                </div>
+                {loading() && (
+                    <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                        <div class="spinner spinner-sm"></div>
+                        <span style={{ color: 'rgba(255,255,255,0.6)', 'font-size': '12px' }}>
+                            Loading sessions {progress().done}/{progress().total}
+                        </span>
+                    </div>
+                )}
             </div>
 
             <svg viewBox={`0 0 ${W} ${H}`} width="100%" class="activity-graph-svg">
@@ -89,11 +127,12 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                 <For each={DAYS}>
                     {(day, i) => (
                         <text
-                            x={PAD.left - 4}
+                            x={PAD.left - 6}
                             y={PAD.top + i() * CELL_H + CELL_H / 2 + 3}
                             text-anchor="end"
-                            font-size="9"
-                            fill="#bbb"
+                            font-size="10"
+                            font-weight="500"
+                            fill="#999"
                         >{day}</text>
                     )}
                 </For>
@@ -133,7 +172,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                                         onMouseEnter={() => setTooltip({
                                             x: x + CELL_W / 2,
                                             y,
-                                            text: `${DAYS[dayIdx()]} ${formatHour(hour)}: ${count()} user${count() !== 1 ? 's' : ''}`,
+                                            text: `${DAYS[dayIdx()]} ${formatHour(hour)}: ${count()} sign-in${count() !== 1 ? 's' : ''}`,
                                         })}
                                         onMouseLeave={() => setTooltip(null)}
                                     />
