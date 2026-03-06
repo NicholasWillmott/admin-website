@@ -115,21 +115,24 @@ export function Users(p: UsersProps) {
         URL.revokeObjectURL(url);
     }
 
-    const sortedUsers = () => {
+    const filteredUsers = () => {
         if (!p.users) return [];
-        const key = sortKey();
-        const dir = sortDir();
         const emailFilter = instanceEmails();
         const filtering = selectedInstance() !== null;
-
         const domain = selectedDomain();
 
-        const filtered = p.users.filter(u => {
+        return p.users.filter(u => {
             const email = getPrimaryEmail(u);
             if (filtering && !emailFilter.has(email)) return false;
             if (domain && !email.endsWith(`@${domain}`)) return false;
             return true;
         });
+    };
+
+    const sortedUsers = () => {
+        const filtered = filteredUsers();
+        const key = sortKey();
+        const dir = sortDir();
 
         return [...filtered].sort((a, b) => {
             if (key === 'role') {
@@ -272,10 +275,10 @@ export function Users(p: UsersProps) {
                         </div>
                     )}
 
-                    <UserActivityGraph users={p.users} />
-                    <UserRegistrationsGraph users={p.users} />
-                    <SignInHeatmap users={p.users} onFetchSessions={p.onFetchSessions} />
-                    <EmailOptInChart users={p.users} />
+                    <UserActivityGraph users={filteredUsers()} />
+                    <UserRegistrationsGraph users={filteredUsers()} />
+                    <SignInHeatmap users={filteredUsers()} allUsers={p.users} onFetchSessions={p.onFetchSessions} />
+                    <EmailOptInChart users={filteredUsers()} />
                 </div>
             </div>
 

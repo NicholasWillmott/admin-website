@@ -3,6 +3,7 @@ import type { ClerkUser, ClerkSession } from '../../../../types.ts';
 
 interface SignInHeatmapProps {
     users: ClerkUser[] | undefined;
+    allUsers: ClerkUser[] | undefined;
     onFetchSessions: (userId: string, since?: number) => Promise<ClerkSession[]>;
 }
 
@@ -63,16 +64,16 @@ function renderTooltip(t: TooltipState) {
 
 export function SignInHeatmap(p: SignInHeatmapProps) {
     const [tooltip, setTooltip] = createSignal<TooltipState | null>(null);
-    const [allSessions, setAllSessions] = createSignal<ClerkSession[]>([]);
+    const [sessionsByUser, setSessionsByUser] = createSignal<Map<string, ClerkSession[]>>(new Map());
     const [loading, setLoading] = createSignal(false);
     const [progress, setProgress] = createSignal({ done: 0, total: 0 });
 
+    // Fetch sessions for all users on mount, store keyed by userId
     onMount(async () => {
-        const users = p.users;
+        const users = p.allUsers;
         if (!users || users.length === 0) return;
 
         const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        // Only fetch sessions for users who signed in within the last week
         const recentUsers = users.filter(u => u.last_sign_in_at && u.last_sign_in_at >= oneWeekAgo);
 
         if (recentUsers.length === 0) {
@@ -83,22 +84,39 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
         setLoading(true);
         setProgress({ done: 0, total: recentUsers.length });
 
-        const sessions: ClerkSession[] = [];
+        const sessMap = new Map<string, ClerkSession[]>();
         const BATCH_SIZE = 10;
         for (let i = 0; i < recentUsers.length; i += BATCH_SIZE) {
             const batch = recentUsers.slice(i, i + BATCH_SIZE);
             const results = await Promise.all(batch.map(u => p.onFetchSessions(u.id, oneWeekAgo)));
-            for (const r of results) {
-                sessions.push(...r);
-            }
+            batch.forEach((u, idx) => {
+                if (results[idx].length > 0) {
+                    sessMap.set(u.id, results[idx]);
+                }
+            });
             setProgress({ done: Math.min(i + BATCH_SIZE, recentUsers.length), total: recentUsers.length });
-            setAllSessions([...sessions]);
+            setSessionsByUser(new Map(sessMap));
         }
 
         setLoading(false);
     });
 
-    const grid = () => buildGridFromSessions(allSessions());
+    // Reactively filter sessions based on current users prop
+    const filteredSessions = () => {
+        const users = p.users;
+        if (!users) return [];
+        const map = sessionsByUser();
+        const userIds = new Set(users.map(u => u.id));
+        const sessions: ClerkSession[] = [];
+        for (const [userId, userSessions] of map) {
+            if (userIds.has(userId)) {
+                sessions.push(...userSessions);
+            }
+        }
+        return sessions;
+    };
+
+    const grid = () => buildGridFromSessions(filteredSessions());
 
     const max = () => {
         let m = 0;
@@ -110,7 +128,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
         return m;
     };
 
-    const totalSessions = () => allSessions().length;
+    const totalSessions = () => filteredSessions().length;
 
     return (
         <div class="activity-graph-section">
