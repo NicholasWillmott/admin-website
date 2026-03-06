@@ -24,7 +24,7 @@ function formatUnixDate(ms: number | null): string {
     return formatDate(new Date(ms).toISOString());
 }
 
-type SortKey = 'created_at' | 'last_sign_in_at' | 'role';
+type SortKey = 'created_at' | 'last_sign_in_at' | 'role' | 'emailOptIn';
 type SortDir = 'asc' | 'desc';
 
 export function Users(p: UsersProps) {
@@ -99,6 +99,11 @@ export function Users(p: UsersProps) {
                 const bAdmin = b.public_metadata.isAdmin === true ? 1 : 0;
                 return dir === 'desc' ? bAdmin - aAdmin : aAdmin - bAdmin;
             }
+            if (key === 'emailOptIn') {
+                const aOpt = a.unsafe_metadata.emailOptIn === true ? 1 : 0;
+                const bOpt = b.unsafe_metadata.emailOptIn === true ? 1 : 0;
+                return dir === 'desc' ? bOpt - aOpt : aOpt - bOpt;
+            }
             const aVal = a[key] ?? 0;
             const bVal = b[key] ?? 0;
             return dir === 'desc' ? bVal - aVal : aVal - bVal;
@@ -163,7 +168,9 @@ export function Users(p: UsersProps) {
                                         <th class="th-sortable" onClick={() => toggleSort('last_sign_in_at')}>
                                             Last Sign In {sortKey() === 'last_sign_in_at' ? (sortDir() === 'desc' ? '↓' : '↑') : '↕'}
                                         </th>
-                                        <th>Email Opt-In</th>
+                                        <th class="th-sortable" onClick={() => toggleSort('emailOptIn')}>
+                                            Email Opt-In {sortKey() === 'emailOptIn' ? (sortDir() === 'desc' ? '↓' : '↑') : '↕'}
+                                        </th>
                                         <th></th>
                                     </tr>
                                 </thead>
