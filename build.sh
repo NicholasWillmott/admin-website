@@ -8,7 +8,7 @@ echo "==> Building frontend..."
 npm run build
 
 echo "==> Deploying frontend to droplet..."
-scp -r dist/* "$DROPLET:$REMOTE_DIR/dist/"
+rsync -az --delete dist/ "$DROPLET:$REMOTE_DIR/dist/"
 
 echo "==> Staging and committing changes..."
 git add -A
