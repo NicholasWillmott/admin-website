@@ -34,6 +34,7 @@ export interface ClerkUser {
   updated_at: number; // Unix ms
   last_sign_in_at: number | null; // Unix ms
   public_metadata: Record<string, unknown>;
+  unsafe_metadata: Record<string, unknown>;
   banned: boolean;
   locked: boolean;
 }

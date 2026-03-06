@@ -163,6 +163,7 @@ export function Users(p: UsersProps) {
                                         <th class="th-sortable" onClick={() => toggleSort('last_sign_in_at')}>
                                             Last Sign In {sortKey() === 'last_sign_in_at' ? (sortDir() === 'desc' ? '↓' : '↑') : '↕'}
                                         </th>
+                                        <th>Email Opt-In</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -193,6 +194,11 @@ export function Users(p: UsersProps) {
                                                 </td>
                                                 <td class="user-date">{formatUnixDate(user.created_at)}</td>
                                                 <td class="user-date">{formatUnixDate(user.last_sign_in_at)}</td>
+                                                <td class="user-opt-in">
+                                                    <span class={user.unsafe_metadata.emailOptIn === true ? 'opt-in-yes' : 'opt-in-no'}>
+                                                        {user.unsafe_metadata.emailOptIn === true ? '✓' : '✗'}
+                                                    </span>
+                                                </td>
                                                 <td>
                                                     <button
                                                         type="button"

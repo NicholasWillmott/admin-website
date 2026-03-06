@@ -1203,8 +1203,7 @@ h1 {
   width: 100%;
   overflow-x: auto;
   overflow-y: auto;
-  flex: 1;
-  min-height: 0;
+  max-height: 60vh;
   border-radius: 10px;
   border: 2px solid rgba(255,255,255,0.15);
   box-shadow: 0 4px 20px rgba(0,0,0,0.3);
@@ -1215,6 +1214,8 @@ h1 {
   border-collapse: collapse;
   background: white;
 }
+
+
 
 .users-table thead {
   position: sticky;
@@ -1294,6 +1295,22 @@ h1 {
   color: #888;
   font-size: 13px;
   white-space: nowrap;
+}
+
+.user-opt-in {
+  text-align: center;
+}
+
+.opt-in-yes {
+  color: #4caf50;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.opt-in-no {
+  color: #f44336;
+  font-weight: 700;
+  font-size: 16px;
 }
 
 .activity-btn {
