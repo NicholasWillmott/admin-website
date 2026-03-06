@@ -231,13 +231,6 @@ export function Users(p: UsersProps) {
                     <div class="users-header">
                         <h2 class="users-title">Users ({sortedUsers().length}{selectedInstance() ? ` of ${p.users?.length ?? 0}` : ''})</h2>
                         <div class="users-header-controls">
-                            <input
-                                type="text"
-                                class="users-search-input"
-                                placeholder="Search by name or email..."
-                                value={searchQuery()}
-                                onInput={(e) => setSearchQuery(e.currentTarget.value)}
-                            />
                             {instanceLoading() && <div class="spinner spinner-sm"></div>}
                             {exporting() && (
                                 <span style={{ color: 'rgba(255,255,255,0.6)', 'font-size': '12px' }}>
@@ -258,6 +251,13 @@ export function Users(p: UsersProps) {
                                     </button>
                                 </div>
                             </div>
+                            <input
+                                type="text"
+                                class="users-search-input"
+                                placeholder="Search by name or email..."
+                                value={searchQuery()}
+                                onInput={(e) => setSearchQuery(e.currentTarget.value)}
+                            />
                             <select
                                 class="instance-filter-select"
                                 onChange={(e: { currentTarget: { value: string } }) => setSelectedDomain(e.currentTarget.value || null)}
