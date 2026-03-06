@@ -32,8 +32,8 @@ function buildSegments(users: ClerkUser[]): Segment[] {
 
     return [
         { label: 'Opted In', count: optedIn, color: '#0e706c' },
-        { label: 'Opted Out', count: optedOut, color: '#999' },
-        { label: 'Not Asked', count: notAsked, color: '#ffffff'},
+        { label: 'Opted Out', count: optedOut, color: '#7b9376ff' },
+        { label: 'Not Asked', count: notAsked, color: '#bdb7b7ff'},
     ];
 }
 
