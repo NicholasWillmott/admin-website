@@ -41,10 +41,10 @@ function cellColor(count: number, max: number): string {
 }
 
 function formatHour(h: number): string {
-    if (h === 0) return '12a';
-    if (h < 12) return `${h}a`;
-    if (h === 12) return '12p';
-    return `${h - 12}p`;
+    if (h === 0) return '12am';
+    if (h < 12) return `${h}am`;
+    if (h === 12) return '12pm';
+    return `${h - 12}pm`;
 }
 
 function renderTooltip(t: TooltipState) {
