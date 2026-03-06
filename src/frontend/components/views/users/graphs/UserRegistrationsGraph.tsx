@@ -1,4 +1,4 @@
-import { createSignal, For } from 'solid-js';
+import { createSignal, createEffect, For } from 'solid-js';
 import type { ClerkUser } from '../../../../types.ts';
 
 type TooltipState = { x: number; y: number; text: string };
@@ -83,6 +83,13 @@ export function UserRegistrationsGraph(p: UserRegistrationsGraphProps) {
         }
         return [...years].sort((a, b) => b - a);
     };
+
+    createEffect(() => {
+        const years = availableYears();
+        if (years.length > 0 && !years.includes(year())) {
+            setYear(years[0]);
+        }
+    });
 
     return (
         <div class="activity-graph-section">
