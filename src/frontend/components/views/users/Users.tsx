@@ -136,13 +136,17 @@ export function Users(p: UsersProps) {
                         <h2 class="users-title">Users ({sortedUsers().length}{selectedInstance() ? ` of ${p.users?.length ?? 0}` : ''})</h2>
                         <div class="users-header-controls">
                             {instanceLoading() && <div class="spinner spinner-sm"></div>}
-                            <button
-                                type="button"
-                                class="activity-btn"
-                                onClick={downloadOptInCsv}
-                            >
-                                Generate Mailing List
-                            </button>
+                            <div class="dropdown">
+                                <button type="button" class="activity-btn">Actions ▾</button>
+                                <div class="dropdown-menu">
+                                    <button type="button" class="dropdown-item" onClick={downloadOptInCsv}>
+                                        Generate Mailing List
+                                    </button>
+                                    <button type="button" class="dropdown-item" >
+                                        Another Action
+                                    </button>
+                                </div>
+                            </div>
                             <select
                                 class="instance-filter-select"
                                 onChange={(e: { currentTarget: { value: string } }) => setSelectedDomain(e.currentTarget.value || null)}
