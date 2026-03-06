@@ -4,6 +4,7 @@ import { formatDate } from '../../../utils.ts';
 import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
 import { UserActivityGraph } from './graphs/UserActivityGraph.tsx';
 import { UserRegistrationsGraph } from './graphs/UserRegistrationsGraph.tsx';
+import { SignInHeatmap } from './graphs/SignInHeatmap.tsx';
 
 interface UsersProps {
     users: ClerkUser[] | undefined;
@@ -272,6 +273,7 @@ export function Users(p: UsersProps) {
 
                     <UserActivityGraph users={p.users} />
                     <UserRegistrationsGraph users={p.users} />
+                    <SignInHeatmap users={p.users} />
                 </div>
             </div>
 
