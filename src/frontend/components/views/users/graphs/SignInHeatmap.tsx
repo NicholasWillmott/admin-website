@@ -70,20 +70,28 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
     onMount(async () => {
         const users = p.users;
         if (!users || users.length === 0) return;
-        setLoading(true);
-        setProgress({ done: 0, total: users.length });
 
         const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        // Only fetch sessions for users who signed in within the last week
+        const recentUsers = users.filter(u => u.last_sign_in_at && u.last_sign_in_at >= oneWeekAgo);
+
+        if (recentUsers.length === 0) {
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        setProgress({ done: 0, total: recentUsers.length });
+
         const sessions: ClerkSession[] = [];
-        // Fetch in batches to avoid overwhelming the API
         const BATCH_SIZE = 10;
-        for (let i = 0; i < users.length; i += BATCH_SIZE) {
-            const batch = users.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < recentUsers.length; i += BATCH_SIZE) {
+            const batch = recentUsers.slice(i, i + BATCH_SIZE);
             const results = await Promise.all(batch.map(u => p.onFetchSessions(u.id, oneWeekAgo)));
             for (const r of results) {
                 sessions.push(...r);
             }
-            setProgress({ done: Math.min(i + BATCH_SIZE, users.length), total: users.length });
+            setProgress({ done: Math.min(i + BATCH_SIZE, recentUsers.length), total: recentUsers.length });
             setAllSessions([...sessions]);
         }
 
