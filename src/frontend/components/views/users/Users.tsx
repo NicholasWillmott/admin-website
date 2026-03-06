@@ -38,6 +38,7 @@ export function Users(p: UsersProps) {
     const [instanceAdminEmails, setInstanceAdminEmails] = createSignal<Set<string>>(new Set());
     const [instanceLoading, setInstanceLoading] = createSignal(false);
     const [selectedDomain, setSelectedDomain] = createSignal<string | null>(null);
+    const [searchQuery, setSearchQuery] = createSignal('');
     const [sessionsByUser, setSessionsByUser] = createSignal<Map<string, ClerkSession[]>>(new Map());
 
     const availableDomains = () => {
@@ -187,11 +188,16 @@ export function Users(p: UsersProps) {
         const emailFilter = instanceEmails();
         const filtering = selectedInstance() !== null;
         const domain = selectedDomain();
+        const query = searchQuery().toLowerCase().trim();
 
         return p.users.filter(u => {
             const email = getPrimaryEmail(u);
             if (filtering && !emailFilter.has(email)) return false;
             if (domain && !email.endsWith(`@${domain}`)) return false;
+            if (query) {
+                const name = `${u.first_name ?? ''} ${u.last_name ?? ''}`.toLowerCase();
+                if (!name.includes(query) && !email.toLowerCase().includes(query)) return false;
+            }
             return true;
         });
     };
@@ -225,6 +231,13 @@ export function Users(p: UsersProps) {
                     <div class="users-header">
                         <h2 class="users-title">Users ({sortedUsers().length}{selectedInstance() ? ` of ${p.users?.length ?? 0}` : ''})</h2>
                         <div class="users-header-controls">
+                            <input
+                                type="text"
+                                class="users-search-input"
+                                placeholder="Search by name or email..."
+                                value={searchQuery()}
+                                onInput={(e) => setSearchQuery(e.currentTarget.value)}
+                            />
                             {instanceLoading() && <div class="spinner spinner-sm"></div>}
                             {exporting() && (
                                 <span style={{ color: 'rgba(255,255,255,0.6)', 'font-size': '12px' }}>

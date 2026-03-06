@@ -1151,6 +1151,25 @@ h1 {
   gap: 10px;
 }
 
+.users-search-input {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  width: 200px;
+}
+
+.users-search-input::placeholder {
+  color: rgba(255,255,255,0.5);
+}
+
+.users-search-input:focus {
+  border-color: rgba(255,255,255,0.6);
+}
+
 .instance-filter-select {
   background: rgba(255,255,255,0.15);
   color: white;
