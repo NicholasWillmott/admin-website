@@ -116,15 +116,29 @@ export function Users(p: UsersProps) {
         URL.revokeObjectURL(url);
     }
 
-    function downloadFilteredTableCsv() {
-        const users = sortedUsers();
-        if (users.length === 0) return;
+    const [exporting, setExporting] = createSignal(false);
+    const [exportProgress, setExportProgress] = createSignal({ done: 0, total: 0 });
 
-        const sessMap = sessionsByUser();
+    async function downloadFilteredTableCsv() {
+        const users = sortedUsers();
+        if (users.length === 0 || exporting()) return;
+
+        setExporting(true);
+        setExportProgress({ done: 0, total: users.length });
+
+        const allSessions = new Map<string, ClerkSession[]>();
+        const BATCH_SIZE = 10;
+        for (let i = 0; i < users.length; i += BATCH_SIZE) {
+            const batch = users.slice(i, i + BATCH_SIZE);
+            const results = await Promise.all(batch.map(u => p.onFetchSessions(u.id)));
+            batch.forEach((u, idx) => allSessions.set(u.id, results[idx]));
+            setExportProgress({ done: Math.min(i + BATCH_SIZE, users.length), total: users.length });
+        }
+
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const headers = [
             'Name', 'Email', 'Role', 'Joined', 'Last Sign In', 'Email Opt-In',
-            'Sessions (7d)',
+            'Total Sessions',
             ...dayNames.map(d => `${d} Sessions`),
         ];
         const rows: string[][] = [headers];
@@ -140,7 +154,7 @@ export function Users(p: UsersProps) {
             const lastSignIn = formatUnixDate(u.last_sign_in_at);
             const optIn = u.unsafe_metadata.emailOptIn === true ? 'Yes' : 'No';
 
-            const userSessions = sessMap.get(u.id) ?? [];
+            const userSessions = allSessions.get(u.id) ?? [];
             const totalSessions = String(userSessions.length);
             const dayCounts = new Array(7).fill(0);
             for (const s of userSessions) {
@@ -162,6 +176,7 @@ export function Users(p: UsersProps) {
         a.download = 'users-export.csv';
         a.click();
         URL.revokeObjectURL(url);
+        setExporting(false);
     }
 
     const filteredUsers = () => {
@@ -208,6 +223,11 @@ export function Users(p: UsersProps) {
                         <h2 class="users-title">Users ({sortedUsers().length}{selectedInstance() ? ` of ${p.users?.length ?? 0}` : ''})</h2>
                         <div class="users-header-controls">
                             {instanceLoading() && <div class="spinner spinner-sm"></div>}
+                            {exporting() && (
+                                <span style={{ color: 'rgba(255,255,255,0.6)', 'font-size': '12px' }}>
+                                    Exporting {exportProgress().done}/{exportProgress().total}
+                                </span>
+                            )}
                             <div class="dropdown">
                                 <button type="button" class="activity-btn">Actions ▾</button>
                                 <div class="dropdown-menu">
