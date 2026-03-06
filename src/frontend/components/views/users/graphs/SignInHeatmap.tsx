@@ -5,6 +5,8 @@ interface SignInHeatmapProps {
     users: ClerkUser[] | undefined;
     allUsers: ClerkUser[] | undefined;
     onFetchSessions: (userId: string, since?: number) => Promise<ClerkSession[]>;
+    sessionsByUser: Map<string, ClerkSession[]>;
+    onSessionsUpdate: (sessions: Map<string, ClerkSession[]>) => void;
 }
 
 type TooltipState = { x: number; y: number; text: string };
@@ -64,7 +66,6 @@ function renderTooltip(t: TooltipState) {
 
 export function SignInHeatmap(p: SignInHeatmapProps) {
     const [tooltip, setTooltip] = createSignal<TooltipState | null>(null);
-    const [sessionsByUser, setSessionsByUser] = createSignal<Map<string, ClerkSession[]>>(new Map());
     const [loading, setLoading] = createSignal(false);
     const [progress, setProgress] = createSignal({ done: 0, total: 0 });
 
@@ -96,7 +97,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                 }
             });
             setProgress({ done: Math.min(i + BATCH_SIZE, recentUsers.length), total: recentUsers.length });
-            setSessionsByUser(new Map(sessMap));
+            p.onSessionsUpdate(new Map(sessMap));
         }
 
         setLoading(false);
@@ -106,7 +107,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
     const filteredSessions = () => {
         const users = p.users;
         if (!users) return [];
-        const map = sessionsByUser();
+        const map = p.sessionsByUser;
         const userIds = new Set(users.map(u => u.id));
         const sessions: ClerkSession[] = [];
         for (const [userId, userSessions] of map) {

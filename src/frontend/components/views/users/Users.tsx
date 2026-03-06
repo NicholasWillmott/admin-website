@@ -1,5 +1,5 @@
 import { For, createSignal } from 'solid-js';
-import type { ClerkUser, ClerkSession, Server, HealthCheckResponse } from "../../../types.ts";
+import type { ClerkUser, ClerkSession, Server, HealthCheckResponse } from '../../../types.ts';
 import { formatDate } from '../../../utils.ts';
 import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
 import { UserActivityGraph } from './graphs/UserActivityGraph.tsx';
@@ -38,6 +38,7 @@ export function Users(p: UsersProps) {
     const [instanceAdminEmails, setInstanceAdminEmails] = createSignal<Set<string>>(new Set());
     const [instanceLoading, setInstanceLoading] = createSignal(false);
     const [selectedDomain, setSelectedDomain] = createSignal<string | null>(null);
+    const [sessionsByUser, setSessionsByUser] = createSignal<Map<string, ClerkSession[]>>(new Map());
 
     const availableDomains = () => {
         if (!p.users) return [];
@@ -115,6 +116,54 @@ export function Users(p: UsersProps) {
         URL.revokeObjectURL(url);
     }
 
+    function downloadFilteredTableCsv() {
+        const users = sortedUsers();
+        if (users.length === 0) return;
+
+        const sessMap = sessionsByUser();
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const headers = [
+            'Name', 'Email', 'Role', 'Joined', 'Last Sign In', 'Email Opt-In',
+            'Sessions (7d)',
+            ...dayNames.map(d => `${d} Sessions`),
+        ];
+        const rows: string[][] = [headers];
+
+        for (const u of users) {
+            const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || '-';
+            const email = getPrimaryEmail(u);
+            const roles: string[] = [];
+            if (u.public_metadata.isAdmin === true) roles.push('Super Admin');
+            if (selectedInstance() && instanceAdminEmails().has(email)) roles.push('Instance Admin');
+            const role = roles.join(', ') || '-';
+            const joined = formatUnixDate(u.created_at);
+            const lastSignIn = formatUnixDate(u.last_sign_in_at);
+            const optIn = u.unsafe_metadata.emailOptIn === true ? 'Yes' : 'No';
+
+            const userSessions = sessMap.get(u.id) ?? [];
+            const totalSessions = String(userSessions.length);
+            const dayCounts = new Array(7).fill(0);
+            for (const s of userSessions) {
+                dayCounts[new Date(s.created_at).getDay()]++;
+            }
+
+            rows.push([
+                name, email, role, joined, lastSignIn, optIn,
+                totalSessions,
+                ...dayCounts.map(String),
+            ]);
+        }
+
+        const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'users-export.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     const filteredUsers = () => {
         if (!p.users) return [];
         const emailFilter = instanceEmails();
@@ -167,6 +216,9 @@ export function Users(p: UsersProps) {
                                     </button>
                                     <button type="button" class="dropdown-item" onClick={downloadAskedNotOptinCsv}>
                                         Generate Opt-out List
+                                    </button>
+                                    <button type="button" class="dropdown-item" onClick={downloadFilteredTableCsv}>
+                                        Export Table as CSV
                                     </button>
                                 </div>
                             </div>
@@ -277,7 +329,7 @@ export function Users(p: UsersProps) {
 
                     <UserActivityGraph users={filteredUsers()} />
                     <UserRegistrationsGraph users={filteredUsers()} />
-                    <SignInHeatmap users={filteredUsers()} allUsers={p.users} onFetchSessions={p.onFetchSessions} />
+                    <SignInHeatmap users={filteredUsers()} allUsers={p.users} onFetchSessions={p.onFetchSessions} sessionsByUser={sessionsByUser()} onSessionsUpdate={setSessionsByUser} />
                     <EmailOptInChart users={filteredUsers()} />
                 </div>
             </div>
