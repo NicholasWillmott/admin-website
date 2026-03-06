@@ -126,20 +126,31 @@ export function Users(p: UsersProps) {
         setExporting(true);
         setExportProgress({ done: 0, total: users.length });
 
-        const allSessions = new Map<string, ClerkSession[]>();
+        const activeDaysMap = new Map<string, number>();
         const BATCH_SIZE = 10;
         for (let i = 0; i < users.length; i += BATCH_SIZE) {
             const batch = users.slice(i, i + BATCH_SIZE);
             const results = await Promise.all(batch.map(u => p.onFetchSessions(u.id)));
-            batch.forEach((u, idx) => allSessions.set(u.id, results[idx]));
+            batch.forEach((u, idx) => {
+                const days = new Set<string>();
+                for (const s of results[idx]) {
+                    const start = new Date(s.created_at);
+                    const end = new Date(s.last_active_at);
+                    const current = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+                    const endDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+                    while (current <= endDay) {
+                        days.add(current.toISOString().split('T')[0]);
+                        current.setUTCDate(current.getUTCDate() + 1);
+                    }
+                }
+                activeDaysMap.set(u.id, days.size);
+            });
             setExportProgress({ done: Math.min(i + BATCH_SIZE, users.length), total: users.length });
         }
 
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const headers = [
             'Name', 'Email', 'Role', 'Joined', 'Last Sign In', 'Email Opt-In',
-            'Total Sessions',
-            ...dayNames.map(d => `${d} Sessions`),
+            'Active Days',
         ];
         const rows: string[][] = [headers];
 
@@ -154,17 +165,9 @@ export function Users(p: UsersProps) {
             const lastSignIn = formatUnixDate(u.last_sign_in_at);
             const optIn = u.unsafe_metadata.emailOptIn === true ? 'Yes' : 'No';
 
-            const userSessions = allSessions.get(u.id) ?? [];
-            const totalSessions = String(userSessions.length);
-            const dayCounts = new Array(7).fill(0);
-            for (const s of userSessions) {
-                dayCounts[new Date(s.created_at).getDay()]++;
-            }
-
             rows.push([
                 name, email, role, joined, lastSignIn, optIn,
-                totalSessions,
-                ...dayCounts.map(String),
+                String(activeDaysMap.get(u.id) ?? 0),
             ]);
         }
 
