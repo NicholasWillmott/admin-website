@@ -77,6 +77,24 @@ export function Users(p: UsersProps) {
         setInstanceLoading(false);
     }
 
+    function downloadOptInCsv() {
+        if (!p.users) return;
+        const optedIn = p.users.filter(u => u.unsafe_metadata.emailOptIn === true);
+        const rows = [['Name', 'Email']];
+        for (const u of optedIn) {
+            const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || '-';
+            rows.push([name, getPrimaryEmail(u)]);
+        }
+        const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'email-opt-in.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     const sortedUsers = () => {
         if (!p.users) return [];
         const key = sortKey();
@@ -118,6 +136,13 @@ export function Users(p: UsersProps) {
                         <h2 class="users-title">Users ({sortedUsers().length}{selectedInstance() ? ` of ${p.users?.length ?? 0}` : ''})</h2>
                         <div class="users-header-controls">
                             {instanceLoading() && <div class="spinner spinner-sm"></div>}
+                            <button
+                                type="button"
+                                class="activity-btn"
+                                onClick={downloadOptInCsv}
+                            >
+                                Generate Mailing List
+                            </button>
                             <select
                                 class="instance-filter-select"
                                 onChange={(e: { currentTarget: { value: string } }) => setSelectedDomain(e.currentTarget.value || null)}
