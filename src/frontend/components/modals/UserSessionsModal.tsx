@@ -41,8 +41,14 @@ function toDateStr(d: Date): string {
 function getActiveDays(sessions: ClerkSession[]): Set<string> {
     const days = new Set<string>();
     for (const session of sessions) {
-        days.add(toDateStr(new Date(session.created_at)));
-        days.add(toDateStr(new Date(session.last_active_at)));
+        const start = new Date(session.created_at);
+        const end = new Date(session.last_active_at);
+        const current = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+        const endDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+        while (current <= endDay) {
+            days.add(toDateStr(current));
+            current.setUTCDate(current.getUTCDate() + 1);
+        }
     }
     return days;
 }
