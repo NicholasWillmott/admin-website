@@ -97,7 +97,7 @@ export function Users(p: UsersProps) {
 
     function downloadAskedNotOptinCsv() {
         if (!p.users) return;
-        const askedNotOptedIn = p.users.filter(u => (u.unsafe_metadata.emailOptIn === true && u.unsafe_metadata.emailOptInAsked === true));
+        const askedNotOptedIn = p.users.filter(u => (u.unsafe_metadata.emailOptIn === false && u.unsafe_metadata.emailOptInAsked === true));
         const rows =[['Name', 'Email']];
         for (const u of askedNotOptedIn) {
             const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || '-';
@@ -161,7 +161,7 @@ export function Users(p: UsersProps) {
                                         Generate Mailing List
                                     </button>
                                     <button type="button" class="dropdown-item" onClick={downloadAskedNotOptinCsv}>
-                                        Another Action
+                                        Generate Opt-out List
                                     </button>
                                 </div>
                             </div>
