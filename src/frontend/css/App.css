@@ -1112,7 +1112,7 @@ h1 {
   left: 0;
   right: 0;
   bottom: 0;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -1123,7 +1123,6 @@ h1 {
 .users-content {
   width: 100%;
   max-width: 1200px;
-  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 20px;
