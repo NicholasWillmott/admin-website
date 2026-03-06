@@ -754,6 +754,8 @@ app.get("/api/users/:userId/sessions", async (c) => {
     if (authError) return authError;
 
     const userId = c.req.param("userId");
+    const since = c.req.query("since");
+    const sinceMs = since ? Number(since) : null;
     const clerkSecretKey = Deno.env.get("CLERK_SECRET_KEY");
     const limit = 100;
 
@@ -772,7 +774,15 @@ app.get("/api/users/:userId/sessions", async (c) => {
             }
 
             const page = await response.json();
-            allSessions.push(...page);
+
+            if (sinceMs) {
+                const filtered = page.filter((s: { created_at: number }) => s.created_at >= sinceMs);
+                allSessions.push(...filtered);
+                // If any session on this page was older than the cutoff, we're done
+                if (filtered.length < page.length) break;
+            } else {
+                allSessions.push(...page);
+            }
 
             if (page.length < limit) break;
             offset += limit;

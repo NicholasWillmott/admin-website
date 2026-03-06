@@ -3,7 +3,7 @@ import type { ClerkUser, ClerkSession } from '../../../../types.ts';
 
 interface SignInHeatmapProps {
     users: ClerkUser[] | undefined;
-    onFetchSessions: (userId: string) => Promise<ClerkSession[]>;
+    onFetchSessions: (userId: string, since?: number) => Promise<ClerkSession[]>;
 }
 
 type TooltipState = { x: number; y: number; text: string };
@@ -73,12 +73,13 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
         setLoading(true);
         setProgress({ done: 0, total: users.length });
 
+        const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
         const sessions: ClerkSession[] = [];
         // Fetch in batches to avoid overwhelming the API
         const BATCH_SIZE = 10;
         for (let i = 0; i < users.length; i += BATCH_SIZE) {
             const batch = users.slice(i, i + BATCH_SIZE);
-            const results = await Promise.all(batch.map(u => p.onFetchSessions(u.id)));
+            const results = await Promise.all(batch.map(u => p.onFetchSessions(u.id, oneWeekAgo)));
             for (const r of results) {
                 sessions.push(...r);
             }
@@ -109,7 +110,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                 <div>
                     <span class="activity-graph-title">Sign-in Heatmap</span>
                     <span class="activity-graph-subtitle">
-                        ({totalSessions()} total sign-in{totalSessions() !== 1 ? 's' : ''})
+                        ({totalSessions()} sign-in{totalSessions() !== 1 ? 's' : ''} in the last 7 days)
                     </span>
                 </div>
                 {loading() && (

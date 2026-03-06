@@ -10,7 +10,7 @@ interface UsersProps {
     users: ClerkUser[] | undefined;
     loading: boolean;
     error: Error | undefined;
-    onFetchSessions: (userId: string) => Promise<ClerkSession[]>;
+    onFetchSessions: (userId: string, since?: number) => Promise<ClerkSession[]>;
     servers: Server[] | undefined;
     onFetchInstanceStatus: (serverId: string) => Promise<HealthCheckResponse | null>;
 }

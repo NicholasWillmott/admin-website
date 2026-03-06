@@ -367,9 +367,9 @@ function App() {
   };
 
   // fetch sessions for a user
-  const handleFetchSessions = async (userId: string) => {
+  const handleFetchSessions = async (userId: string, since?: number) => {
     const token = await getToken();
-    return getUserSessionsApi(userId, token);
+    return getUserSessionsApi(userId, token, since);
   };
 
   // docker pull handler

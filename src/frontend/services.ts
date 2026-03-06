@@ -218,9 +218,12 @@ export async function getUsersApi(token: string | null): Promise<ClerkUser[]> {
   }
 }
 
-export async function getUserSessionsApi(userId: string, token: string | null): Promise<ClerkSession[]> {
+export async function getUserSessionsApi(userId: string, token: string | null, since?: number): Promise<ClerkSession[]> {
   try {
-    const response = await fetch(`${API_BASE}/api/users/${userId}/sessions`, {
+    const url = since
+      ? `${API_BASE}/api/users/${userId}/sessions?since=${since}`
+      : `${API_BASE}/api/users/${userId}/sessions`;
+    const response = await fetch(url, {
       headers: getAuthHeaders(token),
     });
     if (!response.ok) return [];
