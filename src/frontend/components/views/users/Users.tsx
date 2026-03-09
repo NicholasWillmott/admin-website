@@ -7,6 +7,7 @@ import { UserRegistrationsGraph } from './graphs/UserRegistrationsGraph.tsx';
 import { SignInHeatmap } from './graphs/SignInHeatmap.tsx';
 import { EmailOptInChart } from './graphs/EmailOptInChart.tsx';
 import { UserRetentionChart } from './graphs/UserRetentionChart.tsx';
+import { RecentSignupsCard } from './graphs/RecentSignupsCard.tsx';
 
 interface UsersProps {
     users: ClerkUser[] | undefined;
@@ -364,6 +365,7 @@ export function Users(p: UsersProps) {
                         </div>
                     )}
 
+                    <RecentSignupsCard users={filteredUsers()} />
                     <UserActivityGraph users={filteredUsers()} />
                     <UserRegistrationsGraph users={filteredUsers()} />
                     <SignInHeatmap users={filteredUsers()} allUsers={p.users} onFetchSessions={p.onFetchSessions} sessionsByUser={sessionsByUser()} onSessionsUpdate={setSessionsByUser} />
