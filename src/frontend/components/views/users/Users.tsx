@@ -365,12 +365,13 @@ export function Users(p: UsersProps) {
                         </div>
                     )}
 
-                    <RecentSignupsCard users={filteredUsers()} />
+                    {/** Graphs */}
                     <UserActivityGraph users={filteredUsers()} />
                     <UserRegistrationsGraph users={filteredUsers()} />
                     <SignInHeatmap users={filteredUsers()} allUsers={p.users} onFetchSessions={p.onFetchSessions} sessionsByUser={sessionsByUser()} onSessionsUpdate={setSessionsByUser} />
                     <UserRetentionChart users={filteredUsers()} />
                     <EmailOptInChart users={filteredUsers()} />
+                    <RecentSignupsCard users={filteredUsers()} />
                 </div>
             </div>
 
