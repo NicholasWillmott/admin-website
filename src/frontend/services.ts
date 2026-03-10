@@ -234,6 +234,20 @@ export async function getUserSessionsApi(userId: string, token: string | null, s
   }
 }
 
+export async function getUserActivityApi(serverId: string, email: string, token: string | null): Promise<string[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/user_activity?email=${encodeURIComponent(email)}`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data: { activeDays: string[] } = await response.json();
+    return data.activeDays ?? [];
+  } catch (error) {
+    console.error(`Failed to fetch user activity for ${email} on ${serverId}:`, error);
+    return [];
+  }
+}
+
 export async function fetchLockedServersApi(token: string | null): Promise<string[]> {
   try {
     const response = await fetch(`${API_BASE}/api/servers/locks`, {

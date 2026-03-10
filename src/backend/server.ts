@@ -734,6 +734,27 @@ app.post("/api/module-definitions/commit", async (c) => {
 });
 
 
+// Proxy user activity from a platform instance
+app.get("/api/servers/:id/user_activity", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+    const email = c.req.query("email") ?? "";
+
+    if (!isSafeParam(serverId)) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/user_activity?email=${encodeURIComponent(email)}`);
+        const data = await response.json();
+        return c.json(data);
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // users endpoints
 app.get("/api/users", async (c) => {
     const authError = await requireAdmin(c);

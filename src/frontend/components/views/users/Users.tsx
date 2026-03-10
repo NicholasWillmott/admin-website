@@ -14,6 +14,7 @@ interface UsersProps {
     loading: boolean;
     error: Error | undefined;
     onFetchSessions: (userId: string, since?: number) => Promise<ClerkSession[]>;
+    onFetchActivity: (email: string, serverId: string | null) => Promise<string[]>;
     servers: Server[] | undefined;
     onFetchInstanceStatus: (serverId: string) => Promise<HealthCheckResponse | null>;
 }
@@ -379,7 +380,8 @@ export function Users(p: UsersProps) {
                 <UserSessionsModal
                     user={selectedUser()!}
                     onClose={() => setSelectedUser(null)}
-                    onFetchSessions={p.onFetchSessions}
+                    serverId={selectedInstance()}
+                    onFetchActivity={p.onFetchActivity}
                 />
             )}
         </>

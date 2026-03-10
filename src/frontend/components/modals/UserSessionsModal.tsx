@@ -1,10 +1,11 @@
 import { createResource, For } from 'solid-js';
-import type { ClerkUser, ClerkSession } from '../../types.ts';
+import type { ClerkUser } from '../../types.ts';
 
 interface UserSessionsModalProps {
     user: ClerkUser;
     onClose: () => void;
-    onFetchSessions: (userId: string) => Promise<ClerkSession[]>;
+    serverId: string | null;
+    onFetchActivity: (email: string, serverId: string | null) => Promise<string[]>;
 }
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -38,21 +39,6 @@ function toDateStr(d: Date): string {
     return d.toISOString().split('T')[0];
 }
 
-function getActiveDays(sessions: ClerkSession[]): Set<string> {
-    const days = new Set<string>();
-    for (const session of sessions) {
-        const start = new Date(session.created_at);
-        const end = new Date(session.last_active_at);
-        const current = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-        const endDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
-        while (current <= endDay) {
-            days.add(toDateStr(current));
-            current.setUTCDate(current.getUTCDate() + 1);
-        }
-    }
-    return days;
-}
-
 function getMonthLabels(weeks: (Date | null)[][]): { label: string; left: number }[] {
     const labels: { label: string; left: number }[] = [];
     let lastMonth = -1;
@@ -80,14 +66,15 @@ export function UserSessionsModal(p: UserSessionsModalProps) {
     const weeks = generateWeeks(year);
     const monthLabels = getMonthLabels(weeks);
     const today = toDateStr(new Date());
+    const yearPrefix = String(year);
 
-    const [sessions] = createResource(() => p.onFetchSessions(p.user.id));
+    const [activeDaysList] = createResource(
+        () => getPrimaryEmail(p.user),
+        (email) => p.onFetchActivity(email, p.serverId),
+    );
 
-    const activeDays = () => {
-        const s = sessions();
-        if (!s) return new Set<string>();
-        return getActiveDays(s);
-    };
+    const activeDays = () => new Set<string>(activeDaysList() ?? []);
+    const activeDaysThisYear = () => [...activeDays()].filter(d => d.startsWith(yearPrefix)).length;
 
     return (
         <div class="modal-overlay" onClick={p.onClose}>
@@ -104,20 +91,20 @@ export function UserSessionsModal(p: UserSessionsModalProps) {
                 </div>
 
                 <div class="modal-body">
-                    {sessions.loading ? (
+                    {activeDaysList.loading ? (
                         <div class="sessions-loading">
                             <div class="spinner"></div>
-                            <p>Loading sessions...</p>
+                            <p>Loading activity...</p>
                         </div>
                     ) : (
                         <>
                             <div class="sessions-stats-row">
                                 <div class="stat-item">
-                                    <span class="stat-label">Total Sessions</span>
-                                    <span class="stat-value">{sessions()?.length ?? 0}</span>
+                                    <span class="stat-label">Active Days ({year})</span>
+                                    <span class="stat-value">{activeDaysThisYear()}</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-label">Active Days ({year})</span>
+                                    <span class="stat-label">Active Days (All)</span>
                                     <span class="stat-value">{activeDays().size}</span>
                                 </div>
                             </div>

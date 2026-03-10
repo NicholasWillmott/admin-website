@@ -28,6 +28,7 @@ import {
   backupServerApi,
   getUsersApi,
   getUserSessionsApi,
+  getUserActivityApi,
   fetchLockedServersApi,
   lockServerApi,
   unlockServerApi,
@@ -378,6 +379,17 @@ function App() {
     return getUserSessionsApi(userId, token, since);
   };
 
+  const handleFetchActivity = async (email: string, serverId: string | null) => {
+    const token = await getToken();
+    const serverList = serverId ? [{ id: serverId }] : (servers() ?? []);
+    const results = await Promise.all(
+      serverList.map((s) => getUserActivityApi(s.id, email, token).catch(() => [] as string[]))
+    );
+    const combined = new Set<string>();
+    for (const days of results) for (const day of days) combined.add(day);
+    return [...combined].sort();
+  };
+
   // docker pull handler
   const handleDockerPull = async (version: string) => {
     if (sshOperationInProgress()) {
@@ -569,6 +581,7 @@ function App() {
               loading={clerkUsers.loading}
               error={clerkUsers.error}
               onFetchSessions={handleFetchSessions}
+              onFetchActivity={handleFetchActivity}
               servers={servers()}
               onFetchInstanceStatus={async (serverId) => {
                 const token = await getToken();
