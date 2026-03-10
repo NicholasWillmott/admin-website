@@ -4,6 +4,7 @@ import { SERVER_CATEGORIES, ALL_CATEGORIZED_SERVER_IDS } from './serverCategorie
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 import { ModuleEditorContent } from './components/views/ModuleDefinitions/ModuleEditorContent.tsx';
 import { ServerCard } from './components/views/ServerCard.tsx';
+import { ActiveInstancesBar } from './components/views/ActiveInstancesBar.tsx';
 import { LogsModal } from './components/modals/LogsModal.tsx';
 import { BackupsModal } from './components/modals/BackupsModal.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
@@ -478,23 +479,9 @@ function App() {
           <Show when={activeView() === "servers"}>
             {servers.loading && <h2 class="loading-text">Loading...</h2>}
             {servers.error && <p>Error: {servers.error.message}</p>}
-            {activeInstances().length > 0 && (
-              <div class="active-instances-bar">
-                <span class="active-instances-label">Active now:</span>
-                <For each={activeInstances()}>
-                  {(server) => {
-                    const log = statuses()?.[server.id]?.lastUserLog!;
-                    return (
-                      <span class="active-instance-chip" title={`${log.userEmail} — ${new Date(log.timestamp).toLocaleTimeString()}`}>
-                        {server.label}
-                      </span>
-                    );
-                  }}
-                </For>
-              </div>
-            )}
             {servers() && (
               <div class="servers-container">
+                <ActiveInstancesBar instances={activeInstances()} statuses={statuses()} />
                 <For each={[...SERVER_CATEGORIES, { name: "Misc", servers: (servers() || []).filter(s => !ALL_CATEGORIZED_SERVER_IDS.has(s.id)).map(s => s.id) }]}>
                   {(category) => {
                     const categoryServers = () => servers()?.filter(s =>
@@ -509,7 +496,7 @@ function App() {
                             <For each={categoryServers()}>
                               {(server) => (
                                 <ServerCard
-                                  server={server} 
+                                  server={server}
                                   isExpanded={expandedId() === server.id}
                                   onToggle={() => toggleCard(server.id)}
                                   status={statuses()?.[server.id] ?? null}
