@@ -3766,3 +3766,9 @@ h1 {
   background: #16c9c9;
   box-shadow: 0 0 6px #16c9c9;
 }
+
+.active-instances-loading {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}

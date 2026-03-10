@@ -481,7 +481,7 @@ function App() {
             {servers.error && <p>Error: {servers.error.message}</p>}
             {servers() && (
               <div class="servers-container">
-                <ActiveInstancesBar instances={activeInstances()} statuses={statuses()} />
+                <ActiveInstancesBar instances={activeInstances()} statuses={statuses()} loading={statuses.loading} />
                 <For each={[...SERVER_CATEGORIES, { name: "Misc", servers: (servers() || []).filter(s => !ALL_CATEGORIZED_SERVER_IDS.has(s.id)).map(s => s.id) }]}>
                   {(category) => {
                     const categoryServers = () => servers()?.filter(s =>
