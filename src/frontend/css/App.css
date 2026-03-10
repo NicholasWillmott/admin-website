@@ -3798,6 +3798,13 @@ h1 {
   }
 }
 
+/* Nav buttons start wrapping to 2 rows around this width, making the header taller */
+@media (max-width: 540px) {
+  :root {
+    --header-height: 180px;
+  }
+}
+
 @media (max-width: 700px) {
   .servers-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -3838,6 +3845,11 @@ h1 {
 }
 
 @media (max-width: 480px) {
+  /* Smaller h1 + smaller buttons = shorter header even with 2 rows */
+  :root {
+    --header-height: 115px;
+  }
+
   #root {
     padding: 0.5rem;
   }

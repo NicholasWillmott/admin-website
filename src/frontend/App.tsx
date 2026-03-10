@@ -40,9 +40,6 @@ import { Users } from "./components/views/users/Users.tsx";
 function App() {
   const { getToken } = useAuth();
 
-  // track mobile nav menu open/closed
-  const [mobileNavOpen, setMobileNavOpen] = createSignal(false);
-
   // get server data
   const [servers, { mutate }] = createResource(fetchServerCardData)
 
@@ -415,55 +412,41 @@ function App() {
     <>
       <ToastContainer />
       <div class="sticky-header">
-        <div class="header-row">
-          <h1>Fastr Analytics Admin Dashboard</h1>
-          <SignedIn>
-            <Show when={isAdmin()}>
-              <button
-                class="hamburger-btn"
-                type="button"
-                aria-label="Toggle navigation menu"
-                onClick={() => setMobileNavOpen(o => !o)}
-              >
-                {mobileNavOpen() ? '✕' : '☰'}
-              </button>
-            </Show>
-          </SignedIn>
-        </div>
+        <h1>Fastr Analytics Admin Dashboard</h1>
         <SignedIn>
           <Show when={isAdmin()}>
-            <div class="button-container" data-open={mobileNavOpen()}>
+            <div class="button-container">
               <button
                 type="button"
                 data-selected={activeView() === "servers"}
-                onClick={() => { setActiveView("servers"); setMobileNavOpen(false); }}
+                onClick={() => setActiveView("servers")}
               >
                 Servers
               </button>
               <button
                 type="button"
                 data-selected={activeView() === "snapshots"}
-                onClick={() => { setActiveView("snapshots"); setMobileNavOpen(false); }}
+                onClick={() => setActiveView("snapshots")}
               >
                 Snapshots
               </button>
               <button
                 type="button"
                 data-selected={activeView() === "users"}
-                onClick={() => { setActiveView("users"); setMobileNavOpen(false); }}
+                onClick={() => setActiveView("users")}
               >
                 Users
               </button>
               <button
                 type="button"
                 data-selected={activeView() === "moduleEditor"}
-                onClick={() => { setActiveView("moduleEditor"); setMobileNavOpen(false); }}
+                onClick={() => setActiveView("moduleEditor")}
               >
                 Module Definitions
               </button>
               <button
                 type="button"
-                onClick={() => { setDockerPullModalOpen(true); setMobileNavOpen(false); }}
+                onClick={() => setDockerPullModalOpen(true)}
               >
                 Docker Pull
               </button>
