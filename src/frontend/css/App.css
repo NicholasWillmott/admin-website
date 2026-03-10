@@ -3722,3 +3722,47 @@ h1 {
     z-index: 10;
     /* style to taste */
 }
+/* Active Instances Bar */
+.active-instances-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  background: rgba(22, 201, 201, 0.12);
+  border: 1px solid rgba(22, 201, 201, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+}
+
+.active-instances-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #16c9c9;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 0.25rem;
+}
+
+.active-instance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.7rem;
+  background: rgba(22, 201, 201, 0.2);
+  border: 1px solid rgba(22, 201, 201, 0.4);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: #ffffff;
+  cursor: default;
+}
+
+.active-instance-chip::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16c9c9;
+  box-shadow: 0 0 6px #16c9c9;
+}

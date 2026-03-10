@@ -133,6 +133,11 @@ function App() {
   const { user: currentUser } = useUser();
   const isAdmin = () => currentUser()?.publicMetadata?.isAdmin === true;
 
+  const activeInstances = () => (servers() || []).filter(s => {
+    const log = statuses()?.[s.id]?.lastUserLog;
+    return log && Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000;
+  });
+
   // toggle card
   const toggleCard = (id: string) => {
     setExpandedId(expandedId() === id ? null : id)
@@ -473,6 +478,21 @@ function App() {
           <Show when={activeView() === "servers"}>
             {servers.loading && <h2 class="loading-text">Loading...</h2>}
             {servers.error && <p>Error: {servers.error.message}</p>}
+            {activeInstances().length > 0 && (
+              <div class="active-instances-bar">
+                <span class="active-instances-label">Active now:</span>
+                <For each={activeInstances()}>
+                  {(server) => {
+                    const log = statuses()?.[server.id]?.lastUserLog!;
+                    return (
+                      <span class="active-instance-chip" title={`${log.userEmail} — ${new Date(log.timestamp).toLocaleTimeString()}`}>
+                        {server.label}
+                      </span>
+                    );
+                  }}
+                </For>
+              </div>
+            )}
             {servers() && (
               <div class="servers-container">
                 <For each={[...SERVER_CATEGORIES, { name: "Misc", servers: (servers() || []).filter(s => !ALL_CATEGORIZED_SERVER_IDS.has(s.id)).map(s => s.id) }]}>

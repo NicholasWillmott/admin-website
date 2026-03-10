@@ -36,7 +36,7 @@ export function ServerCard(props: ServerCardProps) {
           {(() => {
             const log = props.status?.lastUserLog;
             const isActive = log
-              ? Date.now() - new Date(log.timestamp).getTime() < 5 * 60 * 1000
+              ? Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000
               : false;
             const title = log
               ? `Last activity: ${log.userEmail} — ${timeAgo(log.timestamp)}`
