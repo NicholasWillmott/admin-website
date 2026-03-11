@@ -68,6 +68,7 @@ h1 {
 
 /* Card Styles - IMPROVED */
 .server-card {
+  position: relative;
   border: none;
   border-radius: 12px;
   padding: 24px;
@@ -134,11 +135,14 @@ h1 {
 }
 
 .select-checkbox {
+  position: absolute;
+  top: 12px;
+  left: 12px;
   width: 18px;
   height: 18px;
   cursor: pointer;
   accent-color: #4f7cff;
-  flex-shrink: 0;
+  z-index: 1;
 }
 
 .multi-select-toggle {
