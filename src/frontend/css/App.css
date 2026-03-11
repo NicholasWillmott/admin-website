@@ -142,19 +142,68 @@ h1 {
 }
 
 .multi-select-toggle {
-  margin-bottom: 12px;
-  padding: 8px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  align-self: flex-end;
+  padding: 6px 14px;
   border: 1px solid #4f7cff;
   border-radius: 8px;
   background: white;
   color: #4f7cff;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .multi-select-toggle.active {
   background: #4f7cff;
   color: white;
+}
+
+.multi-select-modal {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  background: #1e1e2e;
+  border-top: 2px solid #4f7cff;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: white;
+}
+
+.multi-select-modal h3 {
+  margin: 0;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.multi-select-modal p {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.75;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multi-select-modal label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.multi-select-modal-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
 }
 
 .server-card.expanded {

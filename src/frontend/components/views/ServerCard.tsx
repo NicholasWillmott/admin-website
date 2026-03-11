@@ -37,6 +37,7 @@ export function ServerCard(props: ServerCardProps) {
             type="checkbox"
             class="select-checkbox"
             checked={props.isSelected}
+            disabled={props.isLocked}
             onClick={(e) => { e.stopPropagation(); props.onToggleSelect(props.server.id); }}
           />
         )}

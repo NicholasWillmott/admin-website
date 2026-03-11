@@ -629,39 +629,39 @@ function App() {
                     );
                   }}
                 </For>
+
+                {/* Backups Modal */}
+                {backupsModalServerId() && (
+                  <BackupsModal
+                    serverId={backupsModalServerId()!}
+                    backups={backupsList()}
+                    loading={backupsLoading()}
+                    onClose={closeBackupsModal}
+                    onDownloadFile={handleDownloadFile}
+                    onDownloadAll={handleDownloadAll}
+                  />
+                )}
+
+                {/* Logs Modal */}
+                {logsModalServerId() && (
+                  <LogsModal
+                    serverId={logsModalServerId()!}
+                    logs={modalLogs()}
+                    loading={logsLoading()}
+                    onClose={closeLogsModal}
+                  />
+                )}
+
+                {/* bulk select modal */}
+                {(multiSelectedServerIds()?.length ?? 0) > 0 && (
+                  <ServerMultiSelectModal
+                    serverIds={multiSelectedServerIds()!}
+                    versions={serverVersions() || []}
+                    sshOperationInProgress={sshOperationInProgress()}
+                    onUpdate={bulkUpdateServerVersion}
+                  />
+                )}
               </div>
-            )}
-
-            {/* Backups Modal */}
-            {backupsModalServerId() && (
-              <BackupsModal
-                serverId={backupsModalServerId()!}
-                backups={backupsList()}
-                loading={backupsLoading()}
-                onClose={closeBackupsModal}
-                onDownloadFile={handleDownloadFile}
-                onDownloadAll={handleDownloadAll}
-              />
-            )}
-
-            {/* Logs Modal */}
-            {logsModalServerId() && (
-              <LogsModal
-                serverId={logsModalServerId()!}
-                logs={modalLogs()}
-                loading={logsLoading()}
-                onClose={closeLogsModal}
-              />
-            )}
-
-            {/* bulk select modal */}
-            {(multiSelectedServerIds()?.length ?? 0) > 0 && (
-              <ServerMultiSelectModal
-                serverIds={multiSelectedServerIds()!}
-                versions={serverVersions() || []}
-                sshOperationInProgress={sshOperationInProgress()}
-                onUpdate={bulkUpdateServerVersion}
-              />
             )}
           </Show>
 
