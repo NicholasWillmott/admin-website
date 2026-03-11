@@ -3906,6 +3906,12 @@ h1 {
   font-style: italic;
 }
 
+.active-instances-none {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
 /* ===== Responsive / Mobile Styles ===== */
 
 @media (max-width: 1200px) {
