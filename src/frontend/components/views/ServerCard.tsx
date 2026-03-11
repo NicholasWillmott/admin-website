@@ -31,7 +31,7 @@ export function ServerCard(props: ServerCardProps) {
   return (
     <div class={`server-card ${props.isExpanded ? 'expanded' : ''} ${props.isSelected ? 'selected' : ''}`} onClick={() => props.onToggle()}>
       {/*Collapsed View*/}
-      <div class="card-header">
+      <div class={`card-header ${props.multiSelectMode ? 'has-checkbox' : ''}`}>
         {props.multiSelectMode && (
           <div
             class={`select-checkbox ${props.isSelected ? 'checked' : ''} ${props.isLocked ? 'disabled' : ''}`}

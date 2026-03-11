@@ -247,6 +247,10 @@ h1 {
   margin-bottom: 2px;
 }
 
+.card-header.has-checkbox {
+  padding-left: 32px;
+}
+
 .card-header a {
   text-decoration: none;
   color: inherit;
