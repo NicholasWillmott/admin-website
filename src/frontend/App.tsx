@@ -496,18 +496,20 @@ function App() {
         <SignedIn>
           <Show when={isAdmin()}>
             <div class="button-container">
-              {activeView() === "servers" && (
-                <button
-                  type="button"
-                  class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
-                  onClick={() => {
-                    if (multiSelectMode()) setMultiSelectedServerIds([]);
-                    setMultiSelectMode(m => !m);
-                  }}
-                >
-                  {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
-                </button>
-              )}
+              <div class="nav-left">
+                {activeView() === "servers" && (
+                  <button
+                    type="button"
+                    class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
+                    onClick={() => {
+                      if (multiSelectMode()) setMultiSelectedServerIds([]);
+                      setMultiSelectMode(m => !m);
+                    }}
+                  >
+                    {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
+                  </button>
+                )}
+              </div>
               <div class="nav-buttons">
                 <button
                   type="button"
@@ -544,6 +546,7 @@ function App() {
                   Docker Pull
                 </button>
               </div>
+              <div class="nav-right" />
             </div>
           </Show>
         </SignedIn>
