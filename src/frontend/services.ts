@@ -177,6 +177,30 @@ export async function fetchVolumeSnapshots(token: string | null): Promise<any[]>
   return data.snapshots || [];
 }
 
+export async function bulkUpdateServerVersionApi(serverIds: string[], version: string, token: string | null): Promise<{ success: boolean; error?: string}> {
+  const response = await fetch(`${API_BASE}/api/servers/bulk-update`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ids: serverIds, version }),
+  }); 
+  return await response.json();
+}
+
+export async function bulkRestartServerVersionApi(serverIds: string[], token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/bulk-restart`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ids: serverIds }),
+  });
+  return await response.json();
+}
+
 export async function updateServerVersionApi(serverId: string, version: string, token: string | null): Promise<{ success: boolean; error?: string }> {
   const response = await fetch(`${API_BASE}/api/servers/${serverId}/update`, {
     method: 'POST',

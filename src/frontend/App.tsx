@@ -9,6 +9,7 @@ import { LogsModal } from './components/modals/LogsModal.tsx';
 import { BackupsModal } from './components/modals/BackupsModal.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
+import { ServerMultiSelectModal } from './components/modals/ServerMultiSelectModal.tsx'
 import type { ServerRestartStatus, BackupInfo, ViewType } from './types.ts';
 import {
   fetchServerCardData,
@@ -32,6 +33,8 @@ import {
   fetchLockedServersApi,
   lockServerApi,
   unlockServerApi,
+  bulkUpdateServerVersionApi,
+  bulkRestartServerVersionApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -72,6 +75,10 @@ function App() {
   const [logsModalServerId, setLogsModalServerId] = createSignal<string | null>(null);
   const [modalLogs, setModalLogs] = createSignal<string>('');
   const [logsLoading, setLogsLoading] = createSignal<boolean>(false);
+
+  // track which servers I have multi selected
+  const [multiSelectMode, setMultiSelectMode] = createSignal(false);
+  const [multiSelectedServerIds, setMultiSelectedServerIds] = createSignal<string[] | null>([]);
 
   // track when updating server and restarting server ids are loading
   const [updatingServerId, setUpdatingServerId] = createSignal<string | null>(null);
@@ -297,6 +304,40 @@ function App() {
     }
   };
 
+  const bulkRestartServerInternal = async (serverIds: string[]) => {
+    serverIds.forEach(id => {
+      setServerRestartStatuses(prev => ({ ...prev, [id]: 'pending' }));
+    });
+
+    try {
+      const token = await getToken();
+      const result = await bulkRestartServerVersionApi(serverIds, token);
+      if (result.success) {
+        const results = await Promise.all(serverIds.map(id => pollServerLogsForStartup(id)));
+        serverIds.forEach((id, i) => {
+          if (results[i]) {
+            setServerRestartStatuses(prev => ({ ...prev, [id]: 'online' }));
+            addToast(`Server ${id} restarted successfully and is now online.`, "success");
+          } else {
+            setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
+            addToast(`Server ${id} restart command sent, but failed to detect online status.`, "error");
+          }
+        });
+        refetchStatuses();
+      } else {
+        serverIds.forEach(id => {
+          setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
+        });
+        addToast(`Failed to bulk restart servers: ${result.error}`, "error");
+      }
+    } catch (error) {
+      serverIds.forEach(id => {
+        setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
+      });
+      addToast(`Error restarting servers: ${error}`, "error");
+    }
+  };
+
   // update server version
   const updateServerVersion = async (serverId: string, version: string) => {
     if (sshOperationInProgress()) {
@@ -338,6 +379,44 @@ function App() {
     }
   };
 
+  // bulk update server versions
+  const bulkUpdateServerVersion = async (serverIds: string[], version: string) => {
+    if (sshOperationInProgress()) {
+      addToast('Another SSH operation is in progress. Please wait.', "info");
+      return;
+    }
+
+    setSshOperationInProgress(true);
+
+    try {
+      const token = await getToken();
+      const result = await bulkUpdateServerVersionApi(serverIds, version, token);
+
+      if (result.success) {
+        addToast(`Servers updated successfully to version ${version}`, "success");
+
+        const currentServers = servers();
+        if (currentServers) {
+          const updatedServers = currentServers.map((server) =>
+            serverIds.includes(server.id)
+              ? { ...server, serverVersion: version }
+              : server
+          );
+          mutate(updatedServers);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 1000)); // waits one second in between ssh calls so it doesn't overload the server
+        await bulkRestartServerInternal(serverIds);
+      } else {
+        addToast(`Error: ${result.error}`, "error");
+      } 
+    } catch (error) {
+      addToast(`Failed to update server: ${error}`, "error");
+    } finally {
+      setSshOperationInProgress(false);
+    }
+  };
+
   // restart server (user-initiated)
   const restartServer = async (serverId: string) => {
     if (sshOperationInProgress()) {
@@ -352,6 +431,7 @@ function App() {
       setSshOperationInProgress(false);
     }
   };
+
 
   // backup server
   const backupServer = async (serverId: string) => {
@@ -412,7 +492,7 @@ function App() {
     <>
       <ToastContainer />
       <div class="sticky-header">
-        <h1>Fastr Analytics Admin Dashboard</h1>
+        <h1>STATUS</h1>
         <SignedIn>
           <Show when={isAdmin()}>
             <div class="button-container">
@@ -494,6 +574,16 @@ function App() {
             {servers() && (
               <div class="servers-container">
                 <ActiveInstancesBar instances={activeInstances()} statuses={statuses()} loading={statuses.loading} />
+                <button
+                  type="button"
+                  class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
+                  onClick={() => {
+                    if (multiSelectMode()) setMultiSelectedServerIds([]);
+                    setMultiSelectMode(m => !m);
+                  }}
+                >
+                  {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
+                </button>
                 <For each={[...SERVER_CATEGORIES, { name: "Misc", servers: (servers() || []).filter(s => !ALL_CATEGORIZED_SERVER_IDS.has(s.id)).map(s => s.id) }]}>
                   {(category) => {
                     const categoryServers = () => servers()?.filter(s =>
@@ -525,6 +615,11 @@ function App() {
                                   onViewLogs={openLogsModal}
                                   isLocked={lockedServers().has(server.id)}
                                   onToggleLock={toggleLock}
+                                  multiSelectMode={multiSelectMode()}
+                                  isSelected={multiSelectedServerIds()!.includes(server.id)}
+                                  onToggleSelect={(id) => setMultiSelectedServerIds(prev =>
+                                    prev!.includes(id) ? prev!.filter(x => x !== id) : [...prev!, id]
+                                  )}
                                 />
                               )}
                             </For>
@@ -556,6 +651,16 @@ function App() {
                 logs={modalLogs()}
                 loading={logsLoading()}
                 onClose={closeLogsModal}
+              />
+            )}
+
+            {/* bulk select modal */}
+            {(multiSelectedServerIds()?.length ?? 0) > 0 && (
+              <ServerMultiSelectModal
+                serverIds={multiSelectedServerIds()!}
+                versions={serverVersions() || []}
+                sshOperationInProgress={sshOperationInProgress()}
+                onUpdate={bulkUpdateServerVersion}
               />
             )}
           </Show>

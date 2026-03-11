@@ -156,6 +156,34 @@ app.post("/api/servers/:id/restart", async (c) => {
     }
 });
 
+// Restart bulk serveres - PROTECTED
+app.post("/api/servers/bulk-restart", async (c) => {
+    // Check auth
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ ids: string[] }>();
+    const ids: string[] = body.ids;
+
+    const prefix = "wb restart ";
+    const command = prefix + ids.join(" ");
+
+    if (!isCommandAllowed(command)) {
+        return c.json({ error: "Command not allowed" }, 403);
+    }
+
+    try {
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr,
+        });
+    } catch (error) {
+        return c.json({ error: String(error)}, 500);
+    }
+});
+
 // Get the information such as:
 // running
 // instanceName
@@ -222,7 +250,39 @@ app.post("/api/servers/:id/update", async (c) => {
     } catch (error) {
         return c.json ({ error: String(error) }, 500);
     }
-})
+});
+
+// buld update server versions (need to run bulk restart api after) - PROTECTED
+app.post("/api/servers/bulk-update", async (c) => {
+    // check auth
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    // get body with the server ids
+    const body = await c.req.json<{ ids: string[], version: string }>();
+    const ids: string[] = body.ids;
+    const version: string = body.version;
+
+    const prefix = "wb c update "
+    const suffix = "--server " + version;
+    const command = prefix + ids.join(" ") + " " + suffix;
+
+    if(!isCommandAllowed(command)) {
+        return c.json({ error: "command not allowed" }, 403);
+    }
+
+    // update servers
+    try {
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message:result.stdout,
+            error: result.stderr,
+        });
+    } catch (error) {
+        return c.json ({ error: String(error) }, 500);
+    }
+});
 
 // get all of the versions that we are able to update to - PROTECTED
 app.get("/api/versions", async (c) => {

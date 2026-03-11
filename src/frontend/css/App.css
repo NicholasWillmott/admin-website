@@ -128,6 +128,35 @@ h1 {
   box-shadow: 0 8px 24px rgba(0,0,0,0.2);
 }
 
+.server-card.selected {
+  border: 2px solid #4f7cff;
+  box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.2);
+}
+
+.select-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #4f7cff;
+  flex-shrink: 0;
+}
+
+.multi-select-toggle {
+  margin-bottom: 12px;
+  padding: 8px 16px;
+  border: 1px solid #4f7cff;
+  border-radius: 8px;
+  background: white;
+  color: #4f7cff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.multi-select-toggle.active {
+  background: #4f7cff;
+  color: white;
+}
+
 .server-card.expanded {
   grid-column: 1 / -1;
   background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);

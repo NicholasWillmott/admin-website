@@ -20,15 +20,26 @@ interface ServerCardProps {
   onViewLogs: (serverId: string) => void;
   isLocked: boolean;
   onToggleLock: (serverId: string) => void;
+  multiSelectMode: boolean;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
 }
 
 export function ServerCard(props: ServerCardProps) {
   const [selectedVersion, setSelectedVersion] = createSignal(props.server.serverVersion);
 
   return (
-    <div class={`server-card ${props.isExpanded ? 'expanded' : ''}`} onClick={() => props.onToggle()}>
+    <div class={`server-card ${props.isExpanded ? 'expanded' : ''} ${props.isSelected ? 'selected' : ''}`} onClick={() => props.onToggle()}>
       {/*Collapsed View*/}
       <div class="card-header">
+        {props.multiSelectMode && (
+          <input
+            type="checkbox"
+            class="select-checkbox"
+            checked={props.isSelected}
+            onClick={(e) => { e.stopPropagation(); props.onToggleSelect(props.server.id); }}
+          />
+        )}
         <div class="card-label">
           <a href={`https://${props.server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
             <h2>{props.server.label}</h2>
