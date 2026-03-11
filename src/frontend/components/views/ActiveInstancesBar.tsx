@@ -9,10 +9,10 @@ interface ActiveInstancesBarProps {
 
 export function ActiveInstancesBar(props: ActiveInstancesBarProps) {
   return (
-    <Show when={props.loading || props.instances.length > 0}>
-      <div class="active-instances-bar">
-        <span class="active-instances-label">Active now:</span>
-        <Show when={props.loading} fallback={
+    <div class="active-instances-bar">
+      <span class="active-instances-label">Active now:</span>
+      <Show when={props.loading} fallback={
+        <Show when={props.instances.length === 0} fallback={
           <For each={props.instances}>
             {(server) => {
               const log = props.statuses?.[server.id]?.lastUserLog!;
@@ -24,9 +24,11 @@ export function ActiveInstancesBar(props: ActiveInstancesBarProps) {
             }}
           </For>
         }>
-          <span class="active-instances-loading">Loading...</span>
+          <span class="active-instances-none">No active instances</span>
         </Show>
-      </div>
-    </Show>
+      }>
+        <span class="active-instances-loading">Loading...</span>
+      </Show>
+    </div>
   );
 }
