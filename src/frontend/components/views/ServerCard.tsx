@@ -33,13 +33,16 @@ export function ServerCard(props: ServerCardProps) {
       {/*Collapsed View*/}
       <div class="card-header">
         {props.multiSelectMode && (
-          <input
-            type="checkbox"
-            class="select-checkbox"
-            checked={props.isSelected}
-            disabled={props.isLocked}
-            onClick={(e) => { e.stopPropagation(); props.onToggleSelect(props.server.id); }}
-          />
+          <div
+            class={`select-checkbox ${props.isSelected ? 'checked' : ''} ${props.isLocked ? 'disabled' : ''}`}
+            onClick={(e) => { e.stopPropagation(); if (!props.isLocked) props.onToggleSelect(props.server.id); }}
+          >
+            {props.isSelected && (
+              <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 6L5 9L10 3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            )}
+          </div>
         )}
         <div class="card-label">
           <a href={`https://${props.server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
