@@ -508,40 +508,42 @@ function App() {
                   {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
                 </button>
               )}
-              <button
-                type="button"
-                data-selected={activeView() === "servers"}
-                onClick={() => setActiveView("servers")}
-              >
-                Servers
-              </button>
-              <button
-                type="button"
-                data-selected={activeView() === "snapshots"}
-                onClick={() => setActiveView("snapshots")}
-              >
-                Snapshots
-              </button>
-              <button
-                type="button"
-                data-selected={activeView() === "users"}
-                onClick={() => setActiveView("users")}
-              >
-                Users
-              </button>
-              <button
-                type="button"
-                data-selected={activeView() === "moduleEditor"}
-                onClick={() => setActiveView("moduleEditor")}
-              >
-                Module Definitions
-              </button>
-              <button
-                type="button"
-                onClick={() => setDockerPullModalOpen(true)}
-              >
-                Docker Pull
-              </button>
+              <div class="nav-buttons">
+                <button
+                  type="button"
+                  data-selected={activeView() === "servers"}
+                  onClick={() => setActiveView("servers")}
+                >
+                  Servers
+                </button>
+                <button
+                  type="button"
+                  data-selected={activeView() === "snapshots"}
+                  onClick={() => setActiveView("snapshots")}
+                >
+                  Snapshots
+                </button>
+                <button
+                  type="button"
+                  data-selected={activeView() === "users"}
+                  onClick={() => setActiveView("users")}
+                >
+                  Users
+                </button>
+                <button
+                  type="button"
+                  data-selected={activeView() === "moduleEditor"}
+                  onClick={() => setActiveView("moduleEditor")}
+                >
+                  Module Definitions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDockerPullModalOpen(true)}
+                >
+                  Docker Pull
+                </button>
+              </div>
             </div>
           </Show>
         </SignedIn>

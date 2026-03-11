@@ -142,8 +142,6 @@ h1 {
 }
 
 .multi-select-toggle {
-  position: absolute;
-  left: 0.5rem;
   padding: 6px 14px;
   border: 2px solid rgba(255, 255, 255, 0.6);
   border-radius: 8px;
@@ -643,13 +641,19 @@ button:disabled {
 }
 
 .sticky-header .button-container {
-  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0 1rem;
+}
+
+.sticky-header .nav-buttons {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
-  margin-top: 0.5rem;
-  padding: 0 0.5rem;
+  flex: 1;
 }
 
 h1 {
