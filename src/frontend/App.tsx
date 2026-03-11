@@ -496,6 +496,18 @@ function App() {
         <SignedIn>
           <Show when={isAdmin()}>
             <div class="button-container">
+              {activeView() === "servers" && (
+                <button
+                  type="button"
+                  class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
+                  onClick={() => {
+                    if (multiSelectMode()) setMultiSelectedServerIds([]);
+                    setMultiSelectMode(m => !m);
+                  }}
+                >
+                  {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
+                </button>
+              )}
               <button
                 type="button"
                 data-selected={activeView() === "servers"}
@@ -574,16 +586,6 @@ function App() {
             {servers() && (
               <div class="servers-container">
                 <ActiveInstancesBar instances={activeInstances()} statuses={statuses()} loading={statuses.loading} />
-                <button
-                  type="button"
-                  class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
-                  onClick={() => {
-                    if (multiSelectMode()) setMultiSelectedServerIds([]);
-                    setMultiSelectMode(m => !m);
-                  }}
-                >
-                  {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
-                </button>
                 <For each={[...SERVER_CATEGORIES, { name: "Misc", servers: (servers() || []).filter(s => !ALL_CATEGORIZED_SERVER_IDS.has(s.id)).map(s => s.id) }]}>
                   {(category) => {
                     const categoryServers = () => servers()?.filter(s =>
