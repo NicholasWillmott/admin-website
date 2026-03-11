@@ -142,23 +142,22 @@ h1 {
 }
 
 .multi-select-toggle {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  align-self: flex-end;
+  position: absolute;
+  left: 0.5rem;
   padding: 6px 14px;
-  border: 1px solid #4f7cff;
+  border: 2px solid rgba(255, 255, 255, 0.6);
   border-radius: 8px;
-  background: white;
-  color: #4f7cff;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .multi-select-toggle.active {
-  background: #4f7cff;
-  color: white;
+  background: rgba(255, 255, 255, 0.95);
+  color: #066464;
+  border-color: white;
 }
 
 .multi-select-modal {
@@ -644,6 +643,7 @@ button:disabled {
 }
 
 .sticky-header .button-container {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
