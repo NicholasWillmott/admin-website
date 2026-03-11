@@ -492,22 +492,22 @@ function App() {
     <>
       <ToastContainer />
       <div class="sticky-header">
+        {activeView() === "servers" && isAdmin() && (
+          <button
+            type="button"
+            class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
+            onClick={() => {
+              if (multiSelectMode()) setMultiSelectedServerIds([]);
+              setMultiSelectMode(m => !m);
+            }}
+          >
+            {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
+          </button>
+        )}
         <h1>STATUS</h1>
         <SignedIn>
           <Show when={isAdmin()}>
             <div class="button-container">
-              {activeView() === "servers" && (
-                <button
-                  type="button"
-                  class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
-                  onClick={() => {
-                    if (multiSelectMode()) setMultiSelectedServerIds([]);
-                    setMultiSelectMode(m => !m);
-                  }}
-                >
-                  {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
-                </button>
-              )}
               <button
                 type="button"
                 data-selected={activeView() === "servers"}
