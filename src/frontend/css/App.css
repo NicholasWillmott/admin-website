@@ -1142,7 +1142,7 @@ h1 {
 .snapshots-table thead {
   position: sticky;
   top: 0;
-  background: linear-gradient(135deg, #0d9488 0%, #065f59 100%);
+  background: #0d1f20;
   z-index: 10;
 }
 
@@ -1423,7 +1423,7 @@ h1 {
 .users-table thead {
   position: sticky;
   top: 0;
-  background: linear-gradient(135deg, #0d9488 0%, #065f59 100%);
+  background: #0d1f20;
   z-index: 10;
 }
 
