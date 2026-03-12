@@ -502,6 +502,7 @@ function App() {
                     <button
                       type="button"
                       class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
+                      style="margin-left: 8px"
                       onClick={() => {
                         if (multiSelectMode()) setMultiSelectedServerIds([]);
                         setMultiSelectMode(m => !m);
@@ -513,6 +514,7 @@ function App() {
                       <button
                         type="button"
                         class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
+                        style="margin-left: 8px"
                         onClick={() => setMultiSelectedServerIds(
                           (servers()?.filter(s => !lockedServers().has(s.id)).map(s => s.id)) ?? []
                         )}
