@@ -498,16 +498,29 @@ function App() {
             <div class="button-container">
               <div class="nav-left">
                 {activeView() === "servers" && (
-                  <button
-                    type="button"
-                    class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
-                    onClick={() => {
-                      if (multiSelectMode()) setMultiSelectedServerIds([]);
-                      setMultiSelectMode(m => !m);
-                    }}
-                  >
-                    {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
-                  </button>
+                  <div>
+                    <button
+                      type="button"
+                      class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
+                      onClick={() => {
+                        if (multiSelectMode()) setMultiSelectedServerIds([]);
+                        setMultiSelectMode(m => !m);
+                      }}
+                    >
+                      {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
+                    </button>
+                    <Show when={multiSelectMode()}>
+                      <button
+                        type="button"
+                        class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
+                        onClick={() => setMultiSelectedServerIds(
+                          (servers()?.filter(s => !lockedServers().has(s.id)).map(s => s.id)) ?? []
+                        )}
+                      >
+                        Select all
+                      </button>
+                    </Show>
+                  </div>
                 )}
               </div>
               <div class="nav-buttons">
