@@ -532,6 +532,7 @@ function App() {
                     </Show>
                     <button
                       type="button"
+                      style="margin-left: 8px"
                       onClick={() => setCreateServerModalOpen(true)}
                     >
                       Create Server
