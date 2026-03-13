@@ -10,6 +10,8 @@ import { logger } from "hono/logger";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { executeCommand, isCommandAllowed } from "./ssh.ts";
 import * as github from "./viz_editor/github.ts";
+import { buildCombinedQueryV2 } from "../../../platform/server/server_only_funcs_presentation_objects/get_combined_query.ts";
+import { fetchAllServerStatuses } from "../frontend/services.ts";
 
 
 
@@ -918,6 +920,185 @@ app.delete("/api/servers/:id/lock", async (c) => {
   const locks = (await readLocks()).filter(l => l !== id);
   await writeLocks(locks);
   return c.json({ locked: false });
+});
+
+
+// routes to create a new instance
+
+
+// create record using digitalocean api
+app.post("/api/servers/create/record", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ subdomain: string }>();
+    const subdomain = body.subdomain;
+
+    if (!isSafeParam(subdomain)) {
+        return c.json({ success: false, error: "Invalid subdomain"});
+    }
+
+    const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
+    const dropletIp = Deno.env.get("DROPLET_IP");
+
+    try{
+        const response = await fetch("https://api.digitalocean.com/v2/domains/fastr-analytics.org/records",{
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${doToken}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                type: "A",
+                name: subdomain,
+                data: dropletIp,
+                ttl: 3600,
+            }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            return c.json({ success: false, error: result.message || "Failed to create DNS record" }, response.status);
+        }
+
+        return c.json({ success: true, record: result.domain_record });
+    } catch (error){
+        return c.json({ success: false, error: String(error) }, 500);
+    }
+    
+
+});
+
+// add server to config
+app.post("/api/servers/create/server", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string }>();
+    const serverId = body.serverId;
+
+    const command = `wb c add ${serverId}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// init nginx
+app.post("/api/servers/create/nginx", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string }>();
+    const serverId = body.serverId;
+
+    const command = `wb init-nginx ${serverId}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// init ssl
+app.post("/api/servers/create/ssl", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string }>();
+    const serverId = body.serverId;
+
+    const command = `wb init-ssl ${serverId}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// init dirs
+app.post("/api/servers/create/dirs", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string }>();
+    const serverId = body.serverId;
+
+    const command = `wb init-dirs ${serverId}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// change label for server
+app.post("/api/servers/update/label", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+    
+    const body = await c.req.json<{ serverId: string, newLabel: string }>();
+    const serverId = body.serverId; 
+    const newLabel = body.newLabel;
+
+    const command = `wb c update ${serverId} --label ${newLabel}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
 });
 
 const PORT = parseInt(Deno.env.get("PORT") || "3001");

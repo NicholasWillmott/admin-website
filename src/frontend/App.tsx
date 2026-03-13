@@ -9,6 +9,7 @@ import { LogsModal } from './components/modals/LogsModal.tsx';
 import { BackupsModal } from './components/modals/BackupsModal.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
+import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
 import { ServerMultiSelectModal } from './components/modals/ServerMultiSelectModal.tsx'
 import type { ServerRestartStatus, BackupInfo, ViewType } from './types.ts';
 import {
@@ -44,7 +45,7 @@ function App() {
   const { getToken } = useAuth();
 
   // get server data
-  const [servers, { mutate }] = createResource(fetchServerCardData)
+  const [servers, { mutate, refetch: refetchServers }] = createResource(fetchServerCardData)
 
   // get server status, total users, uptime, etc
   const [statuses, { refetch: refetchStatuses }] = createResource(
@@ -70,6 +71,9 @@ function App() {
 
   // track docker pull modal
   const [dockerPullModalOpen, setDockerPullModalOpen] = createSignal<boolean>(false);
+
+  // track create server modal
+  const [createServerModalOpen, setCreateServerModalOpen] = createSignal<boolean>(false);
 
   // track which server's logs to show in modal
   const [logsModalServerId, setLogsModalServerId] = createSignal<string | null>(null);
@@ -560,6 +564,12 @@ function App() {
                 >
                   Docker Pull
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateServerModalOpen(true)}
+                >
+                  Create Server
+                </button>
               </div>
               <div class="nav-right" />
             </div>
@@ -725,6 +735,17 @@ function App() {
             sshOperationInProgress={sshOperationInProgress()}
             onClose={() => setDockerPullModalOpen(false)}
             onPull={handleDockerPull}
+          />
+        )}
+
+        {/* Create Server Modal */}
+        {createServerModalOpen() && (
+          <CreateServerModal
+            sshOperationInProgress={sshOperationInProgress}
+            setSshOperationInProgress={setSshOperationInProgress}
+            onClose={() => setCreateServerModalOpen(false)}
+            onCreated={() => { setCreateServerModalOpen(false); refetchServers(); }}
+            getToken={getToken}
           />
         )}
       </SignedIn>

@@ -306,3 +306,48 @@ export async function unlockServerApi(serverId: string, token: string | null): P
     console.error(`Failed to unlock server ${serverId}:`, error);
   }
 }
+
+export async function createDnsRecordApi(subdomain: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/create/record`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subdomain }),
+  });
+  return await response.json();
+}
+
+export async function createServerApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/create/server`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId }),
+  });
+  return await response.json();
+}
+
+export async function initNginxApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/create/nginx`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId }),
+  });
+  return await response.json();
+}
+
+export async function initSslApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/create/ssl`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId }),
+  });
+  return await response.json();
+}
+
+export async function updateServerLabelApi(serverId: string, newLabel: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/update/label`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId, newLabel }),
+  });
+  return await response.json();
+}
