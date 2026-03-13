@@ -76,6 +76,7 @@ const ALLOWED_COMMANDS = [
   /^wb c show [\w-]+ --json$/,
   /^wb c add [\w-]+$/,
   /^wb c update (?:[\w-]+ )*[\w-]+ --server [\w.-]+$/,
+  /^wb c update [\w-]+ --label [\w .-]+$/,
   /^wb c remove [\w-]+$/,
   /^wb c tag [\w-]+ (?:[\w-]+ ?)+$/,
   /^wb c untag [\w-]+ (?:[\w-]+ ?)+$/,

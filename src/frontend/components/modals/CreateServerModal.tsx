@@ -6,6 +6,7 @@ import {
   initNginxApi,
   initSslApi,
   updateServerLabelApi,
+  runServerApi,
 } from '../../services.ts';
 
 type StepStatus = 'pending' | 'loading' | 'done' | 'error';
@@ -30,6 +31,7 @@ const INITIAL_STEPS: Step[] = [
   { label: 'Initialising nginx', status: 'pending' },
   { label: 'Initialising SSL', status: 'pending' },
   { label: 'Updating label', status: 'pending' },
+  { label: 'Running server', status: 'pending' },
 ];
 
 export function CreateServerModal(props: CreateServerModalProps) {
@@ -87,8 +89,11 @@ export function CreateServerModal(props: CreateServerModalProps) {
     if (!ok4) { setFinished(true); return; }
 
     const ok5 = await runStep(4, () => updateServerLabelApi(sub, name, token));
+    if (!ok5) { setFinished(true); return; }
+
+    const ok6 = await runStep(5, () => runServerApi(sub, token));
     setFinished(true);
-    if (ok5) {
+    if (ok6) {
       addToast(`Server ${sub} created successfully`, 'success');
       props.onCreated();
     }

@@ -1099,6 +1099,32 @@ app.post("/api/servers/update/label", async (c) => {
     }
 });
 
+// run server 
+app.post("/api/servers/run", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+    
+    const body = await c.req.json<{ serverId: string }>();
+    const serverId = body.serverId; 
+
+    const command = `wb run ${serverId}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 const PORT = parseInt(Deno.env.get("PORT") || "3001");
 console.log(`🚀 Server running on http://localhost:${PORT}`);
 Deno.serve({ port: PORT }, app.fetch);
