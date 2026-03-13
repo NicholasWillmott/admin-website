@@ -3,6 +3,7 @@ import { addToast } from '../../stores/toastStore.ts';
 import {
   createDnsRecordApi,
   createServerApi,
+  initDirsApi,
   initNginxApi,
   initSslApi,
   updateServerLabelApi,
@@ -28,6 +29,7 @@ interface CreateServerModalProps {
 const INITIAL_STEPS: Step[] = [
   { label: 'Creating DNS record', status: 'pending' },
   { label: 'Creating server', status: 'pending' },
+  { label: 'Initialising directories', status: 'pending' },
   { label: 'Initialising nginx', status: 'pending' },
   { label: 'Initialising SSL', status: 'pending' },
   { label: 'Updating label', status: 'pending' },
@@ -82,18 +84,21 @@ export function CreateServerModal(props: CreateServerModalProps) {
     const ok2 = await runStep(1, () => createServerApi(sub, token));
     if (!ok2) { setFinished(true); return; }
 
-    const ok3 = await runStep(2, () => initNginxApi(sub, token));
+    const ok3 = await runStep(2, () => initDirsApi(sub, token));
     if (!ok3) { setFinished(true); return; }
 
-    const ok4 = await runStep(3, () => initSslApi(sub, token));
+    const ok4 = await runStep(3, () => initNginxApi(sub, token));
     if (!ok4) { setFinished(true); return; }
 
-    const ok5 = await runStep(4, () => updateServerLabelApi(sub, name, token));
+    const ok5 = await runStep(4, () => initSslApi(sub, token));
     if (!ok5) { setFinished(true); return; }
 
-    const ok6 = await runStep(5, () => runServerApi(sub, token));
+    const ok6 = await runStep(5, () => updateServerLabelApi(sub, name, token));
+    if (!ok6) { setFinished(true); return; }
+
+    const ok7 = await runStep(6, () => runServerApi(sub, token));
     setFinished(true);
-    if (ok6) {
+    if (ok7) {
       addToast(`Server ${sub} created successfully`, 'success');
       props.onCreated();
     }
