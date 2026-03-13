@@ -10,6 +10,7 @@ import { BackupsModal } from './components/modals/BackupsModal.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
+import { DeleteServerModal } from './components/modals/DeleteServerModal.tsx';
 import { ServerMultiSelectModal } from './components/modals/ServerMultiSelectModal.tsx'
 import type { ServerRestartStatus, BackupInfo, ViewType } from './types.ts';
 import {
@@ -74,6 +75,9 @@ function App() {
 
   // track create server modal
   const [createServerModalOpen, setCreateServerModalOpen] = createSignal<boolean>(false);
+
+  // track delete server modal
+  const [deleteServerModalId, setDeleteServerModalId] = createSignal<string | null>(null);
 
   // track which server's logs to show in modal
   const [logsModalServerId, setLogsModalServerId] = createSignal<string | null>(null);
@@ -652,6 +656,7 @@ function App() {
                                   onToggleSelect={(id) => setMultiSelectedServerIds(prev =>
                                     prev!.includes(id) ? prev!.filter(x => x !== id) : [...prev!, id]
                                   )}
+                                  onDelete={(id) => setDeleteServerModalId(id)}
                                 />
                               )}
                             </For>
@@ -745,6 +750,16 @@ function App() {
             setSshOperationInProgress={setSshOperationInProgress}
             onClose={() => setCreateServerModalOpen(false)}
             onCreated={() => { setCreateServerModalOpen(false); refetchServers(); }}
+            getToken={getToken}
+          />
+        )}
+
+        {/* Delete Server Modal */}
+        {deleteServerModalId() && (
+          <DeleteServerModal
+            serverId={deleteServerModalId()!}
+            onClose={() => setDeleteServerModalId(null)}
+            onDeleted={() => { setDeleteServerModalId(null); refetchServers(); }}
             getToken={getToken}
           />
         )}

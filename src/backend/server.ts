@@ -5,6 +5,7 @@ import { load } from "@std/dotenv";
 await load({ export: true });
 
 import { Hono } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
@@ -1108,6 +1109,188 @@ app.post("/api/servers/run", async (c) => {
     const serverId = body.serverId; 
 
     const command = `wb run ${serverId}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// routes to delete a server
+
+// delete DNS record by subdomain name
+app.delete("/api/servers/remove/record", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ subdomain: string }>();
+    const subdomain = body.subdomain;
+
+    if (!isSafeParam(subdomain)) {
+        return c.json({ success: false, error: "Invalid subdomain" });
+    }
+
+    const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
+
+    try {
+        // Find the record ID by listing all records and matching by name
+        const listResponse = await fetch(
+            `https://api.digitalocean.com/v2/domains/fastr-analytics.org/records?type=A&name=${subdomain}`,
+            { headers: { "Authorization": `Bearer ${doToken}` } }
+        );
+
+        if (!listResponse.ok) {
+            const err = await listResponse.json();
+            return c.json({ success: false, error: err.message || "Failed to list DNS records" }, listResponse.status as ContentfulStatusCode);
+        }
+
+        const { domain_records } = await listResponse.json();
+        const record = domain_records.find((r: { name: string }) => r.name === subdomain);
+
+        if (!record) {
+            return c.json({ success: false, error: "DNS record not found" }, 404);
+        }
+
+        // Delete the record
+        const deleteResponse = await fetch(
+            `https://api.digitalocean.com/v2/domains/fastr-analytics.org/records/${record.id}`,
+            { method: "DELETE", headers: { "Authorization": `Bearer ${doToken}` } }
+        );
+
+        if (!deleteResponse.ok) {
+            const err = await deleteResponse.json();
+            return c.json({ success: false, error: err.message || "Failed to delete DNS record" }, deleteResponse.status as ContentfulStatusCode);
+        }
+
+        return c.json({ success: true });
+    } catch (error) {
+        return c.json({ success: false, error: String(error) }, 500);
+    }
+});
+
+//remove server from config
+app.delete("/api/servers/remove/server", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string }>();
+    const serverId = body.serverId;
+
+    const command = `wb c remove ${serverId}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// remove nginx
+app.delete("/api/servers/remove/nginx", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string }>();
+    const serverId = body.serverId;
+
+    const command = `wb remove-nginx ${serverId}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// remove ssl
+app.delete("/api/servers/remove/ssl", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string }>();
+    const serverId = body.serverId;
+
+    const command = `wb remove-ssl ${serverId}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// remove dirs
+app.delete("/api/servers/remove/dirs", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string }>();
+    const serverId = body.serverId;
+
+    const command = `wb remove-dirs ${serverId}`;
+
+    if(!isCommandAllowed(command)){
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try{
+        const result = await executeCommand(DROPLET_IP, command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// stop server 
+app.post("/api/servers/stop", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+    
+    const body = await c.req.json<{ serverId: string }>();
+    const serverId = body.serverId; 
+
+    const command = `wb stop ${serverId}`;
 
     if(!isCommandAllowed(command)){
         return c.json({ success: false, error: "Invalid command" });

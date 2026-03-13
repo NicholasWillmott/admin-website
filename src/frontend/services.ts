@@ -369,3 +369,57 @@ export async function runServerApi(serverId: string, token: string | null): Prom
   });
   return await response.json();
 }
+
+export async function deleteDnsRecordApi(subdomain: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/remove/record`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subdomain }),
+  });
+  return await response.json();
+}
+
+export async function removeServerApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/remove/server`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId }),
+  });
+  return await response.json();
+}
+
+export async function removeNginxApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/remove/nginx`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId }),
+  });
+  return await response.json();
+}
+
+export async function removeSslApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/remove/ssl`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId }),
+  });
+  return await response.json();
+}
+
+export async function removeDirsApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/remove/dirs`, {
+    method: 'DELETE',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId }),
+  });
+  return await response.json();
+}
+
+export async function stopServerApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/stop`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId }),
+  });
+  return await response.json();
+}

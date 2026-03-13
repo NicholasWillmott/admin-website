@@ -23,6 +23,7 @@ interface ServerCardProps {
   multiSelectMode: boolean;
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
+  onDelete: (serverId: string) => void;
 }
 
 export function ServerCard(props: ServerCardProps) {
@@ -207,6 +208,13 @@ export function ServerCard(props: ServerCardProps) {
             <button class="action-btn" onClick={() => props.onViewBackups(props.server.id)}>View Backups</button>
             <button class="action-btn" onClick={() => props.onViewLogs(props.server.id)}>View Logs</button>
             <button class="action-btn">Configuration</button>
+            <button
+              class="action-btn"
+              style="background: #dc2626"
+              onClick={() => props.onDelete(props.server.id)}
+            >
+              Delete Server
+            </button>
           </div>
         </div>
       </Show>
