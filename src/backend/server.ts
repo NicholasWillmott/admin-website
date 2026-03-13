@@ -10,7 +10,6 @@ import { logger } from "hono/logger";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
 import { executeCommand, isCommandAllowed } from "./ssh.ts";
 import * as github from "./viz_editor/github.ts";
-import { buildCombinedQueryV2 } from "../../../platform/server/server_only_funcs_presentation_objects/get_combined_query.ts";
 import { fetchAllServerStatuses } from "../frontend/services.ts";
 
 
