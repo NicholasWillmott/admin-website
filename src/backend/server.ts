@@ -1081,7 +1081,7 @@ app.post("/api/servers/update/label", async (c) => {
     const serverId = body.serverId; 
     const newLabel = body.newLabel;
 
-    const command = `wb c update ${serverId} --label ${newLabel}`;
+    const command = `wb c update ${serverId} --label "${newLabel}"`;
 
     if(!isCommandAllowed(command)){
         return c.json({ success: false, error: "Invalid command" });
