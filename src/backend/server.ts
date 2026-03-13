@@ -1186,7 +1186,7 @@ app.delete("/api/servers/remove/server", async (c) => {
     const body = await c.req.json<{ serverId: string }>();
     const serverId = body.serverId;
 
-    const command = `wb c remove ${serverId}`;
+    const command = `printf "y\\n" | wb c remove ${serverId}`;
 
     if(!isCommandAllowed(command)){
         return c.json({ success: false, error: "Invalid command" });
@@ -1238,7 +1238,7 @@ app.delete("/api/servers/remove/ssl", async (c) => {
     const body = await c.req.json<{ serverId: string }>();
     const serverId = body.serverId;
 
-    const command = `wb remove-ssl ${serverId}`;
+    const command = `printf "revoke ${serverId}\\ny\\n" | wb remove-ssl ${serverId}`;
 
     if(!isCommandAllowed(command)){
         return c.json({ success: false, error: "Invalid command" });
@@ -1264,7 +1264,7 @@ app.delete("/api/servers/remove/dirs", async (c) => {
     const body = await c.req.json<{ serverId: string }>();
     const serverId = body.serverId;
 
-    const command = `wb remove-dirs ${serverId}`;
+    const command = `printf "${serverId}\\n" | wb remove-dirs ${serverId}`;
 
     if(!isCommandAllowed(command)){
         return c.json({ success: false, error: "Invalid command" });
