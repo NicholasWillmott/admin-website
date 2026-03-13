@@ -17,6 +17,9 @@ git diff --cached --quiet || git commit -m "deploy"
 echo "==> Pushing backend changes..."
 git push
 
+echo "==> Syncing .env to droplet..."
+rsync -az src/backend/.env "$DROPLET:$REMOTE_DIR/src/backend/.env"
+
 echo "==> Pulling and restarting backend on droplet..."
 ssh "$DROPLET" "cd $REMOTE_DIR && git pull && systemctl restart admin-backend"
 
