@@ -530,6 +530,12 @@ function App() {
                         Select all
                       </button>
                     </Show>
+                    <button
+                      type="button"
+                      onClick={() => setCreateServerModalOpen(true)}
+                    >
+                      Create Server
+                    </button>
                   </div>
                 )}
               </div>
@@ -567,12 +573,6 @@ function App() {
                   onClick={() => setDockerPullModalOpen(true)}
                 >
                   Docker Pull
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCreateServerModalOpen(true)}
-                >
-                  Create Server
                 </button>
               </div>
               <div class="nav-right" />
