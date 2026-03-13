@@ -212,8 +212,9 @@ export function ServerCard(props: ServerCardProps) {
               class="action-btn"
               style="background: #dc2626"
               onClick={() => props.onDelete(props.server.id)}
+              disabled={props.isLocked || props.sshOperationInProgress}
             >
-              Delete Server
+              {props.isLocked ? 'Server Locked' : props.sshOperationInProgress ? 'SSH Operation in Progress...' : 'Delete Server'}
             </button>
           </div>
         </div>

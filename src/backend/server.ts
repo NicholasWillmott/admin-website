@@ -1143,9 +1143,9 @@ app.delete("/api/servers/remove/record", async (c) => {
     const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
 
     try {
-        // Find the record ID by listing all records and matching by name
+        // Fetch all A records and match by name (DO's ?name= filter is unreliable)
         const listResponse = await fetch(
-            `https://api.digitalocean.com/v2/domains/fastr-analytics.org/records?type=A&name=${subdomain}`,
+            `https://api.digitalocean.com/v2/domains/fastr-analytics.org/records?type=A&per_page=200`,
             { headers: { "Authorization": `Bearer ${doToken}` } }
         );
 
