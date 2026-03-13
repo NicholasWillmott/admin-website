@@ -1276,6 +1276,63 @@ h1 {
   transform: none;
 }
 
+/* Config Modal */
+.config-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 10px 0;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.config-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+  min-width: 100px;
+}
+
+.config-toggle-group {
+  display: flex;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.config-toggle-btn {
+  padding: 8px 18px;
+  border: none;
+  background: #f5f5f5;
+  color: #666;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.config-toggle-btn:not(:last-child) {
+  border-right: 2px solid #e0e0e0;
+}
+
+.config-toggle-btn.active {
+  background: #0d9488;
+  color: white;
+}
+
+.config-toggle-btn:disabled {
+  cursor: default;
+}
+
+.config-toggle-btn:not(.active):not(:disabled):hover {
+  background: #e8e8e8;
+}
+
 /* Create Server Modal */
 .create-server-steps {
   display: flex;

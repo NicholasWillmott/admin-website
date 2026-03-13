@@ -11,6 +11,7 @@ import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
 import { DeleteServerModal } from './components/modals/DeleteServerModal.tsx';
+import { ConfigModal } from './components/modals/ConfigModal.tsx';
 import { ServerMultiSelectModal } from './components/modals/ServerMultiSelectModal.tsx'
 import type { ServerRestartStatus, BackupInfo, ViewType } from './types.ts';
 import {
@@ -37,6 +38,9 @@ import {
   unlockServerApi,
   bulkUpdateServerVersionApi,
   bulkRestartServerVersionApi,
+  updateServerLanguageApi,
+  updateServerCalendarApi,
+  updateServerOpenAccessApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -78,6 +82,9 @@ function App() {
 
   // track delete server modal
   const [deleteServerModalId, setDeleteServerModalId] = createSignal<string | null>(null);
+
+  // track config modal
+  const [configModalServerId, setConfigModalServerId] = createSignal<string | null>(null);
 
   // track which server's logs to show in modal
   const [logsModalServerId, setLogsModalServerId] = createSignal<string | null>(null);
@@ -496,6 +503,48 @@ function App() {
     }
   };
 
+  const updateServerConfig = async (
+    serverId: string,
+    fn: (token: string | null) => Promise<{ success: boolean; error?: string }>,
+    successMsg: string,
+    updateServer: (s: import('./types.ts').Server) => import('./types.ts').Server,
+  ) => {
+    if (sshOperationInProgress()) {
+      addToast('Another SSH operation is in progress. Please wait.', 'info');
+      return;
+    }
+    setSshOperationInProgress(true);
+    try {
+      const token = await getToken();
+      const result = await fn(token);
+      if (result.success) {
+        mutate(prev => prev?.map(s => s.id === serverId ? updateServer(s) : s));
+        addToast(successMsg, 'success');
+      } else {
+        addToast(`Error: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      addToast(`Error: ${error}`, 'error');
+    } finally {
+      setSshOperationInProgress(false);
+    }
+  };
+
+  const handleUpdateLanguage = (serverId: string, french: boolean) =>
+    updateServerConfig(serverId, t => updateServerLanguageApi(serverId, french, t),
+      `Language updated to ${french ? 'French' : 'English'}`,
+      s => ({ ...s, french }));
+
+  const handleUpdateCalendar = (serverId: string, ethiopian: boolean) =>
+    updateServerConfig(serverId, t => updateServerCalendarApi(serverId, ethiopian, t),
+      `Calendar updated to ${ethiopian ? 'Ethiopian' : 'Gregorian'}`,
+      s => ({ ...s, ethiopian }));
+
+  const handleUpdateOpenAccess = (serverId: string, openAccess: boolean) =>
+    updateServerConfig(serverId, t => updateServerOpenAccessApi(serverId, openAccess, t),
+      `Open access ${openAccess ? 'enabled' : 'disabled'}`,
+      s => ({ ...s, openAccess }));
+
   return (
     <>
       <ToastContainer />
@@ -658,6 +707,7 @@ function App() {
                                     prev!.includes(id) ? prev!.filter(x => x !== id) : [...prev!, id]
                                   )}
                                   onDelete={(id) => setDeleteServerModalId(id)}
+                                  onConfig={(id) => setConfigModalServerId(id)}
                                 />
                               )}
                             </For>
@@ -752,6 +802,18 @@ function App() {
             onClose={() => setCreateServerModalOpen(false)}
             onCreated={() => { setCreateServerModalOpen(false); refetchServers(); }}
             getToken={getToken}
+          />
+        )}
+
+        {/* Config Modal */}
+        {configModalServerId() && (
+          <ConfigModal
+            server={servers()!.find(s => s.id === configModalServerId())!}
+            sshOperationInProgress={sshOperationInProgress()}
+            onClose={() => setConfigModalServerId(null)}
+            onUpdateLanguage={handleUpdateLanguage}
+            onUpdateCalendar={handleUpdateCalendar}
+            onUpdateOpenAccess={handleUpdateOpenAccess}
           />
         )}
 

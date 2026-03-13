@@ -165,6 +165,87 @@ router.post("/bulk-update", async (c) => {
     }
 });
 
+// update server language
+router.post("/update/language", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string, french: boolean }>();
+    const serverId: string = body.serverId;
+    const french: boolean = body.french;
+
+    const command = `wb c update ${serverId} --french ${french}`
+
+    if (!isCommandAllowed(command)) {
+        return c.json({ error: "command not allowed" }, 403);
+    }
+
+    try {
+        const result = await executeCommand(getDropletIp(), command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr,
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// update server calendar
+router.post("/update/calendar", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string, ethiopian: boolean }>();
+    const serverId: string = body.serverId;
+    const ethiopian: boolean = body.ethiopian;
+
+    const command = `wb c update ${serverId} --ethiopian ${ethiopian}`
+
+    if (!isCommandAllowed(command)) {
+        return c.json({ error: "command not allowed" }, 403);
+    }
+
+    try {
+        const result = await executeCommand(getDropletIp(), command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr,
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+// update server open access status
+router.post("/update/open-access", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string, openAccess: boolean }>();
+    const serverId: string = body.serverId;
+    const openAccess: boolean = body.openAccess;
+
+    const command = `wb c update ${serverId} --open-access ${openAccess}`
+
+    if (!isCommandAllowed(command)) {
+        return c.json({ error: "command not allowed" }, 403);
+    }
+
+    try {
+        const result = await executeCommand(getDropletIp(), command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr,
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // Get server docker logs
 router.get("/:id/logs", async (c) => {
     const authError = await requireAdmin(c);

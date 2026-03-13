@@ -307,6 +307,33 @@ export async function unlockServerApi(serverId: string, token: string | null): P
   }
 }
 
+export async function updateServerLanguageApi(serverId: string, french: boolean, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/update/language`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId, french }),
+  });
+  return await response.json();
+}
+
+export async function updateServerCalendarApi(serverId: string, ethiopian: boolean, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/update/calendar`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId, ethiopian }),
+  });
+  return await response.json();
+}
+
+export async function updateServerOpenAccessApi(serverId: string, openAccess: boolean, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/update/open-access`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId, openAccess }),
+  });
+  return await response.json();
+}
+
 export async function createDnsRecordApi(subdomain: string, token: string | null): Promise<{ success: boolean; error?: string }> {
   const response = await fetch(`${API_BASE}/api/servers/create/record`, {
     method: 'POST',

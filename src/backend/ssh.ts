@@ -78,6 +78,8 @@ const ALLOWED_COMMANDS = [
   /^wb c update (?:[\w-]+ )*[\w-]+ --server [\w.-]+$/,
   /^wb c update [\w-]+ --label "[\w .-]+"$/,
   /^wb c update [\w-]+ --french (?:true|false)$/,
+  /^wb c update [\w-]+ --ethiopian (?:true|false)$/,
+  /^wb c update [\w-]+ --open-access (?:true|false)$/,
   /^wb c remove [\w-]+ --force$/,
   /^wb c tag [\w-]+ (?:[\w-]+ ?)+$/,
   /^wb c untag [\w-]+ (?:[\w-]+ ?)+$/,
