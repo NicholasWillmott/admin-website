@@ -1,16 +1,32 @@
+import { createSignal } from 'solid-js';
 import type { Server } from '../../types.ts';
+
+type ConfigChanges = { french?: boolean; ethiopian?: boolean; openAccess?: boolean };
 
 interface ConfigModalProps {
   server: Server;
   sshOperationInProgress: boolean;
   onClose: () => void;
-  onUpdateLanguage: (serverId: string, french: boolean) => Promise<void>;
-  onUpdateCalendar: (serverId: string, ethiopian: boolean) => Promise<void>;
-  onUpdateOpenAccess: (serverId: string, openAccess: boolean) => Promise<void>;
+  onSave: (serverId: string, changes: ConfigChanges) => Promise<void>;
 }
 
 export function ConfigModal(props: ConfigModalProps) {
-  const disabled = () => props.sshOperationInProgress;
+  const [french, setFrench] = createSignal(props.server.french ?? false);
+  const [ethiopian, setEthiopian] = createSignal(props.server.ethiopian ?? false);
+  const [openAccess, setOpenAccess] = createSignal(props.server.openAccess ?? false);
+
+  const hasChanges = () =>
+    french() !== (props.server.french ?? false) ||
+    ethiopian() !== (props.server.ethiopian ?? false) ||
+    openAccess() !== (props.server.openAccess ?? false);
+
+  const handleSave = () => {
+    const changes: ConfigChanges = {};
+    if (french() !== (props.server.french ?? false)) changes.french = french();
+    if (ethiopian() !== (props.server.ethiopian ?? false)) changes.ethiopian = ethiopian();
+    if (openAccess() !== (props.server.openAccess ?? false)) changes.openAccess = openAccess();
+    props.onSave(props.server.id, changes);
+  };
 
   return (
     <div class="modal-overlay" onClick={() => props.onClose()}>
@@ -27,17 +43,15 @@ export function ConfigModal(props: ConfigModalProps) {
               <div class="config-toggle-group">
                 <button
                   type="button"
-                  class={`config-toggle-btn ${!props.server.french ? 'active' : ''}`}
-                  disabled={disabled() || !props.server.french}
-                  onClick={() => props.onUpdateLanguage(props.server.id, false)}
+                  class={`config-toggle-btn ${!french() ? 'active' : ''}`}
+                  onClick={() => setFrench(false)}
                 >
                   English
                 </button>
                 <button
                   type="button"
-                  class={`config-toggle-btn ${props.server.french ? 'active' : ''}`}
-                  disabled={disabled() || !!props.server.french}
-                  onClick={() => props.onUpdateLanguage(props.server.id, true)}
+                  class={`config-toggle-btn ${french() ? 'active' : ''}`}
+                  onClick={() => setFrench(true)}
                 >
                   French
                 </button>
@@ -49,17 +63,15 @@ export function ConfigModal(props: ConfigModalProps) {
               <div class="config-toggle-group">
                 <button
                   type="button"
-                  class={`config-toggle-btn ${!props.server.ethiopian ? 'active' : ''}`}
-                  disabled={disabled() || !props.server.ethiopian}
-                  onClick={() => props.onUpdateCalendar(props.server.id, false)}
+                  class={`config-toggle-btn ${!ethiopian() ? 'active' : ''}`}
+                  onClick={() => setEthiopian(false)}
                 >
                   Gregorian
                 </button>
                 <button
                   type="button"
-                  class={`config-toggle-btn ${props.server.ethiopian ? 'active' : ''}`}
-                  disabled={disabled() || !!props.server.ethiopian}
-                  onClick={() => props.onUpdateCalendar(props.server.id, true)}
+                  class={`config-toggle-btn ${ethiopian() ? 'active' : ''}`}
+                  onClick={() => setEthiopian(true)}
                 >
                   Ethiopian
                 </button>
@@ -71,17 +83,15 @@ export function ConfigModal(props: ConfigModalProps) {
               <div class="config-toggle-group">
                 <button
                   type="button"
-                  class={`config-toggle-btn ${!props.server.openAccess ? 'active' : ''}`}
-                  disabled={disabled() || !props.server.openAccess}
-                  onClick={() => props.onUpdateOpenAccess(props.server.id, false)}
+                  class={`config-toggle-btn ${!openAccess() ? 'active' : ''}`}
+                  onClick={() => setOpenAccess(false)}
                 >
                   Off
                 </button>
                 <button
                   type="button"
-                  class={`config-toggle-btn ${props.server.openAccess ? 'active' : ''}`}
-                  disabled={disabled() || !!props.server.openAccess}
-                  onClick={() => props.onUpdateOpenAccess(props.server.id, true)}
+                  class={`config-toggle-btn ${openAccess() ? 'active' : ''}`}
+                  onClick={() => setOpenAccess(true)}
                 >
                   On
                 </button>
@@ -89,6 +99,16 @@ export function ConfigModal(props: ConfigModalProps) {
             </div>
 
           </div>
+
+          <button
+            type="button"
+            class="action-btn docker-pull"
+            style="width: 100%; margin-top: 20px"
+            disabled={!hasChanges() || props.sshOperationInProgress}
+            onClick={handleSave}
+          >
+            {props.sshOperationInProgress ? 'SSH Operation in Progress...' : 'Save'}
+          </button>
         </div>
       </div>
     </div>

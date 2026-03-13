@@ -503,11 +503,9 @@ function App() {
     }
   };
 
-  const updateServerConfig = async (
+  const handleSaveConfig = async (
     serverId: string,
-    fn: (token: string | null) => Promise<{ success: boolean; error?: string }>,
-    successMsg: string,
-    updateServer: (s: import('./types.ts').Server) => import('./types.ts').Server,
+    changes: { french?: boolean; ethiopian?: boolean; openAccess?: boolean },
   ) => {
     if (sshOperationInProgress()) {
       addToast('Another SSH operation is in progress. Please wait.', 'info');
@@ -516,34 +514,27 @@ function App() {
     setSshOperationInProgress(true);
     try {
       const token = await getToken();
-      const result = await fn(token);
-      if (result.success) {
-        mutate(prev => prev?.map(s => s.id === serverId ? updateServer(s) : s));
-        addToast(successMsg, 'success');
-      } else {
-        addToast(`Error: ${result.error}`, 'error');
+      if (changes.french !== undefined) {
+        const r = await updateServerLanguageApi(serverId, changes.french, token);
+        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
       }
+      if (changes.ethiopian !== undefined) {
+        const r = await updateServerCalendarApi(serverId, changes.ethiopian, token);
+        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
+      }
+      if (changes.openAccess !== undefined) {
+        const r = await updateServerOpenAccessApi(serverId, changes.openAccess, token);
+        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
+      }
+      mutate(prev => prev?.map(s => s.id === serverId ? { ...s, ...changes } : s));
+      addToast('Configuration saved', 'success');
+      setConfigModalServerId(null);
     } catch (error) {
       addToast(`Error: ${error}`, 'error');
     } finally {
       setSshOperationInProgress(false);
     }
   };
-
-  const handleUpdateLanguage = (serverId: string, french: boolean) =>
-    updateServerConfig(serverId, t => updateServerLanguageApi(serverId, french, t),
-      `Language updated to ${french ? 'French' : 'English'}`,
-      s => ({ ...s, french }));
-
-  const handleUpdateCalendar = (serverId: string, ethiopian: boolean) =>
-    updateServerConfig(serverId, t => updateServerCalendarApi(serverId, ethiopian, t),
-      `Calendar updated to ${ethiopian ? 'Ethiopian' : 'Gregorian'}`,
-      s => ({ ...s, ethiopian }));
-
-  const handleUpdateOpenAccess = (serverId: string, openAccess: boolean) =>
-    updateServerConfig(serverId, t => updateServerOpenAccessApi(serverId, openAccess, t),
-      `Open access ${openAccess ? 'enabled' : 'disabled'}`,
-      s => ({ ...s, openAccess }));
 
   return (
     <>
@@ -811,9 +802,7 @@ function App() {
             server={servers()!.find(s => s.id === configModalServerId())!}
             sshOperationInProgress={sshOperationInProgress()}
             onClose={() => setConfigModalServerId(null)}
-            onUpdateLanguage={handleUpdateLanguage}
-            onUpdateCalendar={handleUpdateCalendar}
-            onUpdateOpenAccess={handleUpdateOpenAccess}
+            onSave={handleSaveConfig}
           />
         )}
 
