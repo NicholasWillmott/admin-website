@@ -162,6 +162,27 @@ function App() {
     return log && Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000;
   });
 
+  // server list filters
+  const [searchQuery, setSearchQuery] = createSignal('');
+  const [statusFilter, setStatusFilter] = createSignal<'all' | 'online' | 'offline'>('all');
+  const [versionFilter, setVersionFilter] = createSignal('all');
+  const [lockedFilter, setLockedFilter] = createSignal<'all' | 'locked' | 'unlocked'>('all');
+
+  const availableVersions = () => [...new Set((servers() || []).map(s => s.serverVersion))].sort();
+
+  const filteredServers = () => {
+    const query = searchQuery().toLowerCase();
+    return (servers() || []).filter(s => {
+      if (query && !s.label.toLowerCase().includes(query) && !s.id.toLowerCase().includes(query)) return false;
+      if (statusFilter() === 'online' && !statuses()?.[s.id]?.running) return false;
+      if (statusFilter() === 'offline' && statuses()?.[s.id]?.running) return false;
+      if (versionFilter() !== 'all' && s.serverVersion !== versionFilter()) return false;
+      if (lockedFilter() === 'locked' && !lockedServers().has(s.id)) return false;
+      if (lockedFilter() === 'unlocked' && lockedServers().has(s.id)) return false;
+      return true;
+    });
+  };
+
   // toggle card
   const toggleCard = (id: string) => {
     setExpandedId(expandedId() === id ? null : id)
@@ -661,11 +682,34 @@ function App() {
             {servers() && (
               <div class="servers-container">
                 <ActiveInstancesBar instances={activeInstances()} statuses={statuses()} loading={statuses.loading} />
+                <div class="server-filter-bar">
+                  <input
+                    class="server-filter-input"
+                    type="text"
+                    placeholder="Search by name or ID..."
+                    value={searchQuery()}
+                    onInput={(e) => setSearchQuery(e.currentTarget.value)}
+                  />
+                  <select class="server-filter-select" value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value as 'all' | 'online' | 'offline')}>
+                    <option value="all">All Statuses</option>
+                    <option value="online">Online</option>
+                    <option value="offline">Offline</option>
+                  </select>
+                  <select class="server-filter-select" value={versionFilter()} onChange={(e) => setVersionFilter(e.currentTarget.value)}>
+                    <option value="all">All Versions</option>
+                    <For each={availableVersions()}>{(v) => <option value={v}>{v}</option>}</For>
+                  </select>
+                  <select class="server-filter-select" value={lockedFilter()} onChange={(e) => setLockedFilter(e.currentTarget.value as 'all' | 'locked' | 'unlocked')}>
+                    <option value="all">All Lock States</option>
+                    <option value="locked">Locked</option>
+                    <option value="unlocked">Unlocked</option>
+                  </select>
+                </div>
                 <For each={[...SERVER_CATEGORIES, { name: "Misc", servers: (servers() || []).filter(s => !ALL_CATEGORIZED_SERVER_IDS.has(s.id)).map(s => s.id) }]}>
                   {(category) => {
-                    const categoryServers = () => servers()?.filter(s =>
+                    const categoryServers = () => filteredServers().filter(s =>
                       category.servers.includes(s.id)
-                    ) || [];
+                    );
 
                     return (
                       <Show when={categoryServers().length > 0}>

@@ -46,6 +46,53 @@ h1 {
   background: #243d2e;
 }
 
+/* Server Filter Bar */
+.server-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: -1.5rem;
+}
+
+.server-filter-input {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  width: 220px;
+}
+
+.server-filter-input::placeholder {
+  color: rgba(255,255,255,0.5);
+}
+
+.server-filter-input:focus {
+  border-color: rgba(255,255,255,0.6);
+}
+
+.server-filter-select {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
+
+.server-filter-select:focus {
+  border-color: rgba(255,255,255,0.6);
+}
+
+.server-filter-select option {
+  background: #243d2e;
+  color: white;
+}
+
 /* Category Section */
 .category-section {
   width: 100%;
