@@ -20,12 +20,12 @@ export function ConfigModal(props: ConfigModalProps) {
     ethiopian() !== (props.server.ethiopian ?? false) ||
     openAccess() !== (props.server.openAccess ?? false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const changes: ConfigChanges = {};
     if (french() !== (props.server.french ?? false)) changes.french = french();
     if (ethiopian() !== (props.server.ethiopian ?? false)) changes.ethiopian = ethiopian();
     if (openAccess() !== (props.server.openAccess ?? false)) changes.openAccess = openAccess();
-    props.onSave(props.server.id, changes);
+    await props.onSave(props.server.id, changes);
   };
 
   return (

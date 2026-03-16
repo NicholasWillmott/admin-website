@@ -43,6 +43,14 @@ export function CreateServerModal(props: CreateServerModalProps) {
   const [steps, setSteps] = createSignal<Step[]>(INITIAL_STEPS.map(s => ({ ...s })));
   const [finished, setFinished] = createSignal(false);
 
+  const subdomainError = () => {
+    const sub = subdomain().trim();
+    if (!sub) return null;
+    if (sub.length > 63) return 'Subdomain must be 63 characters or fewer';
+    if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(sub)) return 'Only lowercase letters, numbers, and hyphens allowed. Cannot start or end with a hyphen';
+    return null;
+  };
+
   const updateStep = (index: number, patch: Partial<Step>) => {
     setSteps(prev => prev.map((s, i) => i === index ? { ...s, ...patch } : s));
   };
@@ -142,6 +150,9 @@ export function CreateServerModal(props: CreateServerModalProps) {
                 onInput={(e) => setSubdomain(e.currentTarget.value)}
                 placeholder="e.g. tim-server"
               />
+              {subdomainError() && (
+                <p style="color: #dc3545; font-size: 12px; margin: 4px 0 0">{subdomainError()}</p>
+              )}
               <div style="display: flex; gap: 8px; margin-top: 16px">
                 <button
                   type="button"
@@ -156,7 +167,7 @@ export function CreateServerModal(props: CreateServerModalProps) {
                   class="action-btn docker-pull"
                   style="flex: 1"
                   onClick={handleCreate}
-                  disabled={!serverName().trim() || !subdomain().trim() || props.sshOperationInProgress()}
+                  disabled={!serverName().trim() || !subdomain().trim() || !!subdomainError() || props.sshOperationInProgress()}
                 >
                   Create
                 </button>
