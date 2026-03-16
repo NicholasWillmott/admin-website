@@ -11,7 +11,7 @@ export function ActiveInstancesBar(props: ActiveInstancesBarProps) {
   return (
     <div class="active-instances-bar">
       <span class="active-instances-label">Active now:</span>
-      <Show when={props.loading} fallback={
+      <Show when={props.loading && props.statuses === undefined} fallback={
         <Show when={props.instances.length === 0} fallback={
           <For each={props.instances}>
             {(server) => {
