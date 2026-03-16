@@ -64,6 +64,10 @@ router.post("/bulk-restart", async (c) => {
     const body = await c.req.json<{ ids: string[] }>();
     const ids: string[] = body.ids;
 
+    if (!ids.every(id => isSafeParam(id))) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
     const command = "wb restart " + ids.join(" ");
 
     if (!isCommandAllowed(command)) {
@@ -146,6 +150,10 @@ router.post("/bulk-update", async (c) => {
     const body = await c.req.json<{ ids: string[], version: string }>();
     const ids: string[] = body.ids;
     const version: string = body.version;
+
+    if (!ids.every(id => isSafeParam(id)) || !isSafeParam(version)) {
+        return c.json({ error: "Invalid server ID or version format" }, 400);
+    }
 
     const command = "wb c update " + ids.join(" ") + " --server " + version;
 
