@@ -10,9 +10,12 @@ npm run build
 echo "==> Deploying frontend to droplet..."
 rsync -az --delete dist/ "$DROPLET:$REMOTE_DIR/dist/"
 
+read -rp "Commit message: " COMMIT_MSG
+COMMIT_MSG="${COMMIT_MSG:-deploy}"
+
 echo "==> Staging and committing changes..."
 git add -A
-git diff --cached --quiet || git commit -m "deploy"
+git diff --cached --quiet || git commit -m "$COMMIT_MSG"
 
 echo "==> Pushing backend changes..."
 git push
