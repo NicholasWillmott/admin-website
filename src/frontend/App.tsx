@@ -679,6 +679,7 @@ function App() {
                                   isExpanded={expandedId() === server.id}
                                   onToggle={() => toggleCard(server.id)}
                                   status={statuses()?.[server.id] ?? null}
+                                  isLoading={statuses.loading}
                                   restartStatus={serverRestartStatuses()[server.id] ?? 'idle'}
                                   versions={serverVersions() || []}
                                   updatingServerId={updatingServerId()}

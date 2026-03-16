@@ -7,6 +7,7 @@ interface ServerCardProps {
   isExpanded: boolean;
   onToggle: () => void;
   status: HealthCheckResponse | null;
+  isLoading?: boolean;
   restartStatus: ServerRestartStatus;
   versions: string[];
   updatingServerId: string | null;
@@ -88,6 +89,9 @@ export function ServerCard(props: ServerCardProps) {
         {(() => {
           if (props.restartStatus === 'pending') {
             return <span class="status-pending">Pending</span>;
+          }
+          if (props.isLoading) {
+            return <span class="status-loading">Loading...</span>;
           }
           return (
             <span class={props.status?.running ? "status-online" : "status-offline"}>
