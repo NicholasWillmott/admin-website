@@ -285,7 +285,21 @@ h1 {
   display: flex;
   align-items: center;
   gap: 16px;
-  width: 100%;
+}
+
+.multi-select-server-list {
+  font-size: 12px;
+  opacity: 0.6;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multi-select-confirm-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 @media (max-width: 600px) {
