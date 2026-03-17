@@ -1,7 +1,7 @@
 import { createSignal } from 'solid-js';
 import type { Server } from '../../types.ts';
 
-type ConfigChanges = { french?: boolean; ethiopian?: boolean; openAccess?: boolean };
+type ConfigChanges = { french?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string };
 
 interface ConfigModalProps {
   server: Server;
@@ -14,17 +14,20 @@ export function ConfigModal(props: ConfigModalProps) {
   const [french, setFrench] = createSignal(props.server.french ?? false);
   const [ethiopian, setEthiopian] = createSignal(props.server.ethiopian ?? false);
   const [openAccess, setOpenAccess] = createSignal(props.server.openAccess ?? false);
+  const [label, setLabel] = createSignal(props.server.label);
 
   const hasChanges = () =>
     french() !== (props.server.french ?? false) ||
     ethiopian() !== (props.server.ethiopian ?? false) ||
-    openAccess() !== (props.server.openAccess ?? false);
+    openAccess() !== (props.server.openAccess ?? false) ||
+    label() !== props.server.label;
 
   const handleSave = async () => {
     const changes: ConfigChanges = {};
     if (french() !== (props.server.french ?? false)) changes.french = french();
     if (ethiopian() !== (props.server.ethiopian ?? false)) changes.ethiopian = ethiopian();
     if (openAccess() !== (props.server.openAccess ?? false)) changes.openAccess = openAccess();
+    if (label() !== props.server.label) changes.label = label();
     await props.onSave(props.server.id, changes);
   };
 
@@ -37,6 +40,16 @@ export function ConfigModal(props: ConfigModalProps) {
         </div>
         <div class="modal-body">
           <div class="config-rows">
+
+            <div class="config-row">
+              <span class="config-label">Label</span>
+              <input
+                type="text"
+                value={label()}
+                onInput={(e) => setLabel(e.currentTarget.value)}
+                style="flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color, #ccc); background: var(--input-bg, #fff); color: inherit; font-size: 14px;"
+              />
+            </div>
 
             <div class="config-row">
               <span class="config-label">Language</span>

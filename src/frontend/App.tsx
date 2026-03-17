@@ -41,6 +41,7 @@ import {
   updateServerLanguageApi,
   updateServerCalendarApi,
   updateServerOpenAccessApi,
+  updateServerLabelApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -526,7 +527,7 @@ function App() {
 
   const handleSaveConfig = async (
     serverId: string,
-    changes: { french?: boolean; ethiopian?: boolean; openAccess?: boolean },
+    changes: { french?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string },
   ) => {
     if (sshOperationInProgress()) {
       addToast('Another SSH operation is in progress. Please wait.', 'info');
@@ -545,6 +546,10 @@ function App() {
       }
       if (changes.openAccess !== undefined) {
         const r = await updateServerOpenAccessApi(serverId, changes.openAccess, token);
+        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
+      }
+      if (changes.label !== undefined) {
+        const r = await updateServerLabelApi(serverId, changes.label, token);
         if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
       }
       mutate(prev => prev?.map(s => s.id === serverId ? { ...s, ...changes } : s));
