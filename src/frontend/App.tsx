@@ -32,7 +32,6 @@ import {
   backupServerApi,
   getUsersApi,
   getUserSessionsApi,
-  getUserActivityApi,
   fetchLockedServersApi,
   lockServerApi,
   unlockServerApi,
@@ -42,6 +41,7 @@ import {
   updateServerCalendarApi,
   updateServerOpenAccessApi,
   updateServerLabelApi,
+  fetchAllServerUserLogs,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -59,6 +59,15 @@ function App() {
     async (serverList) => {
       const token = await getToken();
       return fetchAllServerStatuses(serverList, token);
+    }
+  );
+
+  // get user logs for all servers (fetched once on load), keyed by server id
+  const [allServerUserLogs] = createResource(
+    servers,
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerUserLogs(serverList, token);
     }
   );
 
@@ -496,15 +505,17 @@ function App() {
     return getUserSessionsApi(userId, token, since);
   };
 
-  const handleFetchActivity = async (email: string, serverId: string | null) => {
-    const token = await getToken();
-    const serverList = serverId ? [{ id: serverId }] : (servers() ?? []);
-    const results = await Promise.all(
-      serverList.map((s) => getUserActivityApi(s.id, email, token).catch(() => [] as string[]))
-    );
-    const combined = new Set<string>();
-    for (const days of results) for (const day of days) combined.add(day);
-    return [...combined].sort();
+  const handleFetchActivity = async (email: string, serverId: string | null): Promise<string[]> => {
+    const logs = allServerUserLogs();
+    if (!logs) return [];
+    const serverIds = serverId ? [serverId] : Object.keys(logs);
+    const activeDays = new Set<string>();
+    for (const id of serverIds) {
+      for (const log of logs[id] ?? []) {
+        if (log.user_email === email && log.endpoint === 'getInstanceDetail') activeDays.add(log.timestamp.slice(0, 10));
+      }
+    }
+    return [...activeDays].sort();
   };
 
   // docker pull handler

@@ -96,4 +96,12 @@ export interface BackupFileInfo {
   type: 'main' | 'project' | 'metadata' | 'log' | 'other';
 }
 
+export interface UserLog {
+  user_email: string;
+  endpoint: string;
+  timestamp: string;
+}
+
+export type ServerUserLogs = { [serverId: string]: UserLog[] };
+
 export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users";

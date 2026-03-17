@@ -86,6 +86,26 @@ router.post("/bulk-restart", async (c) => {
     }
 });
 
+// Get server user logs
+router.get("/:id/user_logs", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+
+    if (!isSafeParam(serverId)) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/user_logs`);
+        const data = await response.json();
+        return c.json(data);
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // Get server status
 router.get("/:id/status", async (c) => {
     const authError = await requireAdmin(c);

@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -68,6 +68,30 @@ export async function fetchAllServerStatuses(servers: Server[], token: string | 
     acc[id] = status;
     return acc;
   }, {} as ServerStatuses);
+}
+
+export async function fetchServerUserLogs(serverId: string, token: string | null): Promise<UserLog[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/user_logs`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.logs ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAllServerUserLogs(servers: Server[], token: string | null): Promise<ServerUserLogs> {
+  const results = await Promise.all(servers.map(async (server) => ({
+    id: server.id,
+    logs: await fetchServerUserLogs(server.id, token),
+  })));
+  return results.reduce((acc, { id, logs }) => {
+    acc[id] = logs;
+    return acc;
+  }, {} as ServerUserLogs);
 }
 
 export async function fetchServerVersions(token: string | null): Promise<string[]> {
