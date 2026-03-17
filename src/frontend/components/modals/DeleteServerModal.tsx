@@ -4,7 +4,6 @@ import {
   stopServerApi,
   removeSslApi,
   removeNginxApi,
-  removeDirsApi,
   removeServerApi,
   deleteDnsRecordApi,
 } from '../../services.ts';
@@ -28,7 +27,6 @@ const INITIAL_STEPS: Step[] = [
   { label: 'Stopping server', status: 'pending' },
   { label: 'Removing SSL', status: 'pending' },
   { label: 'Removing nginx', status: 'pending' },
-  { label: 'Removing directories', status: 'pending' },
   { label: 'Removing server config', status: 'pending' },
   { label: 'Deleting DNS record', status: 'pending' },
 ];
@@ -75,15 +73,12 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
     const ok3 = await runStep(2, () => removeNginxApi(id, token));
     if (!ok3) { setFinished(true); return; }
 
-    const ok4 = await runStep(3, () => removeDirsApi(id, token));
+    const ok4 = await runStep(3, () => removeServerApi(id, token));
     if (!ok4) { setFinished(true); return; }
 
-    const ok5 = await runStep(4, () => removeServerApi(id, token));
-    if (!ok5) { setFinished(true); return; }
-
-    const ok6 = await runStep(5, () => deleteDnsRecordApi(id, token));
+    const ok5 = await runStep(4, () => deleteDnsRecordApi(id, token));
     setFinished(true);
-    if (ok6) {
+    if (ok5) {
       addToast(`Server ${id} deleted`, 'success');
       props.onDeleted();
     }
@@ -152,7 +147,7 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
           {phase() === 'confirm' && (
             <div class="docker-pull-form">
               <p style="color: #f87171; margin-bottom: 16px">
-                This action is <strong>permanent</strong> and cannot be undone. The server, its DNS record, nginx config, SSL certificate, and directories will all be removed.
+                This action is <strong>permanent</strong> and cannot be undone. The server, its DNS record, nginx config, and SSL certificate will all be removed.
               </p>
               <div style="display: flex; gap: 8px; margin-top: 8px">
                 <button

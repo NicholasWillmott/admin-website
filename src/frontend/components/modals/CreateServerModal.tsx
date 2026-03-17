@@ -7,6 +7,9 @@ import {
   initNginxApi,
   initSslApi,
   updateServerLabelApi,
+  updateServerLanguageApi,
+  updateServerCalendarApi,
+  updateServerOpenAccessApi,
   runServerApi,
 } from '../../services.ts';
 
@@ -33,6 +36,7 @@ const INITIAL_STEPS: Step[] = [
   { label: 'Initialising nginx', status: 'pending' },
   { label: 'Initialising SSL', status: 'pending' },
   { label: 'Updating label', status: 'pending' },
+  { label: 'Setting config', status: 'pending' },
   { label: 'Running server', status: 'pending' },
 ];
 
@@ -40,6 +44,9 @@ export function CreateServerModal(props: CreateServerModalProps) {
   const [phase, setPhase] = createSignal<'form' | 'progress'>('form');
   const [serverName, setServerName] = createSignal('');
   const [subdomain, setSubdomain] = createSignal('');
+  const [french, setFrench] = createSignal(false);
+  const [ethiopian, setEthiopian] = createSignal(false);
+  const [openAccess, setOpenAccess] = createSignal(false);
   const [steps, setSteps] = createSignal<Step[]>(INITIAL_STEPS.map(s => ({ ...s })));
   const [finished, setFinished] = createSignal(false);
 
@@ -104,9 +111,26 @@ export function CreateServerModal(props: CreateServerModalProps) {
     const ok6 = await runStep(5, () => updateServerLabelApi(sub, name, token));
     if (!ok6) { setFinished(true); return; }
 
-    const ok7 = await runStep(6, () => runServerApi(sub, token));
+    const ok7 = await runStep(6, async () => {
+      if (french()) {
+        const r = await updateServerLanguageApi(sub, true, token);
+        if (!r.success) return r;
+      }
+      if (ethiopian()) {
+        const r = await updateServerCalendarApi(sub, true, token);
+        if (!r.success) return r;
+      }
+      if (openAccess()) {
+        const r = await updateServerOpenAccessApi(sub, true, token);
+        if (!r.success) return r;
+      }
+      return { success: true };
+    });
+    if (!ok7) { setFinished(true); return; }
+
+    const ok8 = await runStep(7, () => runServerApi(sub, token));
     setFinished(true);
-    if (ok7) {
+    if (ok8) {
       addToast(`Server ${sub} created successfully`, 'success');
       props.onCreated();
     }
@@ -153,6 +177,31 @@ export function CreateServerModal(props: CreateServerModalProps) {
               {subdomainError() && (
                 <p style="color: #dc3545; font-size: 12px; margin: 4px 0 0">{subdomainError()}</p>
               )}
+
+              <div class="config-rows" style="margin-top: 16px">
+                <div class="config-row">
+                  <span class="config-label">Language</span>
+                  <div class="config-toggle-group">
+                    <button type="button" class={`config-toggle-btn ${!french() ? 'active' : ''}`} onClick={() => setFrench(false)}>English</button>
+                    <button type="button" class={`config-toggle-btn ${french() ? 'active' : ''}`} onClick={() => setFrench(true)}>French</button>
+                  </div>
+                </div>
+                <div class="config-row">
+                  <span class="config-label">Calendar</span>
+                  <div class="config-toggle-group">
+                    <button type="button" class={`config-toggle-btn ${!ethiopian() ? 'active' : ''}`} onClick={() => setEthiopian(false)}>Gregorian</button>
+                    <button type="button" class={`config-toggle-btn ${ethiopian() ? 'active' : ''}`} onClick={() => setEthiopian(true)}>Ethiopian</button>
+                  </div>
+                </div>
+                <div class="config-row">
+                  <span class="config-label">Open Access</span>
+                  <div class="config-toggle-group">
+                    <button type="button" class={`config-toggle-btn ${!openAccess() ? 'active' : ''}`} onClick={() => setOpenAccess(false)}>Off</button>
+                    <button type="button" class={`config-toggle-btn ${openAccess() ? 'active' : ''}`} onClick={() => setOpenAccess(true)}>On</button>
+                  </div>
+                </div>
+              </div>
+
               <div style="display: flex; gap: 8px; margin-top: 16px">
                 <button
                   type="button"
