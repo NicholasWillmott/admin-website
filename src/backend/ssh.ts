@@ -76,7 +76,7 @@ const ALLOWED_COMMANDS = [
   /^wb c show [\w-]+ --json$/,
   /^wb c add [\w-]+$/,
   /^wb c update (?:[\w-]+ )*[\w-]+ --server [\w.-]+$/,
-  /^wb c update [\w-]+ --label "[\w .-]+"$/,
+  /^wb c update [\w-]+ --label "[^"$`\\]+"$/,
   /^wb c update [\w-]+ --french (?:true|false)$/,
   /^wb c update [\w-]+ --ethiopian (?:true|false)$/,
   /^wb c update [\w-]+ --open-access (?:true|false)$/,
