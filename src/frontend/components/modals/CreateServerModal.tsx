@@ -206,7 +206,7 @@ export function CreateServerModal(props: CreateServerModalProps) {
                 <button
                   type="button"
                   class="action-btn"
-                  style="flex: 1; background: #444"
+                  style="flex: 1; background: #444; color: #fff"
                   onClick={() => props.onClose()}
                 >
                   Cancel

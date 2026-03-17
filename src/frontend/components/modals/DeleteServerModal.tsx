@@ -127,7 +127,7 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
                 <button
                   type="button"
                   class="action-btn"
-                  style="flex: 1; background: #444"
+                  style="flex: 1; background: #444; color: #fff"
                   onClick={() => props.onClose()}
                 >
                   Cancel
@@ -153,7 +153,7 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
                 <button
                   type="button"
                   class="action-btn"
-                  style="flex: 1; background: #444"
+                  style="flex: 1; background: #444; color: #fff"
                   onClick={() => setPhase('input')}
                 >
                   Go Back

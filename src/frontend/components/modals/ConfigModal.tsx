@@ -47,7 +47,7 @@ export function ConfigModal(props: ConfigModalProps) {
                 type="text"
                 value={label()}
                 onInput={(e) => setLabel(e.currentTarget.value)}
-                style="flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color, #ccc); background: var(--input-bg, #fff); color: inherit; font-size: 14px;"
+                style="flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color, #ccc); background: var(--input-bg, #fff); color: #000; font-size: 14px;"
               />
             </div>
 
