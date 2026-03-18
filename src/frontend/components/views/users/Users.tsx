@@ -84,6 +84,34 @@ export function Users(p: UsersProps) {
         setInstanceLoading(false);
     }
 
+    function downloadActiveUsersCsv() {
+        if (!p.users || !p.userLogs) return;
+        const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const serverIds = selectedInstance() ? [selectedInstance()!] : Object.keys(p.userLogs);
+        const activeEmails = new Set<string>();
+        for (const id of serverIds) {
+            for (const log of p.userLogs[id] ?? []) {
+                if (log.endpoint === 'getInstanceDetail' && new Date(log.timestamp).getTime() >= oneWeekAgo) {
+                    activeEmails.add(log.user_email);
+                }
+            }
+        }
+        const activeUsers = p.users.filter(u => activeEmails.has(getPrimaryEmail(u)));
+        const rows = [['Name', 'Email']];
+        for (const u of activeUsers) {
+            const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || '-';
+            rows.push([name, getPrimaryEmail(u)]);
+        }
+        const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `active-users-last-7-days${selectedInstance() ? `-${selectedInstance()}` : ''}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     function downloadOptInCsv() {
         if (!p.users) return;
         const optedIn = p.users.filter(u => u.unsafe_metadata.emailOptIn === true);
@@ -243,6 +271,9 @@ export function Users(p: UsersProps) {
                             <div class="dropdown">
                                 <button type="button" class="activity-btn">Actions ▾</button>
                                 <div class="dropdown-menu">
+                                    <button type="button" class="dropdown-item" onClick={downloadActiveUsersCsv}>
+                                        Export Active Users (Last 7 Days)
+                                    </button>
                                     <button type="button" class="dropdown-item" onClick={downloadOptInCsv}>
                                         Generate Mailing List
                                     </button>
