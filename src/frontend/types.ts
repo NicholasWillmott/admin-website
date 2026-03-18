@@ -8,6 +8,7 @@ export interface Server {
   french?: boolean;
   ethiopian?: boolean;
   openAccess?: boolean;
+  volume?: string;
 }
 
 export interface ServerLogs {
@@ -104,4 +105,25 @@ export interface UserLog {
 
 export type ServerUserLogs = { [serverId: string]: UserLog[] };
 
-export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users";
+export interface VolumeDfStats {
+  filesystem: string;
+  totalGB: number;
+  usedGB: number;
+  availableGB: number;
+  usePercent: number;
+  mountedOn: string;
+}
+
+export interface VolumeDirEntry {
+  name: string;
+  sizeGB: number;
+}
+
+export interface VolumeUsage {
+  volumeName: string;
+  mountPath: string;
+  df: VolumeDfStats;
+  directories: VolumeDirEntry[];
+}
+
+export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage";

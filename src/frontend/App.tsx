@@ -8,6 +8,7 @@ import { ActiveInstancesBar } from './components/views/ActiveInstancesBar.tsx';
 import { LogsModal } from './components/modals/LogsModal.tsx';
 import { BackupsModal } from './components/modals/BackupsModal.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
+import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
 import { DeleteServerModal } from './components/modals/DeleteServerModal.tsx';
@@ -42,6 +43,7 @@ import {
   updateServerOpenAccessApi,
   updateServerLabelApi,
   fetchAllServerUserLogs,
+  fetchVolumeUsage,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -140,6 +142,19 @@ function App() {
     });
     isLocked ? await unlockServerApi(serverId, token) : await lockServerApi(serverId, token);
   };
+
+  // fetch volume usage for all unique volumes across servers
+  const [volumeUsages, { refetch: refetchVolumeUsages }] = createResource(
+    servers,
+    async (serverList) => {
+      const token = await getToken();
+      const uniqueVolumes = [...new Set(serverList.flatMap(s => s.volume ? [s.volume] : []))];
+      const entries = await Promise.all(
+        uniqueVolumes.map(async (v) => [v, await fetchVolumeUsage(v, token)] as const)
+      );
+      return Object.fromEntries(entries) as Record<string, import('./types.ts').VolumeUsage | null>;
+    }
+  );
 
   // track loading volume snapshots
   const [volumeSnapshots, { refetch: refetchSnapshots }] = createResource(async () => {
@@ -641,6 +656,13 @@ function App() {
                 </button>
                 <button
                   type="button"
+                  data-selected={activeView() === "volumeUsage"}
+                  onClick={() => setActiveView("volumeUsage")}
+                >
+                  Volume Usage
+                </button>
+                <button
+                  type="button"
                   data-selected={activeView() === "moduleEditor"}
                   onClick={() => setActiveView("moduleEditor")}
                 >
@@ -813,6 +835,16 @@ function App() {
               snappingVolume={snappingVolume()}
               onCreateSnapshot={createVolumeSnapshot}
               onDeleteSnapshot={deleteVolumeSnapshot}
+            />
+          </Show>
+
+          <Show when={activeView() === "volumeUsage"}>
+            <VolumeUsageView
+              servers={servers()}
+              volumeUsages={volumeUsages() ?? {}}
+              loading={volumeUsages.loading}
+              error={volumeUsages.error}
+              onRefetch={refetchVolumeUsages}
             />
           </Show>
 

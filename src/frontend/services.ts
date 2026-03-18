@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, VolumeUsage } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -191,6 +191,20 @@ export async function createVolumeSnapshotApi(token: string | null): Promise<{ s
     headers: getAuthHeaders(token),
   });
   return await response.json();
+}
+
+export async function fetchVolumeUsage(volumeName: string, token: string | null): Promise<VolumeUsage | null> {
+  try {
+    const response = await fetch(`${API_BASE}/api/volumes/usage?volume=${encodeURIComponent(volumeName)}`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.success ? data : null;
+  } catch (error) {
+    console.error(`Failed to fetch volume usage for ${volumeName}:`, error);
+    return null;
+  }
 }
 
 export async function fetchVolumeSnapshots(token: string | null): Promise<any[]> {

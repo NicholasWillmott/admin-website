@@ -105,6 +105,11 @@ const ALLOWED_COMMANDS = [
   /^wb pull$/,
   /^wb prune$/,
 
+  // DISK USAGE
+  /^df -BG$/,
+  /^df -BG \/mnt\/[\w_-]+$/,
+  /^du -BG --max-depth=1 \/mnt\/[\w_-]+$/,
+
   // OTHER
   /^wb help$/,
   /^docker ps$/,
