@@ -1,5 +1,5 @@
 import { For, createSignal } from 'solid-js';
-import type { ClerkUser, ClerkSession, Server, HealthCheckResponse } from '../../../types.ts';
+import type { ClerkUser, ClerkSession, Server, HealthCheckResponse, ServerUserLogs } from '../../../types.ts';
 import { formatDate } from '../../../utils.ts';
 import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
 import { UserActivityGraph } from './graphs/UserActivityGraph.tsx';
@@ -17,6 +17,7 @@ interface UsersProps {
     onFetchActivity: (email: string, serverId: string | null) => Promise<string[]>;
     servers: Server[] | undefined;
     onFetchInstanceStatus: (serverId: string) => Promise<HealthCheckResponse | null>;
+    userLogs: ServerUserLogs | undefined;
 }
 
 function getPrimaryEmail(user: ClerkUser): string {
@@ -42,7 +43,6 @@ export function Users(p: UsersProps) {
     const [instanceLoading, setInstanceLoading] = createSignal(false);
     const [selectedDomain, setSelectedDomain] = createSignal<string | null>(null);
     const [searchQuery, setSearchQuery] = createSignal('');
-    const [sessionsByUser, setSessionsByUser] = createSignal<Map<string, ClerkSession[]>>(new Map());
 
     const availableDomains = () => {
         if (!p.users) return [];
@@ -369,7 +369,7 @@ export function Users(p: UsersProps) {
                     {/** Graphs */}
                     <UserActivityGraph users={filteredUsers()} />
                     <UserRegistrationsGraph users={filteredUsers()} />
-                    <SignInHeatmap users={filteredUsers()} allUsers={p.users} onFetchSessions={p.onFetchSessions} sessionsByUser={sessionsByUser()} onSessionsUpdate={setSessionsByUser} />
+                    <SignInHeatmap users={filteredUsers()} userLogs={p.userLogs} selectedInstance={selectedInstance()} />
                     <UserRetentionChart users={filteredUsers()} />
                     <EmailOptInChart users={filteredUsers()} />
                     <RecentSignupsCard users={filteredUsers()} />

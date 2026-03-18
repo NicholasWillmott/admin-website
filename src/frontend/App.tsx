@@ -828,6 +828,7 @@ function App() {
               onFetchSessions={handleFetchSessions}
               onFetchActivity={handleFetchActivity}
               servers={servers()}
+              userLogs={allServerUserLogs()}
               onFetchInstanceStatus={async (serverId) => {
                 const token = await getToken();
                 return fetchServerStatus(serverId, token);

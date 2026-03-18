@@ -1,12 +1,10 @@
-import { createSignal, createEffect, on, For } from 'solid-js';
-import type { ClerkUser, ClerkSession } from '../../../../types.ts';
+import { createSignal, For } from 'solid-js';
+import type { ClerkUser, UserLog, ServerUserLogs } from '../../../../types.ts';
 
 interface SignInHeatmapProps {
-    users: ClerkUser[] | undefined;
-    allUsers: ClerkUser[] | undefined;
-    onFetchSessions: (userId: string, since?: number) => Promise<ClerkSession[]>;
-    sessionsByUser: Map<string, ClerkSession[]>;
-    onSessionsUpdate: (sessions: Map<string, ClerkSession[]>) => void;
+    users: ClerkUser[];
+    userLogs: ServerUserLogs | undefined;
+    selectedInstance: string | null;
 }
 
 type TooltipState = { x: number; y: number; text: string };
@@ -23,10 +21,15 @@ const IH = H - PAD.top - PAD.bottom;
 const CELL_W = IW / 24;
 const CELL_H = IH / 7;
 
-function buildGridFromSessions(sessions: ClerkSession[]) {
+function buildGridFromLogs(logs: UserLog[], emailSet: Set<string>): number[][] {
     const grid: number[][] = Array.from({ length: 7 }, () => new Array(24).fill(0));
-    for (const s of sessions) {
-        const d = new Date(s.created_at);
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    for (const log of logs) {
+        if (!emailSet.has(log.user_email)) continue;
+        if (log.endpoint !== 'getInstanceDetail') continue;
+        const ts = new Date(log.timestamp).getTime();
+        if (ts < oneWeekAgo) continue;
+        const d = new Date(log.timestamp);
         grid[d.getDay()][d.getHours()]++;
     }
     return grid;
@@ -35,7 +38,6 @@ function buildGridFromSessions(sessions: ClerkSession[]) {
 function cellColor(count: number, max: number): string {
     if (count === 0 || max === 0) return '#f0f0f0';
     const t = count / max;
-    // Interpolate from light teal to dark teal
     const r = Math.round(230 - t * 216);
     const g = Math.round(240 - t * 128);
     const b = Math.round(238 - t * 130);
@@ -66,71 +68,33 @@ function renderTooltip(t: TooltipState) {
 
 export function SignInHeatmap(p: SignInHeatmapProps) {
     const [tooltip, setTooltip] = createSignal<TooltipState | null>(null);
-    const [loading, setLoading] = createSignal(false);
-    const [progress, setProgress] = createSignal({ done: 0, total: 0 });
 
-    // Fetch sessions when allUsers becomes available
-    let hasFetched = false;
-    createEffect(on(() => p.allUsers, async (users) => {
-        if (!users || users.length === 0 || hasFetched) return;
-        hasFetched = true;
+    const emailSet = () => new Set(
+        p.users.map(u => u.email_addresses.find(e => e.id === u.primary_email_address_id)?.email_address ?? '')
+    );
 
-        const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        const recentUsers = users.filter(u => u.last_sign_in_at && u.last_sign_in_at >= oneWeekAgo);
-
-        if (recentUsers.length === 0) {
-            setLoading(false);
-            return;
-        }
-
-        setLoading(true);
-        setProgress({ done: 0, total: recentUsers.length });
-
-        const sessMap = new Map<string, ClerkSession[]>();
-        const BATCH_SIZE = 10;
-        for (let i = 0; i < recentUsers.length; i += BATCH_SIZE) {
-            const batch = recentUsers.slice(i, i + BATCH_SIZE);
-            const results = await Promise.all(batch.map(u => p.onFetchSessions(u.id, oneWeekAgo)));
-            batch.forEach((u, idx) => {
-                if (results[idx].length > 0) {
-                    sessMap.set(u.id, results[idx]);
-                }
-            });
-            setProgress({ done: Math.min(i + BATCH_SIZE, recentUsers.length), total: recentUsers.length });
-            p.onSessionsUpdate(new Map(sessMap));
-        }
-
-        setLoading(false);
-    }));
-
-    // Reactively filter sessions based on current users prop
-    const filteredSessions = () => {
-        const users = p.users;
-        if (!users) return [];
-        const map = p.sessionsByUser;
-        const userIds = new Set(users.map(u => u.id));
-        const sessions: ClerkSession[] = [];
-        for (const [userId, userSessions] of map) {
-            if (userIds.has(userId)) {
-                sessions.push(...userSessions);
-            }
-        }
-        return sessions;
+    const relevantLogs = () => {
+        const logs = p.userLogs;
+        if (!logs) return [];
+        const serverIds = p.selectedInstance ? [p.selectedInstance] : Object.keys(logs);
+        const result: UserLog[] = [];
+        for (const id of serverIds) result.push(...(logs[id] ?? []));
+        return result;
     };
 
-    const grid = () => buildGridFromSessions(filteredSessions());
+    const grid = () => buildGridFromLogs(relevantLogs(), emailSet());
 
     const max = () => {
         let m = 0;
-        for (const row of grid()) {
-            for (const c of row) {
-                if (c > m) m = c;
-            }
-        }
+        for (const row of grid()) for (const c of row) if (c > m) m = c;
         return m;
     };
 
-    const totalSessions = () => filteredSessions().length;
+    const totalSessions = () => {
+        let total = 0;
+        for (const row of grid()) for (const c of row) total += c;
+        return total;
+    };
 
     return (
         <div class="activity-graph-section">
@@ -138,21 +102,12 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                 <div>
                     <span class="activity-graph-title">Sign-in Heatmap</span>
                     <span class="activity-graph-subtitle">
-                        ({totalSessions()} sign-in{totalSessions() !== 1 ? 's' : ''} in the last 7 days)
+                        ({totalSessions()} active session{totalSessions() !== 1 ? 's' : ''} in the last 7 days)
                     </span>
                 </div>
-                {loading() && (
-                    <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
-                        <div class="spinner spinner-sm"></div>
-                        <span style={{ color: 'rgba(255,255,255,0.6)', 'font-size': '12px' }}>
-                            Loading sessions {progress().done}/{progress().total}
-                        </span>
-                    </div>
-                )}
             </div>
 
             <svg viewBox={`0 0 ${W} ${H}`} width="100%" class="activity-graph-svg">
-                {/* Day labels */}
                 <For each={DAYS}>
                     {(day, i) => (
                         <text
@@ -166,7 +121,6 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                     )}
                 </For>
 
-                {/* Hour labels */}
                 <For each={HOURS}>
                     {(h) => (
                         h % 3 === 0 ? (
@@ -181,7 +135,6 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                     )}
                 </For>
 
-                {/* Cells */}
                 <For each={DAYS}>
                     {(_day, dayIdx) => (
                         <For each={HOURS}>
@@ -201,7 +154,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                                         onMouseEnter={() => setTooltip({
                                             x: x + CELL_W / 2,
                                             y,
-                                            text: `${DAYS[dayIdx()]} ${formatHour(hour)}: ${count()} sign-in${count() !== 1 ? 's' : ''}`,
+                                            text: `${DAYS[dayIdx()]} ${formatHour(hour)}: ${count()} session${count() !== 1 ? 's' : ''}`,
                                         })}
                                         onMouseLeave={() => setTooltip(null)}
                                     />
