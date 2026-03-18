@@ -1,10 +1,12 @@
 import { createSignal, For } from 'solid-js';
-import type { ClerkUser } from '../../../../types.ts';
+import type { ClerkUser, ServerUserLogs } from '../../../../types.ts';
 
 type TooltipState = { x: number; y: number; text: string };
 
 interface UserActivityGraphProps {
     users: ClerkUser[] | undefined;
+    userLogs: ServerUserLogs | undefined;
+    selectedInstance: string | null;
 }
 
 type GraphView = 'month' | 'year';
@@ -18,29 +20,41 @@ const IW = W - PAD.left - PAD.right; // inner width
 const IH = H - PAD.top - PAD.bottom; // inner height
 const BASELINE = H - PAD.bottom;
 
-function buildMonthData(users: ClerkUser[], year: number, month: number) {
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const counts = new Array(daysInMonth).fill(0);
-    for (const u of users) {
-        if (!u.last_sign_in_at) continue;
-        const d = new Date(u.last_sign_in_at);
-        if (d.getFullYear() === year && d.getMonth() === month) {
-            counts[d.getDate() - 1]++;
+function getRelevantLogs(userLogs: ServerUserLogs | undefined, selectedInstance: string | null, emailSet: Set<string>) {
+    if (!userLogs) return [];
+    const serverIds = selectedInstance ? [selectedInstance] : Object.keys(userLogs);
+    const result = [];
+    for (const id of serverIds) {
+        for (const log of userLogs[id] ?? []) {
+            if (log.endpoint === 'getInstanceDetail' && emailSet.has(log.user_email)) {
+                result.push(log);
+            }
         }
     }
-    return counts.map((count, i) => ({ label: String(i + 1), count }));
+    return result;
 }
 
-function buildYearData(users: ClerkUser[], year: number) {
-    const counts = new Array(12).fill(0);
-    for (const u of users) {
-        if (!u.last_sign_in_at) continue;
-        const d = new Date(u.last_sign_in_at);
-        if (d.getFullYear() === year) {
-            counts[d.getMonth()]++;
+function buildMonthData(logs: ReturnType<typeof getRelevantLogs>, year: number, month: number) {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const uniquePerDay: Set<string>[] = Array.from({ length: daysInMonth }, () => new Set());
+    for (const log of logs) {
+        const d = new Date(log.timestamp);
+        if (d.getFullYear() === year && d.getMonth() === month) {
+            uniquePerDay[d.getDate() - 1].add(log.user_email);
         }
     }
-    return MONTH_NAMES.map((label, i) => ({ label, count: counts[i] }));
+    return uniquePerDay.map((s, i) => ({ label: String(i + 1), count: s.size }));
+}
+
+function buildYearData(logs: ReturnType<typeof getRelevantLogs>, year: number) {
+    const uniquePerMonth: Set<string>[] = Array.from({ length: 12 }, () => new Set());
+    for (const log of logs) {
+        const d = new Date(log.timestamp);
+        if (d.getFullYear() === year) {
+            uniquePerMonth[d.getMonth()].add(log.user_email);
+        }
+    }
+    return MONTH_NAMES.map((label, i) => ({ label, count: uniquePerMonth[i].size }));
 }
 
 function computePoints(data: { label: string; count: number }[]) {
@@ -75,12 +89,15 @@ export function UserActivityGraph(p: UserActivityGraphProps) {
     const year = now.getFullYear();
     const month = now.getMonth();
 
-    const data = () => {
-        const users = p.users ?? [];
-        return view() === 'month'
-            ? buildMonthData(users, year, month)
-            : buildYearData(users, year);
-    };
+    const emailSet = () => new Set(
+        (p.users ?? []).map(u => u.email_addresses.find(e => e.id === u.primary_email_address_id)?.email_address ?? '')
+    );
+
+    const logs = () => getRelevantLogs(p.userLogs, p.selectedInstance, emailSet());
+
+    const data = () => view() === 'month'
+        ? buildMonthData(logs(), year, month)
+        : buildYearData(logs(), year);
 
     const pts = () => computePoints(data());
 
@@ -125,7 +142,7 @@ export function UserActivityGraph(p: UserActivityGraphProps) {
             <div class="activity-graph-header">
                 <div>
                     <span class="activity-graph-title">User Sign-in Activity</span>
-                    <span class="activity-graph-subtitle">(by most recent sign-in per user)</span>
+                    <span class="activity-graph-subtitle">(unique active users per {view() === 'month' ? 'day' : 'month'})</span>
                 </div>
                 <div class="activity-graph-toggle">
                     <button

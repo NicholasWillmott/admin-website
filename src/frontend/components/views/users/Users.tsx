@@ -367,7 +367,7 @@ export function Users(p: UsersProps) {
                     )}
 
                     {/** Graphs */}
-                    <UserActivityGraph users={filteredUsers()} />
+                    <UserActivityGraph users={filteredUsers()} userLogs={p.userLogs} selectedInstance={selectedInstance()} />
                     <UserRegistrationsGraph users={filteredUsers()} />
                     <SignInHeatmap users={filteredUsers()} userLogs={p.userLogs} selectedInstance={selectedInstance()} />
                     <UserRetentionChart users={filteredUsers()} />
