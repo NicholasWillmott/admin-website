@@ -126,7 +126,7 @@ export function VolumeUsageView(props: VolumeUsageViewProps) {
                             return (
                               <tr>
                                 <td class="volume-server-label">
-                                  {row.kind === 'server' ? row.server.label : <span class="volume-other-label">Other</span>}
+                                  {row.kind === 'server' ? row.server.label : <span class="volume-other-label">Not in use</span>}
                                 </td>
                                 <td class="volume-server-dir">{row.dirName}</td>
                                 <td class="volume-server-size">
