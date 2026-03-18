@@ -4458,6 +4458,11 @@ h1 {
   color: #e2e8f0 !important;
 }
 
+.volume-other-label {
+  color: #64748b;
+  font-style: italic;
+}
+
 .volume-server-dir {
   font-family: monospace;
   font-size: 12px;

@@ -19,17 +19,27 @@ export function VolumeUsageView(props: VolumeUsageViewProps) {
     return [...names].sort();
   };
 
-  // Servers that belong to a given volume, sorted by their directory size desc
-  const serversForVolume = (volumeName: string) => {
+  type VolumeRow =
+    | { kind: 'server'; server: Server; dirName: string; sizeGB: number }
+    | { kind: 'other'; dirName: string; sizeGB: number };
+
+  // Rows for a volume: matched servers + unmatched directories as "Other"
+  const rowsForVolume = (volumeName: string): VolumeRow[] => {
     const usage = props.volumeUsages[volumeName];
-    return (props.servers ?? [])
-      .filter(s => s.volume === volumeName)
-      .map(s => {
-        const dirName = s.instanceDir ?? s.id;
-        const dir = usage?.directories.find(d => d.name === dirName);
-        return { server: s, dirName, sizeGB: dir?.sizeGB ?? 0 };
-      })
-      .sort((a, b) => b.sizeGB - a.sizeGB);
+    const serversOnVolume = (props.servers ?? []).filter(s => s.volume === volumeName);
+    const knownDirNames = new Set(serversOnVolume.map(s => s.instanceDir ?? s.id));
+
+    const serverRows: VolumeRow[] = serversOnVolume.map(s => {
+      const dirName = s.instanceDir ?? s.id;
+      const dir = usage?.directories.find(d => d.name === dirName);
+      return { kind: 'server', server: s, dirName, sizeGB: dir?.sizeGB ?? 0 };
+    });
+
+    const otherRows: VolumeRow[] = (usage?.directories ?? [])
+      .filter(d => !knownDirNames.has(d.name))
+      .map(d => ({ kind: 'other', dirName: d.name, sizeGB: d.sizeGB }));
+
+    return [...serverRows, ...otherRows].sort((a, b) => b.sizeGB - a.sizeGB);
   };
 
   return (
@@ -60,7 +70,7 @@ export function VolumeUsageView(props: VolumeUsageViewProps) {
             {(volumeName) => {
               const usage = () => props.volumeUsages[volumeName];
               const df = () => usage()?.df;
-              const servers = () => serversForVolume(volumeName);
+              const servers = () => rowsForVolume(volumeName);
               const usedPercent = () => df()?.usePercent ?? 0;
               const usedColor = () =>
                 usedPercent() >= 90 ? '#ef4444' :
@@ -108,20 +118,22 @@ export function VolumeUsageView(props: VolumeUsageViewProps) {
                       </thead>
                       <tbody>
                         <For each={servers()}>
-                          {({ server, dirName, sizeGB }) => {
+                          {(row) => {
                             const pct = () =>
                               df() && df()!.totalGB > 0
-                                ? ((sizeGB / df()!.totalGB) * 100).toFixed(1)
+                                ? ((row.sizeGB / df()!.totalGB) * 100).toFixed(1)
                                 : '—';
                             return (
                               <tr>
-                                <td class="volume-server-label">{server.label}</td>
-                                <td class="volume-server-dir">{dirName}</td>
+                                <td class="volume-server-label">
+                                  {row.kind === 'server' ? row.server.label : <span class="volume-other-label">Other</span>}
+                                </td>
+                                <td class="volume-server-dir">{row.dirName}</td>
                                 <td class="volume-server-size">
-                                  {sizeGB > 0 ? `${sizeGB} GB` : '< 1 GB'}
+                                  {row.sizeGB > 0 ? `${row.sizeGB} GB` : '< 1 GB'}
                                 </td>
                                 <td class="volume-server-pct">
-                                  <Show when={sizeGB > 0 && df()}>
+                                  <Show when={row.sizeGB > 0 && df()}>
                                     <div class="volume-server-pct-bar-track">
                                       <div
                                         class="volume-server-pct-bar-fill"
