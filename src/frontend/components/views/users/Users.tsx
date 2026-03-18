@@ -2,6 +2,7 @@ import { For, createSignal } from 'solid-js';
 import type { ClerkUser, ClerkSession, Server, HealthCheckResponse, ServerUserLogs } from '../../../types.ts';
 import { formatDate } from '../../../utils.ts';
 import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
+import { ActiveUsersExportModal } from '../../modals/ActiveUsersExportModal.tsx';
 import { UserActivityGraph } from './graphs/UserActivityGraph.tsx';
 import { UserRegistrationsGraph } from './graphs/UserRegistrationsGraph.tsx';
 import { SignInHeatmap } from './graphs/SignInHeatmap.tsx';
@@ -35,6 +36,7 @@ type SortDir = 'asc' | 'desc';
 
 export function Users(p: UsersProps) {
     const [selectedUser, setSelectedUser] = createSignal<ClerkUser | null>(null);
+    const [activeUsersExportOpen, setActiveUsersExportOpen] = createSignal(false);
     const [sortKey, setSortKey] = createSignal<SortKey>('created_at');
     const [sortDir, setSortDir] = createSignal<SortDir>('desc');
     const [selectedInstance, setSelectedInstance] = createSignal<string | null>(null);
@@ -84,33 +86,6 @@ export function Users(p: UsersProps) {
         setInstanceLoading(false);
     }
 
-    function downloadActiveUsersCsv() {
-        if (!p.users || !p.userLogs) return;
-        const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        const serverIds = selectedInstance() ? [selectedInstance()!] : Object.keys(p.userLogs);
-        const activeEmails = new Set<string>();
-        for (const id of serverIds) {
-            for (const log of p.userLogs[id] ?? []) {
-                if (log.endpoint === 'getInstanceDetail' && new Date(log.timestamp).getTime() >= oneWeekAgo) {
-                    activeEmails.add(log.user_email);
-                }
-            }
-        }
-        const activeUsers = p.users.filter(u => activeEmails.has(getPrimaryEmail(u)));
-        const rows = [['Name', 'Email']];
-        for (const u of activeUsers) {
-            const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || '-';
-            rows.push([name, getPrimaryEmail(u)]);
-        }
-        const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `active-users-last-7-days${selectedInstance() ? `-${selectedInstance()}` : ''}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
 
     function downloadOptInCsv() {
         if (!p.users) return;
@@ -271,8 +246,8 @@ export function Users(p: UsersProps) {
                             <div class="dropdown">
                                 <button type="button" class="activity-btn">Actions ▾</button>
                                 <div class="dropdown-menu">
-                                    <button type="button" class="dropdown-item" onClick={downloadActiveUsersCsv}>
-                                        Export Active Users (Last 7 Days)
+                                    <button type="button" class="dropdown-item" onClick={() => setActiveUsersExportOpen(true)}>
+                                        Export Active Users
                                     </button>
                                     <button type="button" class="dropdown-item" onClick={downloadOptInCsv}>
                                         Generate Mailing List
@@ -413,6 +388,15 @@ export function Users(p: UsersProps) {
                     onClose={() => setSelectedUser(null)}
                     serverId={selectedInstance()}
                     onFetchActivity={p.onFetchActivity}
+                />
+            )}
+            {activeUsersExportOpen() && (
+                <ActiveUsersExportModal
+                    users={p.users}
+                    servers={p.servers}
+                    userLogs={p.userLogs}
+                    initialInstance={selectedInstance()}
+                    onClose={() => setActiveUsersExportOpen(false)}
                 />
             )}
         </>
