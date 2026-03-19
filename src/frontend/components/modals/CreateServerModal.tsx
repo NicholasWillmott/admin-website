@@ -11,6 +11,8 @@ import {
   updateServerCalendarApi,
   updateServerOpenAccessApi,
   runServerApi,
+  assignServerCategoryApi,
+  type ServerCategory,
 } from '../../services.ts';
 
 type StepStatus = 'pending' | 'loading' | 'done' | 'error';
@@ -27,6 +29,7 @@ interface CreateServerModalProps {
   onClose: () => void;
   onCreated: () => void;
   getToken: () => Promise<string | null>;
+  categories: () => ServerCategory[];
 }
 
 const INITIAL_STEPS: Step[] = [
@@ -44,6 +47,7 @@ export function CreateServerModal(props: CreateServerModalProps) {
   const [phase, setPhase] = createSignal<'form' | 'progress'>('form');
   const [serverName, setServerName] = createSignal('');
   const [subdomain, setSubdomain] = createSignal('');
+  const [category, setCategory] = createSignal('');
   const [french, setFrench] = createSignal(false);
   const [ethiopian, setEthiopian] = createSignal(false);
   const [openAccess, setOpenAccess] = createSignal(false);
@@ -124,6 +128,10 @@ export function CreateServerModal(props: CreateServerModalProps) {
         const r = await updateServerOpenAccessApi(sub, true, token);
         if (!r.success) return r;
       }
+      if (category()) {
+        const r = await assignServerCategoryApi(sub, category(), token);
+        if (!r.success) return r;
+      }
       return { success: true };
     });
     if (!ok7) { setFinished(true); return; }
@@ -177,6 +185,19 @@ export function CreateServerModal(props: CreateServerModalProps) {
               {subdomainError() && (
                 <p style="color: #dc3545; font-size: 12px; margin: 4px 0 0">{subdomainError()}</p>
               )}
+
+              <label for="cs-category" style="margin-top: 12px">Category</label>
+              <select
+                id="cs-category"
+                class="version-input"
+                value={category()}
+                onChange={(e) => setCategory(e.currentTarget.value)}
+              >
+                <option value="">None (Misc)</option>
+                <For each={props.categories()}>
+                  {(cat) => <option value={cat.name}>{cat.name}</option>}
+                </For>
+              </select>
 
               <div class="config-rows" style="margin-top: 16px">
                 <div class="config-row">

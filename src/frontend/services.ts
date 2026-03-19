@@ -480,6 +480,42 @@ export async function removeDirsApi(serverId: string, token: string | null): Pro
   return await response.json();
 }
 
+export interface ServerCategory {
+  name: string;
+  servers: string[];
+}
+
+export async function fetchCategoriesApi(token: string | null): Promise<ServerCategory[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/categories`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.categories ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createCategoryApi(name: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/create/category`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  return await response.json();
+}
+
+export async function assignServerCategoryApi(serverId: string, category: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/create/assign-category`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId, category }),
+  });
+  return await response.json();
+}
+
 export async function stopServerApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
   const response = await fetch(`${API_BASE}/api/servers/stop`, {
     method: 'POST',

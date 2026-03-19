@@ -6,6 +6,86 @@ import { executeCommand, isCommandAllowed } from "../ssh.ts";
 
 const router = new Hono();
 
+const CATEGORIES_FILE = new URL('../data/serverCategories.json', import.meta.url).pathname;
+
+interface ServerCategory {
+  name: string;
+  servers: string[];
+}
+
+interface CategoriesData {
+  categories: ServerCategory[];
+}
+
+async function readCategoriesData(): Promise<CategoriesData> {
+  try {
+    const text = await Deno.readTextFile(CATEGORIES_FILE);
+    return JSON.parse(text);
+  } catch {
+    return { categories: [] };
+  }
+}
+
+async function writeCategoriesData(data: CategoriesData): Promise<void> {
+  await Deno.writeTextFile(CATEGORIES_FILE, JSON.stringify(data, null, 2));
+}
+
+// Get all categories
+router.get("/categories", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+  return c.json(await readCategoriesData());
+});
+
+// Create a new category
+router.post("/create/category", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+
+  const body = await c.req.json<{ name: string }>();
+  const name = body.name?.trim();
+
+  if (!name) {
+    return c.json({ success: false, error: "Category name is required" });
+  }
+
+  const data = await readCategoriesData();
+  if (data.categories.some(cat => cat.name === name)) {
+    return c.json({ success: false, error: "Category already exists" });
+  }
+  data.categories.push({ name, servers: [] });
+  await writeCategoriesData(data);
+  return c.json({ success: true });
+});
+
+// Assign a server to a category
+router.post("/create/assign-category", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+
+  const body = await c.req.json<{ serverId: string; category: string }>();
+  const { serverId, category } = body;
+
+  if (!isSafeParam(serverId)) {
+    return c.json({ success: false, error: "Invalid server ID" });
+  }
+
+  const data = await readCategoriesData();
+  // Remove from any existing category first
+  for (const cat of data.categories) {
+    cat.servers = cat.servers.filter(id => id !== serverId);
+  }
+  // Add to the new category if specified
+  if (category) {
+    const target = data.categories.find(cat => cat.name === category);
+    if (target) {
+      target.servers.push(serverId);
+    }
+  }
+  await writeCategoriesData(data);
+  return c.json({ success: true });
+});
+
 // Create DNS A record for new server
 router.post("/create/record", async (c) => {
     const authError = await requireAdmin(c);

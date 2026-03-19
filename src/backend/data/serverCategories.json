@@ -1,0 +1,32 @@
+{
+  "categories": [
+    {
+      "name": "West Africa",
+      "servers": [
+        "burkinafaso", "ghana", "guinee", "guinee-old", "liberia", "mali",
+        "nigeria", "nigeria3", "nigeria4", "nigeria6", "senegal", "sierraleone",
+        "ci", "mauritania", "niger"
+      ]
+    },
+    {
+      "name": "East Africa",
+      "servers": ["ethiopia", "somalia", "somaliland", "uganda", "zambia", "malawi", "kenya"]
+    },
+    {
+      "name": "Central Africa",
+      "servers": ["cameroun", "rdc", "chad", "rca"]
+    },
+    {
+      "name": "Asia",
+      "servers": ["afghanistan"]
+    },
+    {
+      "name": "Caribbean",
+      "servers": ["haiti"]
+    },
+    {
+      "name": "None / Utility / Testing",
+      "servers": ["demo", "demo-fr", "testing", "testing2"]
+    }
+  ]
+}

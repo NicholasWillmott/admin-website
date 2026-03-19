@@ -1,6 +1,5 @@
 import { createResource, createSignal, For, Show, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
-import { SERVER_CATEGORIES, ALL_CATEGORIZED_SERVER_IDS } from './serverCategories.ts'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 import { ModuleEditorContent } from './components/views/ModuleDefinitions/ModuleEditorContent.tsx';
 import { ServerCard } from './components/views/ServerCard.tsx';
@@ -11,6 +10,7 @@ import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
+import { CreateCategoryModal } from './components/modals/CreateCategoryModal.tsx';
 import { DeleteServerModal } from './components/modals/DeleteServerModal.tsx';
 import { ConfigModal } from './components/modals/ConfigModal.tsx';
 import { ServerMultiSelectModal } from './components/modals/ServerMultiSelectModal.tsx'
@@ -44,6 +44,7 @@ import {
   updateServerLabelApi,
   fetchAllServerUserLogs,
   fetchVolumeUsage,
+  fetchCategoriesApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -54,6 +55,12 @@ function App() {
 
   // get server data
   const [servers, { mutate, refetch: refetchServers }] = createResource(fetchServerCardData)
+
+  // get server categories
+  const [categories, { refetch: refetchDynamicCategories }] = createResource(async () => {
+    const token = await getToken();
+    return fetchCategoriesApi(token);
+  });
 
   // get server status, total users, uptime, etc
   const [statuses, { refetch: refetchStatuses }] = createResource(
@@ -91,6 +98,9 @@ function App() {
 
   // track create server modal
   const [createServerModalOpen, setCreateServerModalOpen] = createSignal<boolean>(false);
+
+  // track create category modal
+  const [createCategoryModalOpen, setCreateCategoryModalOpen] = createSignal<boolean>(false);
 
   // track delete server modal
   const [deleteServerModalId, setDeleteServerModalId] = createSignal<string | null>(null);
@@ -625,6 +635,13 @@ function App() {
                     <button
                       type="button"
                       style="margin-left: 8px"
+                      onClick={() => setCreateCategoryModalOpen(true)}
+                    >
+                      Create Category
+                    </button>
+                    <button
+                      type="button"
+                      style="margin-left: 8px"
                       onClick={() => setCreateServerModalOpen(true)}
                     >
                       Create Server
@@ -743,7 +760,11 @@ function App() {
                     <option value="unlocked">Unlocked</option>
                   </select>
                 </div>
-                <For each={[...SERVER_CATEGORIES, { name: "Misc", servers: (servers() || []).filter(s => !ALL_CATEGORIZED_SERVER_IDS.has(s.id)).map(s => s.id) }]}>
+                <For each={(() => {
+                  const cats = categories() || [];
+                  const allIds = new Set(cats.flatMap(cat => cat.servers));
+                  return [...cats, { name: "Misc", servers: (servers() || []).filter(s => !allIds.has(s.id)).map(s => s.id) }];
+                })()}>
                   {(category) => {
                     const categoryServers = () => filteredServers().filter(s =>
                       category.servers.includes(s.id)
@@ -885,7 +906,17 @@ function App() {
             sshOperationInProgress={sshOperationInProgress}
             setSshOperationInProgress={setSshOperationInProgress}
             onClose={() => setCreateServerModalOpen(false)}
-            onCreated={() => { setCreateServerModalOpen(false); refetchServers(); }}
+            onCreated={() => { setCreateServerModalOpen(false); refetchServers(); refetchDynamicCategories(); }}
+            getToken={getToken}
+            categories={() => categories() || []}
+          />
+        )}
+
+        {/* Create Category Modal */}
+        {createCategoryModalOpen() && (
+          <CreateCategoryModal
+            onClose={() => setCreateCategoryModalOpen(false)}
+            onCreated={() => { setCreateCategoryModalOpen(false); refetchDynamicCategories(); }}
             getToken={getToken}
           />
         )}
