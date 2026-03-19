@@ -69,13 +69,53 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
     const exportCount = () => activeUsers().filter(u => !excludedEmails().has(getPrimaryEmail(u))).length;
 
     function handleExport() {
-        const rows = [['Name', 'Email']];
-        for (const u of activeUsers()) {
-            const email = getPrimaryEmail(u);
-            if (excludedEmails().has(email)) continue;
-            const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || '-';
-            rows.push([name, email]);
+        const from = new Date(fromDate() + 'T00:00:00').getTime();
+        const to = new Date(toDate() + 'T23:59:59').getTime();
+
+        const instances = [...selectedInstances()];
+
+        // Build per-instance active email sets
+        const instanceEmailSets = new Map<string, Set<string>>();
+        for (const id of instances) {
+            const emails = new Set<string>();
+            for (const log of p.userLogs?.[id] ?? []) {
+                if (log.endpoint !== 'getInstanceDetail') continue;
+                const ts = new Date(log.timestamp).getTime();
+                if (ts >= from && ts <= to) emails.add(log.user_email);
+            }
+            instanceEmailSets.set(id, emails);
         }
+
+        // Build user lookup by email
+        const userByEmail = new Map<string, ClerkUser>();
+        for (const u of p.users ?? []) userByEmail.set(getPrimaryEmail(u), u);
+
+        // Build per-instance user rows (excluding excluded emails)
+        const serverLabel = new Map((p.servers ?? []).map(s => [s.id, s.label]));
+        const instanceColumns = instances.map(id => {
+            const emails = instanceEmailSets.get(id) ?? new Set<string>();
+            return [...emails]
+                .filter(email => !excludedEmails().has(email))
+                .map(email => {
+                    const u = userByEmail.get(email);
+                    const name = u ? [u.first_name, u.last_name].filter(Boolean).join(' ') || '-' : '-';
+                    return [name, email];
+                });
+        });
+
+        // Header: one Name+Email pair per instance
+        const header = instances.flatMap(id => {
+            const label = serverLabel.get(id) ?? id;
+            return [`${label} - Name`, `${label} - Email`];
+        });
+
+        // Rows: zip instance columns, padding shorter ones with empty cells
+        const maxRows = Math.max(...instanceColumns.map(col => col.length), 0);
+        const rows = [header];
+        for (let i = 0; i < maxRows; i++) {
+            rows.push(instanceColumns.flatMap(col => col[i] ?? ['', '']));
+        }
+
         const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
