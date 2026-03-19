@@ -92,11 +92,13 @@ export function CreateServerModal(props: CreateServerModalProps) {
     }
   };
 
+  const selectedVolume = () => volume() || props.volumes()[0] || undefined;
+
   const runChecks = async (sub: string) => {
     if (!sub || subdomainError()) return;
     setChecking(true);
     const token = await props.getToken();
-    const result = await checkServerConflictsApi(sub, token, volume() || undefined);
+    const result = await checkServerConflictsApi(sub, token, selectedVolume());
     setConflicts(result);
     setCheckedFor(sub);
     setChecking(false);
@@ -261,10 +263,9 @@ export function CreateServerModal(props: CreateServerModalProps) {
               <select
                 id="cs-volume"
                 class="version-input"
-                value={volume()}
-                onChange={(e) => { setVolume(e.currentTarget.value); setConflicts(null); }}
+                value={volume() || props.volumes()[0] || ''}
+                onChange={(e) => { setVolume(e.currentTarget.value); setConflicts(null); setCheckedFor(''); }}
               >
-                <option value="">None</option>
                 <For each={props.volumes()}>
                   {(v) => <option value={v}>{v}</option>}
                 </For>
