@@ -732,9 +732,9 @@ function App() {
           }
         >
           <Show when={activeView() === "servers"}>
-            {servers.loading && <h2 class="loading-text">Loading...</h2>}
+            {(servers.loading || categories.loading) && <h2 class="loading-text">Loading...</h2>}
             {servers.error && <p>Error: {servers.error.message}</p>}
-            {servers() && (
+            {servers() && categories() && (
               <div class="servers-container">
                 <ActiveInstancesBar instances={activeInstances()} statuses={statuses()} loading={statuses.loading} />
                 <div class="server-filter-bar">
