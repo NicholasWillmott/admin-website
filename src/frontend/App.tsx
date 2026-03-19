@@ -45,6 +45,7 @@ import {
   fetchAllServerUserLogs,
   fetchVolumeUsage,
   fetchCategoriesApi,
+  fetchVolumesApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -60,6 +61,12 @@ function App() {
   const [categories, { refetch: refetchDynamicCategories }] = createResource(async () => {
     const token = await getToken();
     return fetchCategoriesApi(token);
+  });
+
+  // get available volumes
+  const [volumes] = createResource(async () => {
+    const token = await getToken();
+    return fetchVolumesApi(token);
   });
 
   // get server status, total users, uptime, etc
@@ -909,6 +916,7 @@ function App() {
             onCreated={() => { setCreateServerModalOpen(false); refetchServers(); refetchDynamicCategories(); }}
             getToken={getToken}
             categories={() => categories() || []}
+            volumes={() => volumes() || []}
           />
         )}
 

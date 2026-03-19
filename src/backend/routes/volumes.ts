@@ -57,6 +57,21 @@ function parseDuOutput(output: string, mountPath: string): DirEntry[] {
   return entries;
 }
 
+const VOLUMES_FILE = new URL('../data/volumes.json', import.meta.url).pathname;
+
+// GET /api/volumes/list
+router.get("/list", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+  try {
+    const text = await Deno.readTextFile(VOLUMES_FILE);
+    const data = JSON.parse(text);
+    return c.json({ success: true, volumes: data.volumes ?? [] });
+  } catch {
+    return c.json({ success: true, volumes: [] });
+  }
+});
+
 // GET /api/volumes/usage?volume=volume_nyc3_abc
 router.get("/usage", async (c) => {
   const authError = await requireAdmin(c);

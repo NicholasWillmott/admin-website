@@ -17,6 +17,7 @@ import {
   type ServerConflicts,
 } from '../../services.ts';
 
+
 type StepStatus = 'pending' | 'loading' | 'done' | 'error';
 
 interface Step {
@@ -32,6 +33,7 @@ interface CreateServerModalProps {
   onCreated: () => void;
   getToken: () => Promise<string | null>;
   categories: () => ServerCategory[];
+  volumes: () => string[];
 }
 
 const INITIAL_STEPS: Step[] = [
@@ -51,6 +53,7 @@ const CONFLICT_LABELS: Record<keyof ServerConflicts, string> = {
   nginx: 'Nginx config already exists',
   ssl: 'SSL certificate already exists',
   serversJson: 'Server already exists in servers.json',
+  directory: 'Directory already exists on this volume',
 };
 
 export function CreateServerModal(props: CreateServerModalProps) {
@@ -58,6 +61,7 @@ export function CreateServerModal(props: CreateServerModalProps) {
   const [serverName, setServerName] = createSignal('');
   const [subdomain, setSubdomain] = createSignal('');
   const [category, setCategory] = createSignal('');
+  const [volume, setVolume] = createSignal('');
   const [french, setFrench] = createSignal(false);
   const [ethiopian, setEthiopian] = createSignal(false);
   const [openAccess, setOpenAccess] = createSignal(false);
@@ -92,7 +96,7 @@ export function CreateServerModal(props: CreateServerModalProps) {
     if (!sub || subdomainError()) return;
     setChecking(true);
     const token = await props.getToken();
-    const result = await checkServerConflictsApi(sub, token);
+    const result = await checkServerConflictsApi(sub, token, volume() || undefined);
     setConflicts(result);
     setCheckedFor(sub);
     setChecking(false);
@@ -252,6 +256,19 @@ export function CreateServerModal(props: CreateServerModalProps) {
               <Show when={!checking() && conflicts() !== null && !hasConflicts()}>
                 <p style="color: #28a745; font-size: 12px; margin: 4px 0 0">✓ No conflicts found</p>
               </Show>
+
+              <label for="cs-volume" style="margin-top: 12px">Volume</label>
+              <select
+                id="cs-volume"
+                class="version-input"
+                value={volume()}
+                onChange={(e) => { setVolume(e.currentTarget.value); setConflicts(null); }}
+              >
+                <option value="">None</option>
+                <For each={props.volumes()}>
+                  {(v) => <option value={v}>{v}</option>}
+                </For>
+              </select>
 
               <label for="cs-category" style="margin-top: 12px">Category</label>
               <select

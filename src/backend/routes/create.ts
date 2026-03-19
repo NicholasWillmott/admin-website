@@ -99,7 +99,9 @@ router.get("/create/check/:serverId", async (c) => {
   const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
   const dropletIp = getDropletIp();
 
-  const [dnsResult, configResult, nginxResult, sslResult, serversJsonResult] = await Promise.all([
+  const volume = c.req.query('volume');
+
+  const checks: Promise<boolean>[] = [
     // DNS record check
     fetch(
       `https://api.digitalocean.com/v2/domains/fastr-analytics.org/records?name=${serverId}&type=A`,
@@ -118,7 +120,21 @@ router.get("/create/check/:serverId", async (c) => {
     // central servers.json check
     fetch("https://central.fastr-analytics.org/servers.json")
       .then(r => r.json()).then((servers: { id: string }[]) => servers.some(s => s.id === serverId)).catch(() => false),
-  ]);
+  ];
+
+  // Directory check — only if a volume is specified
+  if (volume && /^[\w_-]+$/.test(volume)) {
+    checks.push(
+      executeCommand(dropletIp, `du -BG --max-depth=1 /mnt/${volume}`)
+        .then(r => r.stdout.trim().split('\n').some(line => {
+          const dir = line.trim().split(/\s+/)[1];
+          return dir?.split('/').at(-1) === serverId;
+        }))
+        .catch(() => false)
+    );
+  }
+
+  const [dnsResult, configResult, nginxResult, sslResult, serversJsonResult, directoryResult] = await Promise.all(checks);
 
   return c.json({
     success: true,
@@ -128,6 +144,7 @@ router.get("/create/check/:serverId", async (c) => {
       nginx: nginxResult,
       ssl: sslResult,
       serversJson: serversJsonResult,
+      ...(volume ? { directory: directoryResult } : {}),
     },
   });
 });

@@ -486,11 +486,27 @@ export interface ServerConflicts {
   nginx: boolean;
   ssl: boolean;
   serversJson: boolean;
+  directory?: boolean;
 }
 
-export async function checkServerConflictsApi(serverId: string, token: string | null): Promise<ServerConflicts | null> {
+export async function fetchVolumesApi(token: string | null): Promise<string[]> {
   try {
-    const response = await fetch(`${API_BASE}/api/servers/create/check/${serverId}`, {
+    const response = await fetch(`${API_BASE}/api/volumes/list`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.volumes ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function checkServerConflictsApi(serverId: string, token: string | null, volume?: string): Promise<ServerConflicts | null> {
+  try {
+    const url = new URL(`${API_BASE}/api/servers/create/check/${serverId}`);
+    if (volume) url.searchParams.set('volume', volume);
+    const response = await fetch(url.toString(), {
       headers: getAuthHeaders(token),
     });
     if (!response.ok) return null;
