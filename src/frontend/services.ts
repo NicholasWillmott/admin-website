@@ -426,6 +426,15 @@ export async function updateServerLabelApi(serverId: string, newLabel: string, t
   return await response.json();
 }
 
+export async function updateServerVolumeApi(serverId: string, volume: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/update/volume`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId, volume }),
+  });
+  return await response.json();
+}
+
 export async function runServerApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
   const response = await fetch (`${API_BASE}/api/servers/run`, {
     method: 'POST',

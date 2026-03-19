@@ -382,6 +382,33 @@ router.post("/update/label", async (c) => {
     }
 });
 
+// Update server volume
+router.post("/update/volume", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string, volume: string }>();
+    const serverId = body.serverId;
+    const volume = body.volume;
+
+    const command = `wb c update ${serverId} --volume ${volume}`;
+
+    if (!isCommandAllowed(command)) {
+        return c.json({ success: false, error: "Invalid command" });
+    }
+
+    try {
+        const result = await executeCommand(getDropletIp(), command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr,
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // Run a server
 router.post("/run", async (c) => {
     const authError = await requireAdmin(c);

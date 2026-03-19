@@ -12,6 +12,7 @@ import {
   updateServerOpenAccessApi,
   runServerApi,
   assignServerCategoryApi,
+  updateServerVolumeApi,
   checkServerConflictsApi,
   type ServerCategory,
   type ServerConflicts,
@@ -175,6 +176,11 @@ export function CreateServerModal(props: CreateServerModalProps) {
       }
       if (openAccess()) {
         const r = await updateServerOpenAccessApi(sub, true, token);
+        if (!r.success) return r;
+      }
+      const vol = selectedVolume();
+      if (vol) {
+        const r = await updateServerVolumeApi(sub, vol, token);
         if (!r.success) return r;
       }
       if (category()) {
