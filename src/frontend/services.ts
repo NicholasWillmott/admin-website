@@ -480,6 +480,27 @@ export async function removeDirsApi(serverId: string, token: string | null): Pro
   return await response.json();
 }
 
+export interface ServerConflicts {
+  dns: boolean;
+  config: boolean;
+  nginx: boolean;
+  ssl: boolean;
+  serversJson: boolean;
+}
+
+export async function checkServerConflictsApi(serverId: string, token: string | null): Promise<ServerConflicts | null> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/create/check/${serverId}`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.conflicts ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface ServerCategory {
   name: string;
   servers: string[];

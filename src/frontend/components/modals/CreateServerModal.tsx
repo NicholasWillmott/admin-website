@@ -1,4 +1,4 @@
-import { createSignal, For } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import { addToast } from '../../stores/toastStore.ts';
 import {
   createDnsRecordApi,
@@ -12,7 +12,9 @@ import {
   updateServerOpenAccessApi,
   runServerApi,
   assignServerCategoryApi,
+  checkServerConflictsApi,
   type ServerCategory,
+  type ServerConflicts,
 } from '../../services.ts';
 
 type StepStatus = 'pending' | 'loading' | 'done' | 'error';
@@ -43,6 +45,14 @@ const INITIAL_STEPS: Step[] = [
   { label: 'Running server', status: 'pending' },
 ];
 
+const CONFLICT_LABELS: Record<keyof ServerConflicts, string> = {
+  dns: 'DNS record already exists',
+  config: 'Server already exists in wb config',
+  nginx: 'Nginx config already exists',
+  ssl: 'SSL certificate already exists',
+  serversJson: 'Server already exists in servers.json',
+};
+
 export function CreateServerModal(props: CreateServerModalProps) {
   const [phase, setPhase] = createSignal<'form' | 'progress'>('form');
   const [serverName, setServerName] = createSignal('');
@@ -54,12 +64,38 @@ export function CreateServerModal(props: CreateServerModalProps) {
   const [steps, setSteps] = createSignal<Step[]>(INITIAL_STEPS.map(s => ({ ...s })));
   const [finished, setFinished] = createSignal(false);
 
+  const [checking, setChecking] = createSignal(false);
+  const [conflicts, setConflicts] = createSignal<ServerConflicts | null>(null);
+  const [checkedFor, setCheckedFor] = createSignal('');
+
   const subdomainError = () => {
     const sub = subdomain().trim();
     if (!sub) return null;
     if (sub.length > 63) return 'Subdomain must be 63 characters or fewer';
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(sub)) return 'Only lowercase letters, numbers, and hyphens allowed. Cannot start or end with a hyphen';
     return null;
+  };
+
+  const hasConflicts = () => {
+    const c = conflicts();
+    return c !== null && Object.values(c).some(Boolean);
+  };
+
+  const handleSubdomainInput = (val: string) => {
+    setSubdomain(val);
+    if (val.trim() !== checkedFor()) {
+      setConflicts(null);
+    }
+  };
+
+  const runChecks = async (sub: string) => {
+    if (!sub || subdomainError()) return;
+    setChecking(true);
+    const token = await props.getToken();
+    const result = await checkServerConflictsApi(sub, token);
+    setConflicts(result);
+    setCheckedFor(sub);
+    setChecking(false);
   };
 
   const updateStep = (index: number, patch: Partial<Step>) => {
@@ -91,8 +127,15 @@ export function CreateServerModal(props: CreateServerModalProps) {
       return;
     }
 
-    const name = serverName().trim();
     const sub = subdomain().trim();
+
+    // Run checks if not yet done for the current subdomain
+    if (checkedFor() !== sub) {
+      await runChecks(sub);
+    }
+    if (hasConflicts()) return;
+
+    const name = serverName().trim();
     setPhase('progress');
 
     const token = await props.getToken();
@@ -151,6 +194,14 @@ export function CreateServerModal(props: CreateServerModalProps) {
     return <span class="create-server-step-icon error">✗</span>;
   };
 
+  const isCreateDisabled = () =>
+    !serverName().trim() ||
+    !subdomain().trim() ||
+    !!subdomainError() ||
+    checking() ||
+    hasConflicts() ||
+    props.sshOperationInProgress();
+
   return (
     <div class="modal-overlay" onClick={() => { if (phase() === 'form') props.onClose(); }}>
       <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 480px">
@@ -179,12 +230,28 @@ export function CreateServerModal(props: CreateServerModalProps) {
                 type="text"
                 class="version-input"
                 value={subdomain()}
-                onInput={(e) => setSubdomain(e.currentTarget.value)}
+                onInput={(e) => handleSubdomainInput(e.currentTarget.value)}
+                onBlur={() => runChecks(subdomain().trim())}
                 placeholder="e.g. tim-server"
               />
               {subdomainError() && (
                 <p style="color: #dc3545; font-size: 12px; margin: 4px 0 0">{subdomainError()}</p>
               )}
+              <Show when={checking()}>
+                <p style="color: #aaa; font-size: 12px; margin: 4px 0 0">Checking availability…</p>
+              </Show>
+              <Show when={!checking() && hasConflicts()}>
+                <For each={Object.entries(conflicts()!) as [keyof ServerConflicts, boolean][]}>
+                  {([key, exists]) => (
+                    <Show when={exists}>
+                      <p style="color: #dc3545; font-size: 12px; margin: 4px 0 0">✗ {CONFLICT_LABELS[key]}</p>
+                    </Show>
+                  )}
+                </For>
+              </Show>
+              <Show when={!checking() && conflicts() !== null && !hasConflicts()}>
+                <p style="color: #28a745; font-size: 12px; margin: 4px 0 0">✓ No conflicts found</p>
+              </Show>
 
               <label for="cs-category" style="margin-top: 12px">Category</label>
               <select
@@ -237,9 +304,9 @@ export function CreateServerModal(props: CreateServerModalProps) {
                   class="action-btn docker-pull"
                   style="flex: 1"
                   onClick={handleCreate}
-                  disabled={!serverName().trim() || !subdomain().trim() || !!subdomainError() || props.sshOperationInProgress()}
+                  disabled={isCreateDisabled()}
                 >
-                  Create
+                  {checking() ? 'Checking…' : 'Create'}
                 </button>
               </div>
             </div>

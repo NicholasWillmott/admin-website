@@ -86,6 +86,52 @@ router.post("/create/assign-category", async (c) => {
   return c.json({ success: true });
 });
 
+// Pre-flight conflict check for a new server
+router.get("/create/check/:serverId", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+
+  const serverId = c.req.param('serverId');
+  if (!isSafeParam(serverId)) {
+    return c.json({ success: false, error: "Invalid server ID" });
+  }
+
+  const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
+  const dropletIp = getDropletIp();
+
+  const [dnsResult, configResult, nginxResult, sslResult, serversJsonResult] = await Promise.all([
+    // DNS record check
+    fetch(
+      `https://api.digitalocean.com/v2/domains/fastr-analytics.org/records?name=${serverId}&type=A`,
+      { headers: { "Authorization": `Bearer ${doToken}` } }
+    ).then(r => r.json()).then(d => (d.domain_records?.length ?? 0) > 0).catch(() => false),
+
+    // wb config check
+    executeCommand(dropletIp, `wb c show ${serverId}`).then(r => r.success).catch(() => false),
+
+    // nginx check
+    executeCommand(dropletIp, `wb list-nginx`).then(r => r.stdout.split('\n').map((s: string) => s.trim()).includes(serverId)).catch(() => false),
+
+    // SSL check
+    executeCommand(dropletIp, `wb list-ssl`).then(r => r.stdout.split('\n').map((s: string) => s.trim()).includes(serverId)).catch(() => false),
+
+    // central servers.json check
+    fetch("https://central.fastr-analytics.org/servers.json")
+      .then(r => r.json()).then((servers: { id: string }[]) => servers.some(s => s.id === serverId)).catch(() => false),
+  ]);
+
+  return c.json({
+    success: true,
+    conflicts: {
+      dns: dnsResult,
+      config: configResult,
+      nginx: nginxResult,
+      ssl: sslResult,
+      serversJson: serversJsonResult,
+    },
+  });
+});
+
 // Create DNS A record for new server
 router.post("/create/record", async (c) => {
     const authError = await requireAdmin(c);
