@@ -723,7 +723,9 @@ function App() {
           </div>
         </SignedOut>
         <SignedIn>
-          <UserButton />
+          <Show when={!categories.loading}>
+            <UserButton />
+          </Show>
         </SignedIn>
       </div>
 
