@@ -26,6 +26,7 @@ interface ServerCardProps {
   onToggleSelect: (id: string) => void;
   onDelete: (serverId: string) => void;
   onConfig: (serverId: string) => void;
+  onActivityDotClick: (serverId: string) => void;
 }
 
 export function ServerCard(props: ServerCardProps) {
@@ -59,7 +60,7 @@ export function ServerCard(props: ServerCardProps) {
             const title = log
               ? `Last activity: ${log.userEmail} — ${timeAgo(log.timestamp)}`
               : 'No activity recorded';
-            return <div class={`activity-dot ${isActive ? 'active' : 'inactive'}`} title={title} />;
+            return <div class={`activity-dot ${isActive ? 'active' : 'inactive'}`} title={title} onClick={(e) => { e.stopPropagation(); props.onActivityDotClick(props.server.id); }} style="cursor: pointer" />;
           })()}
           <span
             class="lock-icon-wrapper"

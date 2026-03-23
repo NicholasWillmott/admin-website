@@ -130,7 +130,7 @@ export function ConfigureCategoriesModal(props: ConfigureCategoriesModalProps) {
                     when={editingName() === cat.name}
                     fallback={
                       <>
-                        <span style="flex: 1; font-weight: 500">{cat.name}</span>
+                        <span style="flex: 1; font-weight: 500; color: #2c3e50">{cat.name}</span>
                         <span style="color: #888; font-size: 12px">{cat.servers.length} server{cat.servers.length !== 1 ? 's' : ''}</span>
                         <button
                           type="button"

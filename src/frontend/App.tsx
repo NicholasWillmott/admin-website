@@ -5,6 +5,7 @@ import { ModuleEditorContent } from './components/views/ModuleDefinitions/Module
 import { ServerCard } from './components/views/ServerCard.tsx';
 import { ActiveInstancesBar } from './components/views/ActiveInstancesBar.tsx';
 import { LogsModal } from './components/modals/LogsModal.tsx';
+import { ServerActivityModal } from './components/modals/ServerActivityModal.tsx';
 import { BackupsModal } from './components/modals/BackupsModal.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
@@ -114,6 +115,9 @@ function App() {
 
   // track config modal
   const [configModalServerId, setConfigModalServerId] = createSignal<string | null>(null);
+
+  // track which server's activity modal to show
+  const [activityModalServerId, setActivityModalServerId] = createSignal<string | null>(null);
 
   // track which server's logs to show in modal
   const [logsModalServerId, setLogsModalServerId] = createSignal<string | null>(null);
@@ -812,6 +816,7 @@ function App() {
                                   )}
                                   onDelete={(id) => setDeleteServerModalId(id)}
                                   onConfig={(id) => setConfigModalServerId(id)}
+                                  onActivityDotClick={(id) => setActivityModalServerId(id)}
                                 />
                               )}
                             </For>
@@ -831,6 +836,16 @@ function App() {
                     onClose={closeBackupsModal}
                     onDownloadFile={handleDownloadFile}
                     onDownloadAll={handleDownloadAll}
+                  />
+                )}
+
+                {/* Activity Modal */}
+                {activityModalServerId() && (
+                  <ServerActivityModal
+                    serverId={activityModalServerId()!}
+                    serverLabel={servers()?.find(s => s.id === activityModalServerId())?.label ?? activityModalServerId()!}
+                    userLogs={allServerUserLogs()?.[activityModalServerId()!] ?? []}
+                    onClose={() => setActivityModalServerId(null)}
                   />
                 )}
 
