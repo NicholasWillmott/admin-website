@@ -562,6 +562,23 @@ export async function assignServerCategoryApi(serverId: string, category: string
   return await response.json();
 }
 
+export async function renameCategoryApi(oldName: string, newName: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/create/category`, {
+    method: 'PUT',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oldName, newName }),
+  });
+  return await response.json();
+}
+
+export async function deleteCategoryApi(name: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/create/category/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(token),
+  });
+  return await response.json();
+}
+
 export async function stopServerApi(serverId: string, token: string | null): Promise<{ success: boolean; error?: string }> {
   const response = await fetch(`${API_BASE}/api/servers/stop`, {
     method: 'POST',

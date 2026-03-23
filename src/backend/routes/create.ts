@@ -58,6 +58,48 @@ router.post("/create/category", async (c) => {
   return c.json({ success: true });
 });
 
+// Rename a category
+router.put("/create/category", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+
+  const body = await c.req.json<{ oldName: string; newName: string }>();
+  const oldName = body.oldName?.trim();
+  const newName = body.newName?.trim();
+
+  if (!oldName || !newName) {
+    return c.json({ success: false, error: "Both old and new names are required" });
+  }
+
+  const data = await readCategoriesData();
+  const cat = data.categories.find(c => c.name === oldName);
+  if (!cat) {
+    return c.json({ success: false, error: "Category not found" });
+  }
+  if (data.categories.some(c => c.name === newName)) {
+    return c.json({ success: false, error: "A category with that name already exists" });
+  }
+  cat.name = newName;
+  await writeCategoriesData(data);
+  return c.json({ success: true });
+});
+
+// Delete a category (servers become uncategorized)
+router.delete("/create/category/:name", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+
+  const name = decodeURIComponent(c.req.param('name'));
+  const data = await readCategoriesData();
+  const idx = data.categories.findIndex(cat => cat.name === name);
+  if (idx === -1) {
+    return c.json({ success: false, error: "Category not found" });
+  }
+  data.categories.splice(idx, 1);
+  await writeCategoriesData(data);
+  return c.json({ success: true });
+});
+
 // Assign a server to a category
 router.post("/create/assign-category", async (c) => {
   const authError = await requireAdmin(c);

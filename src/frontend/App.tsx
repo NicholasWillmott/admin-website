@@ -10,7 +10,7 @@ import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
-import { CreateCategoryModal } from './components/modals/CreateCategoryModal.tsx';
+import { ConfigureCategoriesModal } from './components/modals/CreateCategoryModal.tsx';
 import { DeleteServerModal } from './components/modals/DeleteServerModal.tsx';
 import { ConfigModal } from './components/modals/ConfigModal.tsx';
 import { ServerMultiSelectModal } from './components/modals/ServerMultiSelectModal.tsx'
@@ -644,7 +644,7 @@ function App() {
                       style="margin-left: 8px"
                       onClick={() => setCreateCategoryModalOpen(true)}
                     >
-                      Create Category
+                      Configure Categories
                     </button>
                     <button
                       type="button"
@@ -922,12 +922,13 @@ function App() {
           />
         )}
 
-        {/* Create Category Modal */}
+        {/* Configure Categories Modal */}
         {createCategoryModalOpen() && (
-          <CreateCategoryModal
+          <ConfigureCategoriesModal
             onClose={() => setCreateCategoryModalOpen(false)}
-            onCreated={() => { setCreateCategoryModalOpen(false); refetchDynamicCategories(); }}
+            onUpdated={() => refetchDynamicCategories()}
             getToken={getToken}
+            categories={categories() || []}
           />
         )}
 
