@@ -53,15 +53,7 @@ async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
     }
 }
 
-function buildActivitySvg(logResults: { server: Server; logs: UserLog[] }[]): string {
-    const W = 576;
-    const H = 120;
-    const PAD = { top: 16, right: 16, bottom: 28, left: 32 };
-    const IW = W - PAD.left - PAD.right;
-    const IH = H - PAD.top - PAD.bottom;
-    const BASELINE = H - PAD.bottom;
-
-    // Build 7 day buckets oldest-first
+function buildActivityChartUrl(logResults: { server: Server; logs: UserLog[] }[]): string {
     const days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000);
         return {
@@ -81,47 +73,35 @@ function buildActivitySvg(logResults: { server: Server; logs: UserLog[] }[]): st
         }
     }
 
-    const data = days.map((d, i) => ({ label: d.label, count: uniquePerDay[i].size }));
-    const max = Math.max(...data.map(d => d.count), 1);
+    const labels = days.map(d => d.label);
+    const counts = days.map((_, i) => uniquePerDay[i].size);
 
-    const pts = data.map((d, i) => ({
-        x: PAD.left + (i / (data.length - 1)) * IW,
-        y: PAD.top + IH - (d.count / max) * IH,
-        count: d.count,
-        label: d.label,
-    }));
+    const config = {
+        type: "line",
+        data: {
+            labels,
+            datasets: [{
+                data: counts,
+                borderColor: "#0e706c",
+                backgroundColor: "rgba(14,112,108,0.08)",
+                borderWidth: 2,
+                pointBackgroundColor: "#0e706c",
+                pointRadius: 4,
+                fill: true,
+                tension: 0.3,
+            }],
+        },
+        options: {
+            legend: { display: false },
+            scales: {
+                xAxes: [{ gridLines: { display: false }, ticks: { fontColor: "#a1a1a1", fontSize: 11 } }],
+                yAxes: [{ gridLines: { color: "#e8e8e8" }, ticks: { fontColor: "#a1a1a1", fontSize: 11, precision: 0, beginAtZero: true } }],
+            },
+        },
+    };
 
-    const linePath = pts.map((pt, i) => `${i === 0 ? "M" : "L"}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(" ");
-    const areaPath = `${linePath} L${pts[pts.length - 1].x.toFixed(1)},${BASELINE} L${pts[0].x.toFixed(1)},${BASELINE} Z`;
-
-    const mid = Math.ceil(max / 2);
-    const yTicks = [
-        { value: 0, y: BASELINE },
-        { value: mid, y: PAD.top + IH - (mid / max) * IH },
-        { value: max, y: PAD.top },
-    ];
-
-    const yTicksSvg = yTicks.map(t =>
-        `<line x1="${PAD.left}" y1="${t.y.toFixed(1)}" x2="${W - PAD.right}" y2="${t.y.toFixed(1)}" stroke="#cacaca" stroke-width="1" stroke-dasharray="3,3"/>` +
-        `<text x="${PAD.left - 5}" y="${(t.y + 3.5).toFixed(1)}" text-anchor="end" font-size="9" fill="#a1a1a1">${t.value}</text>`
-    ).join("");
-
-    const dotsSvg = pts.map(pt =>
-        `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${pt.count > 0 ? 3 : 2}" fill="${pt.count > 0 ? "#0e706c" : "#cacaca"}">` +
-        `<title>${pt.label}: ${pt.count} user${pt.count !== 1 ? "s" : ""}</title></circle>`
-    ).join("");
-
-    const xLabelsSvg = pts.map(pt =>
-        `<text x="${pt.x.toFixed(1)}" y="${H - PAD.bottom + 14}" text-anchor="middle" font-size="9" fill="#a1a1a1">${pt.label}</text>`
-    ).join("");
-
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block;max-width:100%;">` +
-        yTicksSvg +
-        `<path d="${areaPath}" fill="#0e706c" fill-opacity="0.08"/>` +
-        `<path d="${linePath}" fill="none" stroke="#0e706c" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>` +
-        dotsSvg +
-        xLabelsSvg +
-        `</svg>`;
+    const encoded = encodeURIComponent(JSON.stringify(config));
+    return `https://quickchart.io/chart?c=${encoded}&w=540&h=180&bkg=white&f=Inter`;
 }
 
 function buildEmailHtml(
@@ -130,7 +110,7 @@ function buildEmailHtml(
     totalActiveUsers: number,
     instanceStats: { label: string; id: string; activeUsers: number }[],
     recentSignups: { name: string; email: string; joinedDate: string }[],
-    activitySvg: string
+    activityChartUrl: string
 ): string {
     const instanceRows = instanceStats
         .sort((a, b) => b.activeUsers - a.activeUsers)
@@ -165,9 +145,9 @@ function buildEmailHtml(
         <div style="font-size:40px;font-weight:700;color:#0e706c;margin-top:4px;">${totalActiveUsers}</div>
       </div>
       <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.06em;">User Sign-in Activity</h2>
-      <p style="font-size:12px;color:#a1a1a1;margin:0 0 10px;">Unique active users per day (hover dots for details)</p>
-      <div style="border:1px solid #cacaca;border-radius:4px;padding:16px 16px 8px;margin-bottom:32px;">
-        ${activitySvg}
+      <p style="font-size:12px;color:#a1a1a1;margin:0 0 10px;">Unique active users per day</p>
+      <div style="border:1px solid #cacaca;border-radius:4px;overflow:hidden;margin-bottom:32px;">
+        <img src="${activityChartUrl}" width="540" style="display:block;width:100%;max-width:540px;" alt="User sign-in activity chart"/>
       </div>
       <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.06em;">Active Users by Instance</h2>
       <table style="width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:32px;border:1px solid #cacaca;border-radius:4px;">
@@ -267,9 +247,9 @@ router.post("/superadmin-email", async (c) => {
             return { label: server.label, id: server.id, activeUsers: uniqueUsers.size };
         });
 
-        const activitySvg = buildActivitySvg(logResults);
+        const activityChartUrl = buildActivityChartUrl(logResults);
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
-        const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, activitySvg);
+        const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, activityChartUrl);
 
         await sendEmail(adminEmails, subject, html);
 
