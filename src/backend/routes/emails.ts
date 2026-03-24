@@ -249,6 +249,7 @@ router.post("/superadmin-email", async (c) => {
 
         const clerkEmailSet = new Set(allUsers.map(u => getPrimaryEmail(u)));
         const activityChartUrl = buildActivityChartUrl(logResults, clerkEmailSet);
+        console.log("Chart URL:", activityChartUrl);
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
         const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, activityChartUrl);
 
