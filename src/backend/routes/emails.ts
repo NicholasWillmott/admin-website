@@ -221,7 +221,7 @@ router.post("/superadmin-email", async (c) => {
             fetchServers(),
         ]);
 
-        const adminEmails = ["nick@usefuldata.com.au"];
+        const adminEmails = ["nicholaswillmottvball@gmail.com"];
 
         const recentSignups = allUsers
             .filter(u => u.created_at >= weekAgoMs)
