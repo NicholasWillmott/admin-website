@@ -587,3 +587,11 @@ export async function stopServerApi(serverId: string, token: string | null): Pro
   });
   return await response.json();
 }
+
+export async function sendWeeklySuperAdminReportApi(token: string | null): Promise<{ success: boolean; sentTo?: number; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/emails/superadmin-email`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+  return await response.json();
+}

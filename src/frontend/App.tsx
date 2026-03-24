@@ -47,6 +47,7 @@ import {
   fetchVolumeUsage,
   fetchCategoriesApi,
   fetchVolumesApi,
+  sendWeeklySuperAdminReportApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -541,6 +542,16 @@ function App() {
     return getUserSessionsApi(userId, token, since);
   };
 
+  const handleSendWeeklyReport = async () => {
+    const token = await getToken();
+    const result = await sendWeeklySuperAdminReportApi(token);
+    if (result.success) {
+      addToast(`Weekly report sent to ${result.sentTo} admin(s)`, 'success');
+    } else {
+      addToast(`Failed to send report: ${result.error}`, 'error');
+    }
+  };
+
   const handleFetchActivity = async (email: string, serverId: string | null): Promise<string[]> => {
     const logs = allServerUserLogs();
     if (!logs) return [];
@@ -904,6 +915,7 @@ function App() {
               error={clerkUsers.error}
               onFetchSessions={handleFetchSessions}
               onFetchActivity={handleFetchActivity}
+              onSendWeeklyReport={handleSendWeeklyReport}
               servers={servers()}
               userLogs={allServerUserLogs()}
               onFetchInstanceStatus={async (serverId) => {

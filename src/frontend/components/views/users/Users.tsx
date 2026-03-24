@@ -20,6 +20,7 @@ interface UsersProps {
     servers: Server[] | undefined;
     onFetchInstanceStatus: (serverId: string) => Promise<HealthCheckResponse | null>;
     userLogs: ServerUserLogs | undefined;
+    onSendWeeklyReport: () => Promise<void>;
 }
 
 function getPrimaryEmail(user: ClerkUser): string {
@@ -122,6 +123,15 @@ export function Users(p: UsersProps) {
         a.download = 'email-opt-out.csv';
         a.click();
         URL.revokeObjectURL(url);
+    }
+
+    const [sendingReport, setSendingReport] = createSignal(false);
+
+    async function sendWeeklyReport() {
+        if (sendingReport()) return;
+        setSendingReport(true);
+        await p.onSendWeeklyReport();
+        setSendingReport(false);
     }
 
     const [exporting, setExporting] = createSignal(false);
@@ -258,6 +268,9 @@ export function Users(p: UsersProps) {
                                     </button>
                                     <button type="button" class="dropdown-item" onClick={downloadFilteredTableCsv}>
                                         Export Table as CSV
+                                    </button>
+                                    <button type="button" class="dropdown-item" onClick={sendWeeklyReport} disabled={sendingReport()}>
+                                        {sendingReport() ? 'Sending...' : 'Send Weekly Report'}
                                     </button>
                                 </div>
                             </div>
