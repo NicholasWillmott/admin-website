@@ -82,9 +82,9 @@ function buildEmailHtml(
     recentSignups: { name: string; email: string; joinedDate: string }[],
     newInstanceIds: Set<string>
 ): string {
-    const instanceRows = instanceStats
-        .sort((a, b) => b.activeUsers - a.activeUsers)
-        .map(inst => {
+    const sortedInstances = instanceStats.sort((a, b) => b.activeUsers - a.activeUsers);
+    const displayedInstances = sortedInstances.slice(0, 50);
+    const instanceRows = displayedInstances.map(inst => {
             const isNew = newInstanceIds.has(inst.id);
             const newBadge = isNew
                 ? `<span style="margin-left:8px;background:#0e706c;color:#ffffff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:0.06em;vertical-align:middle;">New</span>`
@@ -98,13 +98,23 @@ function buildEmailHtml(
         })
         .join("");
 
-    const signupRows = recentSignups.length > 0
-        ? recentSignups.map(u => `
+    const instancesHiddenCount = sortedInstances.length - displayedInstances.length;
+    const instancesHiddenNote = instancesHiddenCount > 0
+        ? `<tr><td colspan="3" style="padding:10px 16px;text-align:center;color:#a1a1a1;font-size:12px;border-bottom:1px solid #cacaca;">+ ${instancesHiddenCount} more instances not shown</td></tr>`
+        : "";
+
+    const displayedSignups = recentSignups.slice(0, 30);
+    const signupsHiddenCount = recentSignups.length - displayedSignups.length;
+    const signupsHiddenNote = signupsHiddenCount > 0
+        ? `<tr><td colspan="3" style="padding:10px 16px;text-align:center;color:#a1a1a1;font-size:12px;border-bottom:1px solid #cacaca;">+ ${signupsHiddenCount} more signups not shown</td></tr>`
+        : "";
+    const signupRows = displayedSignups.length > 0
+        ? displayedSignups.map(u => `
             <tr>
                 <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a;">${u.name}</td>
                 <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${u.email}</td>
                 <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${u.joinedDate}</td>
-            </tr>`).join("")
+            </tr>`).join("") + signupsHiddenNote
         : `<tr><td colspan="3" style="padding:16px;text-align:center;color:#a1a1a1;">No new signups this week</td></tr>`;
 
     return `<!DOCTYPE html>
@@ -130,7 +140,7 @@ function buildEmailHtml(
           </tr>
         </thead>
         <tbody>
-          ${instanceRows}
+          ${instanceRows}${instancesHiddenNote}
         </tbody>
       </table>
       <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.06em;">New Signups (${recentSignups.length})</h2>
