@@ -42,6 +42,26 @@ async function fetchServers(): Promise<Server[]> {
     return response.json();
 }
 
+interface SuperAdminEmailState {
+    lastSentAt: number;
+    knownInstanceIds: string[];
+}
+
+const STATE_FILE = "/mnt/fastr-config/superadmin-email-state.json";
+
+async function readEmailState(): Promise<SuperAdminEmailState | null> {
+    try {
+        return JSON.parse(await Deno.readTextFile(STATE_FILE));
+    } catch {
+        return null;
+    }
+}
+
+async function writeEmailState(state: SuperAdminEmailState): Promise<void> {
+    await Deno.mkdir("/mnt/fastr-config", { recursive: true });
+    await Deno.writeTextFile(STATE_FILE, JSON.stringify(state));
+}
+
 async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
     try {
         const response = await fetch(`https://${serverId}.fastr-analytics.org/user_logs`);
@@ -53,56 +73,6 @@ async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
     }
 }
 
-function buildActivityChartUrl(logResults: { server: Server; logs: UserLog[] }[], clerkEmailSet: Set<string>): string {
-    const days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000);
-        return {
-            label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-            key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
-        };
-    });
-
-    const uniquePerDay: Set<string>[] = Array.from({ length: 7 }, () => new Set());
-    for (const { logs } of logResults) {
-        for (const log of logs) {
-            if (log.endpoint !== "getInstanceDetail" || !clerkEmailSet.has(log.user_email)) continue;
-            const d = new Date(log.timestamp);
-            const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-            const idx = days.findIndex(day => day.key === key);
-            if (idx !== -1) uniquePerDay[idx].add(log.user_email);
-        }
-    }
-
-    const labels = days.map(d => d.label);
-    const counts = days.map((_, i) => uniquePerDay[i].size);
-
-    const config = {
-        type: "line",
-        data: {
-            labels,
-            datasets: [{
-                data: counts,
-                borderColor: "#0e706c",
-                backgroundColor: "rgba(14,112,108,0.08)",
-                borderWidth: 2,
-                pointBackgroundColor: "#0e706c",
-                pointRadius: 4,
-                fill: true,
-                tension: 0.3,
-            }],
-        },
-        options: {
-            legend: { display: false },
-            scales: {
-                xAxes: [{ gridLines: { display: false }, ticks: { fontColor: "#a1a1a1", fontSize: 11 } }],
-                yAxes: [{ gridLines: { color: "#e8e8e8" }, ticks: { fontColor: "#a1a1a1", fontSize: 11, precision: 0, beginAtZero: true } }],
-            },
-        },
-    };
-
-    const encoded = encodeURIComponent(JSON.stringify(config));
-    return `https://quickchart.io/chart?c=${encoded}&w=540&h=180&bkg=white`;
-}
 
 function buildEmailHtml(
     weekStart: string,
@@ -110,16 +80,22 @@ function buildEmailHtml(
     totalActiveUsers: number,
     instanceStats: { label: string; id: string; activeUsers: number }[],
     recentSignups: { name: string; email: string; joinedDate: string }[],
-    activityChartUrl: string
+    newInstanceIds: Set<string>
 ): string {
     const instanceRows = instanceStats
         .sort((a, b) => b.activeUsers - a.activeUsers)
-        .map(inst => `
+        .map(inst => {
+            const isNew = newInstanceIds.has(inst.id);
+            const newBadge = isNew
+                ? `<span style="margin-left:8px;background:#0e706c;color:#ffffff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:0.06em;vertical-align:middle;">New</span>`
+                : "";
+            return `
             <tr>
-                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a;">${inst.label}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a;">${inst.label}${newBadge}</td>
                 <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${inst.id}</td>
                 <td style="padding:10px 16px;border-bottom:1px solid #cacaca;text-align:center;font-weight:700;color:#0e706c;">${inst.activeUsers}</td>
-            </tr>`)
+            </tr>`;
+        })
         .join("");
 
     const signupRows = recentSignups.length > 0
@@ -143,11 +119,6 @@ function buildEmailHtml(
       <div style="background:#f2f2f2;border-radius:4px;padding:20px 24px;margin-bottom:28px;border:1px solid #cacaca;">
         <div style="font-size:11px;color:#2a2a2a;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Total Active Users (7 days)</div>
         <div style="font-size:40px;font-weight:700;color:#0e706c;margin-top:4px;">${totalActiveUsers}</div>
-      </div>
-      <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.06em;">User Sign-in Activity</h2>
-      <p style="font-size:12px;color:#a1a1a1;margin:0 0 10px;">Unique active users per day</p>
-      <div style="border:1px solid #cacaca;border-radius:4px;overflow:hidden;margin-bottom:32px;">
-        <img src="${activityChartUrl}" width="540" style="display:block;width:100%;max-width:540px;" alt="User sign-in activity chart"/>
       </div>
       <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.06em;">Active Users by Instance</h2>
       <table style="width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:32px;border:1px solid #cacaca;border-radius:4px;">
@@ -247,13 +218,15 @@ router.post("/superadmin-email", async (c) => {
             return { label: server.label, id: server.id, activeUsers: uniqueUsers.size };
         });
 
-        const clerkEmailSet = new Set(allUsers.map(u => getPrimaryEmail(u)));
-        const activityChartUrl = buildActivityChartUrl(logResults, clerkEmailSet);
-        console.log("Chart URL:", activityChartUrl);
+        const state = await readEmailState();
+        const knownIds = new Set(state?.knownInstanceIds ?? []);
+        const newInstanceIds = new Set(servers.filter(s => !knownIds.has(s.id)).map(s => s.id));
+
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
-        const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, activityChartUrl);
+        const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds);
 
         await sendEmail(adminEmails, subject, html);
+        await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id) });
 
         return c.json({ success: true, sentTo: adminEmails.length });
     } catch (error) {
