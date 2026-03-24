@@ -16,25 +16,25 @@ interface Server {
 }
 
 interface ClerkUser {
+    first_name: string | null;
+    last_name: string | null;
     email_addresses: { id: string; email_address: string }[];
     primary_email_address_id: string | null;
+    created_at: number;
     public_metadata: Record<string, unknown>;
 }
 
-async function fetchAdminEmails(): Promise<string[]> {
+function getPrimaryEmail(user: ClerkUser): string {
+    const primary = user.email_addresses.find(e => e.id === user.primary_email_address_id);
+    return primary?.email_address ?? user.email_addresses[0]?.email_address ?? "";
+}
+
+async function fetchAllUsers(): Promise<ClerkUser[]> {
     const clerkSecretKey = Deno.env.get("CLERK_SECRET_KEY");
     const response = await fetch("https://api.clerk.com/v1/users?limit=500", {
         headers: { Authorization: `Bearer ${clerkSecretKey}` },
     });
-    const users: ClerkUser[] = await response.json();
-
-    return users
-        .filter(u => u.public_metadata?.isAdmin === true)
-        .map(u => {
-            const primary = u.email_addresses.find(e => e.id === u.primary_email_address_id);
-            return primary?.email_address ?? u.email_addresses[0]?.email_address;
-        })
-        .filter(Boolean) as string[];
+    return response.json();
 }
 
 async function fetchServers(): Promise<Server[]> {
@@ -53,51 +53,151 @@ async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
     }
 }
 
+function buildActivitySvg(logResults: { server: Server; logs: UserLog[] }[]): string {
+    const W = 576;
+    const H = 120;
+    const PAD = { top: 16, right: 16, bottom: 28, left: 32 };
+    const IW = W - PAD.left - PAD.right;
+    const IH = H - PAD.top - PAD.bottom;
+    const BASELINE = H - PAD.bottom;
+
+    // Build 7 day buckets oldest-first
+    const days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000);
+        return {
+            label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+            key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
+        };
+    });
+
+    const uniquePerDay: Set<string>[] = Array.from({ length: 7 }, () => new Set());
+    for (const { logs } of logResults) {
+        for (const log of logs) {
+            if (log.endpoint !== "getInstanceDetail") continue;
+            const d = new Date(log.timestamp);
+            const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+            const idx = days.findIndex(day => day.key === key);
+            if (idx !== -1) uniquePerDay[idx].add(log.user_email);
+        }
+    }
+
+    const data = days.map((d, i) => ({ label: d.label, count: uniquePerDay[i].size }));
+    const max = Math.max(...data.map(d => d.count), 1);
+
+    const pts = data.map((d, i) => ({
+        x: PAD.left + (i / (data.length - 1)) * IW,
+        y: PAD.top + IH - (d.count / max) * IH,
+        count: d.count,
+        label: d.label,
+    }));
+
+    const linePath = pts.map((pt, i) => `${i === 0 ? "M" : "L"}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(" ");
+    const areaPath = `${linePath} L${pts[pts.length - 1].x.toFixed(1)},${BASELINE} L${pts[0].x.toFixed(1)},${BASELINE} Z`;
+
+    const mid = Math.ceil(max / 2);
+    const yTicks = [
+        { value: 0, y: BASELINE },
+        { value: mid, y: PAD.top + IH - (mid / max) * IH },
+        { value: max, y: PAD.top },
+    ];
+
+    const yTicksSvg = yTicks.map(t =>
+        `<line x1="${PAD.left}" y1="${t.y.toFixed(1)}" x2="${W - PAD.right}" y2="${t.y.toFixed(1)}" stroke="#cacaca" stroke-width="1" stroke-dasharray="3,3"/>` +
+        `<text x="${PAD.left - 5}" y="${(t.y + 3.5).toFixed(1)}" text-anchor="end" font-size="9" fill="#a1a1a1">${t.value}</text>`
+    ).join("");
+
+    const dotsSvg = pts.map(pt =>
+        `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${pt.count > 0 ? 3 : 2}" fill="${pt.count > 0 ? "#0e706c" : "#cacaca"}">` +
+        `<title>${pt.label}: ${pt.count} user${pt.count !== 1 ? "s" : ""}</title></circle>`
+    ).join("");
+
+    const xLabelsSvg = pts.map(pt =>
+        `<text x="${pt.x.toFixed(1)}" y="${H - PAD.bottom + 14}" text-anchor="middle" font-size="9" fill="#a1a1a1">${pt.label}</text>`
+    ).join("");
+
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block;max-width:100%;">` +
+        yTicksSvg +
+        `<path d="${areaPath}" fill="#0e706c" fill-opacity="0.08"/>` +
+        `<path d="${linePath}" fill="none" stroke="#0e706c" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>` +
+        dotsSvg +
+        xLabelsSvg +
+        `</svg>`;
+}
+
 function buildEmailHtml(
     weekStart: string,
     weekEnd: string,
     totalActiveUsers: number,
-    instanceStats: { label: string; id: string; activeUsers: number }[]
+    instanceStats: { label: string; id: string; activeUsers: number }[],
+    recentSignups: { name: string; email: string; joinedDate: string }[],
+    activitySvg: string
 ): string {
     const instanceRows = instanceStats
         .sort((a, b) => b.activeUsers - a.activeUsers)
         .map(inst => `
             <tr>
-                <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;">${inst.label}</td>
-                <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;">${inst.id}</td>
-                <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:600;">${inst.activeUsers}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a;">${inst.label}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${inst.id}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;text-align:center;font-weight:700;color:#0e706c;">${inst.activeUsers}</td>
             </tr>`)
         .join("");
 
+    const signupRows = recentSignups.length > 0
+        ? recentSignups.map(u => `
+            <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a;">${u.name}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${u.email}</td>
+                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${u.joinedDate}</td>
+            </tr>`).join("")
+        : `<tr><td colspan="3" style="padding:16px;text-align:center;color:#a1a1a1;">No new signups this week</td></tr>`;
+
     return `<!DOCTYPE html>
 <html>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:32px;">
-  <div style="max-width:640px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
-    <div style="background:#1d4ed8;padding:28px 32px;">
-      <h1 style="color:white;margin:0;font-size:20px;font-weight:600;">Weekly Analytics Report</h1>
-      <p style="color:#bfdbfe;margin:4px 0 0;font-size:14px;">${weekStart} – ${weekEnd}</p>
+<body style="font-family:Inter,system-ui,-apple-system,sans-serif;background:#f2f2f2;margin:0;padding:32px;">
+  <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #cacaca;">
+    <div style="background:#0e706c;padding:28px 32px;">
+      <h1 style="color:#ffffff;margin:0;font-size:20px;font-weight:700;">Weekly Analytics Report</h1>
+      <p style="color:rgba(255,255,255,0.7);margin:4px 0 0;font-size:14px;">${weekStart} – ${weekEnd}</p>
     </div>
     <div style="padding:28px 32px;">
-      <div style="background:#eff6ff;border-radius:8px;padding:20px 24px;margin-bottom:28px;">
-        <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">Total Active Users (7 days)</div>
-        <div style="font-size:40px;font-weight:700;color:#1d4ed8;margin-top:4px;">${totalActiveUsers}</div>
+      <div style="background:#f2f2f2;border-radius:4px;padding:20px 24px;margin-bottom:28px;border:1px solid #cacaca;">
+        <div style="font-size:11px;color:#2a2a2a;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Total Active Users (7 days)</div>
+        <div style="font-size:40px;font-weight:700;color:#0e706c;margin-top:4px;">${totalActiveUsers}</div>
       </div>
-      <h2 style="font-size:15px;font-weight:600;color:#111827;margin:0 0 12px;">Active Users by Instance</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#374151;">
+      <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.06em;">User Sign-in Activity</h2>
+      <p style="font-size:12px;color:#a1a1a1;margin:0 0 10px;">Unique active users per day (hover dots for details)</p>
+      <div style="border:1px solid #cacaca;border-radius:4px;padding:16px 16px 8px;margin-bottom:32px;">
+        ${activitySvg}
+      </div>
+      <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.06em;">Active Users by Instance</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:32px;border:1px solid #cacaca;border-radius:4px;">
         <thead>
-          <tr style="background:#f3f4f6;">
-            <th style="padding:10px 16px;text-align:left;font-weight:600;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Instance</th>
-            <th style="padding:10px 16px;text-align:left;font-weight:600;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">ID</th>
-            <th style="padding:10px 16px;text-align:center;font-weight:600;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Active Users</th>
+          <tr style="background:#f2f2f2;">
+            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Instance</th>
+            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">ID</th>
+            <th style="padding:10px 16px;text-align:center;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Active Users</th>
           </tr>
         </thead>
         <tbody>
           ${instanceRows}
         </tbody>
       </table>
+      <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.06em;">New Signups (${recentSignups.length})</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;border:1px solid #cacaca;border-radius:4px;">
+        <thead>
+          <tr style="background:#f2f2f2;">
+            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Name</th>
+            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Email</th>
+            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Joined</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${signupRows}
+        </tbody>
+      </table>
     </div>
-    <div style="padding:16px 32px;border-top:1px solid #e5e7eb;text-align:center;">
-      <p style="margin:0;font-size:12px;color:#9ca3af;">Fastr Analytics Admin · Automated weekly report</p>
+    <div style="padding:16px 32px;border-top:1px solid #cacaca;text-align:center;">
+      <p style="margin:0;font-size:12px;color:#a1a1a1;">Fastr Analytics Admin · Automated weekly report</p>
     </div>
   </div>
 </body>
@@ -136,30 +236,40 @@ router.post("/superadmin-email", async (c) => {
         const weekStart = fmt(new Date(weekAgoMs));
         const weekEnd = fmt(new Date());
 
-        const [_, servers] = await Promise.all([
-            fetchAdminEmails(),
+        const [allUsers, servers] = await Promise.all([
+            fetchAllUsers(),
             fetchServers(),
         ]);
 
         const adminEmails = ["nick@usefuldata.com.au"];
 
+        const recentSignups = allUsers
+            .filter(u => u.created_at >= weekAgoMs)
+            .sort((a, b) => b.created_at - a.created_at)
+            .map(u => ({
+                name: [u.first_name, u.last_name].filter(Boolean).join(" ") || "—",
+                email: getPrimaryEmail(u),
+                joinedDate: fmt(new Date(u.created_at)),
+            }));
+
         const logResults = await Promise.all(
-            servers.map(async server => ({
+            servers.map(async (server: Server) => ({
                 server,
                 logs: await fetchServerUserLogs(server.id),
             }))
         );
 
         const allActiveUsers = new Set<string>();
-        const instanceStats = logResults.map(({ server, logs }) => {
-            const recentLogs = logs.filter(l => new Date(l.timestamp).getTime() >= weekAgoMs);
-            const uniqueUsers = new Set(recentLogs.map(l => l.user_email));
-            uniqueUsers.forEach(u => allActiveUsers.add(u));
+        const instanceStats = logResults.map(({ server, logs }: { server: Server; logs: UserLog[] }) => {
+            const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
+            const uniqueUsers = new Set(recentLogs.map((l: UserLog) => l.user_email));
+            uniqueUsers.forEach((u: string) => allActiveUsers.add(u));
             return { label: server.label, id: server.id, activeUsers: uniqueUsers.size };
         });
 
+        const activitySvg = buildActivitySvg(logResults);
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
-        const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats);
+        const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, activitySvg);
 
         await sendEmail(adminEmails, subject, html);
 
