@@ -53,7 +53,7 @@ async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
     }
 }
 
-function buildActivityChartUrl(logResults: { server: Server; logs: UserLog[] }[]): string {
+async function buildActivityChartUrl(logResults: { server: Server; logs: UserLog[] }[], clerkEmailSet: Set<string>): Promise<string> {
     const days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000);
         return {
@@ -65,7 +65,7 @@ function buildActivityChartUrl(logResults: { server: Server; logs: UserLog[] }[]
     const uniquePerDay: Set<string>[] = Array.from({ length: 7 }, () => new Set());
     for (const { logs } of logResults) {
         for (const log of logs) {
-            if (log.endpoint !== "getInstanceDetail") continue;
+            if (log.endpoint !== "getInstanceDetail" || !clerkEmailSet.has(log.user_email)) continue;
             const d = new Date(log.timestamp);
             const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
             const idx = days.findIndex(day => day.key === key);
@@ -100,8 +100,13 @@ function buildActivityChartUrl(logResults: { server: Server; logs: UserLog[] }[]
         },
     };
 
-    const encoded = encodeURIComponent(JSON.stringify(config));
-    return `https://quickchart.io/chart?c=${encoded}&w=540&h=180&bkg=white&f=Inter`;
+    const response = await fetch("https://quickchart.io/chart/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chart: config, width: 540, height: 180, backgroundColor: "white" }),
+    });
+    const data = await response.json();
+    return data.url as string;
 }
 
 function buildEmailHtml(
@@ -247,7 +252,8 @@ router.post("/superadmin-email", async (c) => {
             return { label: server.label, id: server.id, activeUsers: uniqueUsers.size };
         });
 
-        const activityChartUrl = buildActivityChartUrl(logResults);
+        const clerkEmailSet = new Set(allUsers.map(u => getPrimaryEmail(u)));
+        const activityChartUrl = await buildActivityChartUrl(logResults, clerkEmailSet);
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
         const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, activityChartUrl);
 
