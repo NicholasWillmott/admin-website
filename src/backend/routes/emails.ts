@@ -53,7 +53,7 @@ async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
     }
 }
 
-async function buildActivityChartUrl(logResults: { server: Server; logs: UserLog[] }[], clerkEmailSet: Set<string>): Promise<string> {
+function buildActivityChartUrl(logResults: { server: Server; logs: UserLog[] }[], clerkEmailSet: Set<string>): string {
     const days = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000);
         return {
@@ -100,13 +100,8 @@ async function buildActivityChartUrl(logResults: { server: Server; logs: UserLog
         },
     };
 
-    const response = await fetch("https://quickchart.io/chart/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chart: config, width: 540, height: 180, backgroundColor: "white" }),
-    });
-    const data = await response.json();
-    return data.url as string;
+    const encoded = encodeURIComponent(JSON.stringify(config));
+    return `https://quickchart.io/chart?c=${encoded}&w=540&h=180&bkg=white`;
 }
 
 function buildEmailHtml(
@@ -253,7 +248,7 @@ router.post("/superadmin-email", async (c) => {
         });
 
         const clerkEmailSet = new Set(allUsers.map(u => getPrimaryEmail(u)));
-        const activityChartUrl = await buildActivityChartUrl(logResults, clerkEmailSet);
+        const activityChartUrl = buildActivityChartUrl(logResults, clerkEmailSet);
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
         const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, activityChartUrl);
 
