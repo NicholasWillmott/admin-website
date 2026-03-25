@@ -47,6 +47,7 @@ interface SuperAdminEmailState {
     knownInstanceIds: string[];
     knownProjects: Record<string, string[]>;
     knownVersions: Record<string, string>;
+    knownUserCounts: Record<string, number>;
 }
 
 const STATE_FILE = "/mnt/fastr-config/superadmin-email-state.json";
@@ -75,14 +76,14 @@ async function fetchServerProjects(serverId: string): Promise<string[]> {
     }
 }
 
-async function fetchServerVersion(serverId: string): Promise<string> {
+async function fetchServerHealth(serverId: string): Promise<{ version: string; userCount: number }> {
     try {
         const response = await fetch(`https://${serverId}.fastr-analytics.org/health_check`);
-        if (!response.ok) return "";
+        if (!response.ok) return { version: "", userCount: 0 };
         const data = await response.json();
-        return data.serverVersion ?? "";
+        return { version: data.serverVersion ?? "", userCount: data.totalUsers ?? 0 };
     } catch {
-        return "";
+        return { version: "", userCount: 0 };
     }
 }
 
@@ -102,7 +103,7 @@ function buildEmailHtml(
     weekStart: string,
     weekEnd: string,
     totalActiveUsers: number,
-    instanceStats: { label: string; id: string; activeUsers: number; version: string; versionIsNew: boolean }[],
+    instanceStats: { label: string; id: string; activeUsers: number; version: string; versionIsNew: boolean; projectCount: number; userCount: number; userCountDiff: number }[],
     recentSignups: { name: string; email: string; joinedDate: string }[],
     newInstanceIds: Set<string>,
     newProjects: { instanceLabel: string; project: string }[]
@@ -113,12 +114,17 @@ function buildEmailHtml(
         const isNew = newInstanceIds.has(inst.id);
         const newBadge = isNew ? `<span class="badge">New</span>` : "";
         const versionBadge = inst.versionIsNew ? `<span class="badge">New</span>` : "";
-        return `<tr><td>${inst.label}${newBadge}</td><td class="m">${inst.id}</td><td class="m">${inst.version}${versionBadge}</td><td class="c">${inst.activeUsers}</td></tr>`;
+        const diffFlair = inst.userCountDiff > 0
+            ? `<span class="diff-up">+${inst.userCountDiff}</span>`
+            : inst.userCountDiff < 0
+                ? `<span class="diff-dn">${inst.userCountDiff}</span>`
+                : "";
+        return `<tr><td>${inst.label}${newBadge}</td><td class="m">${inst.id}</td><td class="m">${inst.version}${versionBadge}</td><td class="c">${inst.projectCount}</td><td class="c">${inst.userCount}${diffFlair}</td><td class="c">${inst.activeUsers}</td></tr>`;
     }).join("");
 
     const instancesHiddenCount = sortedInstances.length - displayedInstances.length;
     const instancesHiddenNote = instancesHiddenCount > 0
-        ? `<tr><td colspan="4" class="note">+ ${instancesHiddenCount} more instances not shown</td></tr>`
+        ? `<tr><td colspan="6" class="note">+ ${instancesHiddenCount} more instances not shown</td></tr>`
         : "";
 
     const displayedSignups = recentSignups.slice(0, 30);
@@ -154,6 +160,8 @@ td.c{text-align:center;font-weight:700;color:#0e706c}
 td.note{text-align:center;color:#a1a1a1;font-size:12px}
 td.empty{padding:16px;text-align:center;color:#a1a1a1}
 .badge{margin-left:8px;background:#0e706c;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;vertical-align:middle}
+.diff-up{margin-left:6px;color:#0e706c;font-size:11px;font-weight:700;vertical-align:middle}
+.diff-dn{margin-left:6px;color:#c0392b;font-size:11px;font-weight:700;vertical-align:middle}
 .ftr{padding:16px 32px;border-top:1px solid #cacaca;text-align:center}
 .ftr p{margin:0;font-size:12px;color:#a1a1a1}
 </style>
@@ -171,7 +179,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     </div>
     <h2>Instance Info</h2>
     <table>
-      <thead><tr><th>Instance</th><th>ID</th><th>Version</th><th class="c">Active Users</th></tr></thead>
+      <thead><tr><th>Instance</th><th>ID</th><th>Version</th><th class="c">Projects</th><th class="c">Users</th><th class="c">Active Users</th></tr></thead>
       <tbody>${instanceRows}${instancesHiddenNote}</tbody>
     </table>
     ${newProjects.length > 0 ? `
@@ -245,7 +253,7 @@ router.post("/superadmin-email", async (c) => {
                 server,
                 logs: await fetchServerUserLogs(server.id),
                 projects: await fetchServerProjects(server.id),
-                version: await fetchServerVersion(server.id),
+                health: await fetchServerHealth(server.id),
             }))),
             readEmailState(),
         ]);
@@ -253,23 +261,27 @@ router.post("/superadmin-email", async (c) => {
         const knownIds = new Set(state?.knownInstanceIds ?? []);
         const newInstanceIds = new Set(servers.filter(s => !knownIds.has(s.id)).map(s => s.id));
         const knownVersions = state?.knownVersions ?? {};
+        const knownUserCounts = state?.knownUserCounts ?? {};
         const knownProjects = state?.knownProjects ?? {};
 
         const allActiveUsers = new Set<string>();
-        const instanceStats = logResults.map(({ server, logs, version }) => {
+        const instanceStats = logResults.map(({ server, logs, health, projects }) => {
             const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
             const uniqueUsers = new Set(recentLogs.map((l: UserLog) => l.user_email));
             uniqueUsers.forEach((u: string) => allActiveUsers.add(u));
-            const versionIsNew = (server.id in knownVersions) && knownVersions[server.id] !== version && version !== "";
-            return { label: server.label, id: server.id, activeUsers: uniqueUsers.size, version, versionIsNew };
+            const versionIsNew = (server.id in knownVersions) && knownVersions[server.id] !== health.version && health.version !== "";
+            const userCountDiff = (server.id in knownUserCounts) ? health.userCount - knownUserCounts[server.id] : 0;
+            return { label: server.label, id: server.id, activeUsers: uniqueUsers.size, version: health.version, versionIsNew, projectCount: projects.length, userCount: health.userCount, userCountDiff };
         });
 
         const newProjects: { instanceLabel: string; project: string }[] = [];
         const currentProjects: Record<string, string[]> = {};
         const currentVersions: Record<string, string> = {};
-        for (const { server, projects, version } of logResults) {
+        const currentUserCounts: Record<string, number> = {};
+        for (const { server, projects, health } of logResults) {
             currentProjects[server.id] = projects;
-            currentVersions[server.id] = version;
+            currentVersions[server.id] = health.version;
+            currentUserCounts[server.id] = health.userCount;
             const previouslyKnown = new Set(knownProjects[server.id] ?? []);
             for (const project of projects) {
                 if (!previouslyKnown.has(project)) {
@@ -282,7 +294,7 @@ router.post("/superadmin-email", async (c) => {
         const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects);
 
         await sendEmail(adminEmails, subject, html);
-        await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects, knownVersions: currentVersions });
+        await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects, knownVersions: currentVersions, knownUserCounts: currentUserCounts });
 
         return c.json({ success: true, sentTo: adminEmails.length });
     } catch (error) {
