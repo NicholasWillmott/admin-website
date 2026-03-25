@@ -165,8 +165,6 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 .badge{margin-left:8px;background:#0e706c;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;vertical-align:middle}
 .diff-up{margin-left:6px;color:#0e706c;font-size:11px;font-weight:700;vertical-align:middle}
 .diff-dn{margin-left:6px;color:#c0392b;font-size:11px;font-weight:700;vertical-align:middle}
-.stats{display:flex;gap:16px;margin-bottom:28px}
-.stats .stat{margin-bottom:0;flex:1}
 .sdiff-up{margin-left:10px;color:#0e706c;font-size:18px;font-weight:700;vertical-align:middle}
 .sdiff-dn{margin-left:10px;color:#c0392b;font-size:18px;font-weight:700;vertical-align:middle}
 .ftr{padding:16px 32px;border-top:1px solid #cacaca;text-align:center}
@@ -180,15 +178,13 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     <p>${weekStart} – ${weekEnd}</p>
   </div>
   <div class="bdy">
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-lbl">Total Users (Clerk)</div>
-        <div class="stat-val">${totalUsers}${totalUsersDiff > 0 ? `<span class="sdiff-up">+${totalUsersDiff}</span>` : totalUsersDiff < 0 ? `<span class="sdiff-dn">${totalUsersDiff}</span>` : ""}</div>
-      </div>
-      <div class="stat">
-        <div class="stat-lbl">Total Active Users (7 days)</div>
-        <div class="stat-val">${totalActiveUsers}</div>
-      </div>
+    <div class="stat">
+      <div class="stat-lbl">Total Users</div>
+      <div class="stat-val">${totalUsers}${totalUsersDiff > 0 ? `<span class="sdiff-up">+${totalUsersDiff}</span>` : totalUsersDiff < 0 ? `<span class="sdiff-dn">${totalUsersDiff}</span>` : ""}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Total Active Users (7 days)</div>
+      <div class="stat-val">${totalActiveUsers}</div>
     </div>
     <h2>Instance Info</h2>
     <table>
