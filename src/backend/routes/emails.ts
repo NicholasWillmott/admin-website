@@ -46,6 +46,7 @@ interface SuperAdminEmailState {
     lastSentAt: number;
     knownInstanceIds: string[];
     knownProjects: Record<string, string[]>;
+    knownVersions: Record<string, string>;
 }
 
 const STATE_FILE = "/mnt/fastr-config/superadmin-email-state.json";
@@ -74,6 +75,17 @@ async function fetchServerProjects(serverId: string): Promise<string[]> {
     }
 }
 
+async function fetchServerVersion(serverId: string): Promise<string> {
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/health_check`);
+        if (!response.ok) return "";
+        const data = await response.json();
+        return data.serverVersion ?? "";
+    } catch {
+        return "";
+    }
+}
+
 async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
     try {
         const response = await fetch(`https://${serverId}.fastr-analytics.org/user_logs`);
@@ -90,7 +102,7 @@ function buildEmailHtml(
     weekStart: string,
     weekEnd: string,
     totalActiveUsers: number,
-    instanceStats: { label: string; id: string; activeUsers: number }[],
+    instanceStats: { label: string; id: string; activeUsers: number; version: string; versionIsNew: boolean }[],
     recentSignups: { name: string; email: string; joinedDate: string }[],
     newInstanceIds: Set<string>,
     newProjects: { instanceLabel: string; project: string }[]
@@ -100,12 +112,13 @@ function buildEmailHtml(
     const instanceRows = displayedInstances.map(inst => {
         const isNew = newInstanceIds.has(inst.id);
         const newBadge = isNew ? `<span class="badge">New</span>` : "";
-        return `<tr><td>${inst.label}${newBadge}</td><td class="m">${inst.id}</td><td class="c">${inst.activeUsers}</td></tr>`;
+        const versionBadge = inst.versionIsNew ? `<span class="badge">New</span>` : "";
+        return `<tr><td>${inst.label}${newBadge}</td><td class="m">${inst.id}</td><td class="m">${inst.version}${versionBadge}</td><td class="c">${inst.activeUsers}</td></tr>`;
     }).join("");
 
     const instancesHiddenCount = sortedInstances.length - displayedInstances.length;
     const instancesHiddenNote = instancesHiddenCount > 0
-        ? `<tr><td colspan="3" class="note">+ ${instancesHiddenCount} more instances not shown</td></tr>`
+        ? `<tr><td colspan="4" class="note">+ ${instancesHiddenCount} more instances not shown</td></tr>`
         : "";
 
     const displayedSignups = recentSignups.slice(0, 30);
@@ -156,9 +169,9 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
       <div class="stat-lbl">Total Active Users (7 days)</div>
       <div class="stat-val">${totalActiveUsers}</div>
     </div>
-    <h2>Active Users by Instance</h2>
+    <h2>Instance Info</h2>
     <table>
-      <thead><tr><th>Instance</th><th>ID</th><th class="c">Active Users</th></tr></thead>
+      <thead><tr><th>Instance</th><th>ID</th><th>Version</th><th class="c">Active Users</th></tr></thead>
       <tbody>${instanceRows}${instancesHiddenNote}</tbody>
     </table>
     ${newProjects.length > 0 ? `
@@ -227,31 +240,36 @@ router.post("/superadmin-email", async (c) => {
                 joinedDate: fmt(new Date(u.created_at)),
             }));
 
-        const logResults = await Promise.all(
-            servers.map(async (server: Server) => ({
+        const [logResults, state] = await Promise.all([
+            Promise.all(servers.map(async (server: Server) => ({
                 server,
                 logs: await fetchServerUserLogs(server.id),
                 projects: await fetchServerProjects(server.id),
-            }))
-        );
+                version: await fetchServerVersion(server.id),
+            }))),
+            readEmailState(),
+        ]);
+
+        const knownIds = new Set(state?.knownInstanceIds ?? []);
+        const newInstanceIds = new Set(servers.filter(s => !knownIds.has(s.id)).map(s => s.id));
+        const knownVersions = state?.knownVersions ?? {};
+        const knownProjects = state?.knownProjects ?? {};
 
         const allActiveUsers = new Set<string>();
-        const instanceStats = logResults.map(({ server, logs }: { server: Server; logs: UserLog[] }) => {
+        const instanceStats = logResults.map(({ server, logs, version }) => {
             const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
             const uniqueUsers = new Set(recentLogs.map((l: UserLog) => l.user_email));
             uniqueUsers.forEach((u: string) => allActiveUsers.add(u));
-            return { label: server.label, id: server.id, activeUsers: uniqueUsers.size };
+            const versionIsNew = (server.id in knownVersions) && knownVersions[server.id] !== version && version !== "";
+            return { label: server.label, id: server.id, activeUsers: uniqueUsers.size, version, versionIsNew };
         });
 
-        const state = await readEmailState();
-        const knownIds = new Set(state?.knownInstanceIds ?? []);
-        const newInstanceIds = new Set(servers.filter(s => !knownIds.has(s.id)).map(s => s.id));
-
-        const knownProjects = state?.knownProjects ?? {};
         const newProjects: { instanceLabel: string; project: string }[] = [];
         const currentProjects: Record<string, string[]> = {};
-        for (const { server, projects } of logResults) {
+        const currentVersions: Record<string, string> = {};
+        for (const { server, projects, version } of logResults) {
             currentProjects[server.id] = projects;
+            currentVersions[server.id] = version;
             const previouslyKnown = new Set(knownProjects[server.id] ?? []);
             for (const project of projects) {
                 if (!previouslyKnown.has(project)) {
@@ -264,7 +282,7 @@ router.post("/superadmin-email", async (c) => {
         const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects);
 
         await sendEmail(adminEmails, subject, html);
-        await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects });
+        await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects, knownVersions: currentVersions });
 
         return c.json({ success: true, sentTo: adminEmails.length });
     } catch (error) {
