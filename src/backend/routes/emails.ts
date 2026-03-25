@@ -98,99 +98,83 @@ function buildEmailHtml(
     const sortedInstances = instanceStats.sort((a, b) => b.activeUsers - a.activeUsers);
     const displayedInstances = sortedInstances.slice(0, 50);
     const instanceRows = displayedInstances.map(inst => {
-            const isNew = newInstanceIds.has(inst.id);
-            const newBadge = isNew
-                ? `<span style="margin-left:8px;background:#0e706c;color:#ffffff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:0.06em;vertical-align:middle;">New</span>`
-                : "";
-            return `
-            <tr>
-                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a;">${inst.label}${newBadge}</td>
-                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${inst.id}</td>
-                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;text-align:center;font-weight:700;color:#0e706c;">${inst.activeUsers}</td>
-            </tr>`;
-        })
-        .join("");
+        const isNew = newInstanceIds.has(inst.id);
+        const newBadge = isNew ? `<span class="badge">New</span>` : "";
+        return `<tr><td>${inst.label}${newBadge}</td><td class="m">${inst.id}</td><td class="c">${inst.activeUsers}</td></tr>`;
+    }).join("");
 
     const instancesHiddenCount = sortedInstances.length - displayedInstances.length;
     const instancesHiddenNote = instancesHiddenCount > 0
-        ? `<tr><td colspan="3" style="padding:10px 16px;text-align:center;color:#a1a1a1;font-size:12px;border-bottom:1px solid #cacaca;">+ ${instancesHiddenCount} more instances not shown</td></tr>`
+        ? `<tr><td colspan="3" class="note">+ ${instancesHiddenCount} more instances not shown</td></tr>`
         : "";
 
     const displayedSignups = recentSignups.slice(0, 30);
     const signupsHiddenCount = recentSignups.length - displayedSignups.length;
     const signupsHiddenNote = signupsHiddenCount > 0
-        ? `<tr><td colspan="3" style="padding:10px 16px;text-align:center;color:#a1a1a1;font-size:12px;border-bottom:1px solid #cacaca;">+ ${signupsHiddenCount} more signups not shown</td></tr>`
+        ? `<tr><td colspan="3" class="note">+ ${signupsHiddenCount} more signups not shown</td></tr>`
         : "";
     const signupRows = displayedSignups.length > 0
-        ? displayedSignups.map(u => `
-            <tr>
-                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a;">${u.name}</td>
-                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${u.email}</td>
-                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${u.joinedDate}</td>
-            </tr>`).join("") + signupsHiddenNote
-        : `<tr><td colspan="3" style="padding:16px;text-align:center;color:#a1a1a1;">No new signups this week</td></tr>`;
+        ? displayedSignups.map(u => `<tr><td>${u.name}</td><td class="m">${u.email}</td><td class="m">${u.joinedDate}</td></tr>`).join("") + signupsHiddenNote
+        : `<tr><td colspan="3" class="empty">No new signups this week</td></tr>`;
 
     return `<!DOCTYPE html>
 <html>
-<body style="font-family:Inter,system-ui,-apple-system,sans-serif;background:#f2f2f2;margin:0;padding:32px;">
-  <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #cacaca;">
-    <div style="background:#0e706c;padding:28px 32px;">
-      <h1 style="color:#ffffff;margin:0;font-size:20px;font-weight:700;">Weekly Analytics Report</h1>
-      <p style="color:rgba(255,255,255,0.7);margin:4px 0 0;font-size:14px;">${weekStart} – ${weekEnd}</p>
-    </div>
-    <div style="padding:28px 32px;">
-      <div style="background:#f2f2f2;border-radius:4px;padding:20px 24px;margin-bottom:28px;border:1px solid #cacaca;">
-        <div style="font-size:11px;color:#2a2a2a;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Total Active Users (7 days)</div>
-        <div style="font-size:40px;font-weight:700;color:#0e706c;margin-top:4px;">${totalActiveUsers}</div>
-      </div>
-      <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.06em;">Active Users by Instance</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:32px;border:1px solid #cacaca;border-radius:4px;">
-        <thead>
-          <tr style="background:#f2f2f2;">
-            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Instance</th>
-            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">ID</th>
-            <th style="padding:10px 16px;text-align:center;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Active Users</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${instanceRows}${instancesHiddenNote}
-        </tbody>
-      </table>
-      ${newProjects.length > 0 ? `
-      <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.06em;">New Projects (${newProjects.length})</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:32px;border:1px solid #cacaca;border-radius:4px;">
-        <thead>
-          <tr style="background:#f2f2f2;">
-            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Project</th>
-            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Instance</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${newProjects.map(p => `
-            <tr>
-                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a;">${p.project}<span style="margin-left:8px;background:#0e706c;color:#ffffff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:0.06em;vertical-align:middle;">New</span></td>
-                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${p.instanceLabel}</td>
-            </tr>`).join("")}
-        </tbody>
-      </table>` : ""}
-      <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.06em;">New Signups (${recentSignups.length})</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;border:1px solid #cacaca;border-radius:4px;">
-        <thead>
-          <tr style="background:#f2f2f2;">
-            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Name</th>
-            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Email</th>
-            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Joined</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${signupRows}
-        </tbody>
-      </table>
-    </div>
-    <div style="padding:16px 32px;border-top:1px solid #cacaca;text-align:center;">
-      <p style="margin:0;font-size:12px;color:#a1a1a1;">Fastr Analytics Admin · Automated weekly report</p>
-    </div>
+<head>
+<style>
+body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#f2f2f2;margin:0;padding:32px}
+.wrap{max-width:640px;margin:0 auto;background:#fff;border-radius:4px;overflow:hidden;border:1px solid #cacaca}
+.hdr{background:#0e706c;padding:28px 32px}
+.hdr h1{color:#fff;margin:0;font-size:20px;font-weight:700}
+.hdr p{color:rgba(255,255,255,.7);margin:4px 0 0;font-size:14px}
+.bdy{padding:28px 32px}
+.stat{background:#f2f2f2;border-radius:4px;padding:20px 24px;margin-bottom:28px;border:1px solid #cacaca}
+.stat-lbl{font-size:11px;color:#2a2a2a;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.stat-val{font-size:40px;font-weight:700;color:#0e706c;margin-top:4px}
+h2{font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em}
+table{width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:32px;border:1px solid #cacaca;border-radius:4px}
+thead tr{background:#f2f2f2}
+th{padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #cacaca}
+th.c{text-align:center}
+td{padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a}
+td.m{color:#a1a1a1;font-size:13px}
+td.c{text-align:center;font-weight:700;color:#0e706c}
+td.note{text-align:center;color:#a1a1a1;font-size:12px}
+td.empty{padding:16px;text-align:center;color:#a1a1a1}
+.badge{margin-left:8px;background:#0e706c;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;vertical-align:middle}
+.ftr{padding:16px 32px;border-top:1px solid #cacaca;text-align:center}
+.ftr p{margin:0;font-size:12px;color:#a1a1a1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <h1>Weekly Analytics Report</h1>
+    <p>${weekStart} – ${weekEnd}</p>
   </div>
+  <div class="bdy">
+    <div class="stat">
+      <div class="stat-lbl">Total Active Users (7 days)</div>
+      <div class="stat-val">${totalActiveUsers}</div>
+    </div>
+    <h2>Active Users by Instance</h2>
+    <table>
+      <thead><tr><th>Instance</th><th>ID</th><th class="c">Active Users</th></tr></thead>
+      <tbody>${instanceRows}${instancesHiddenNote}</tbody>
+    </table>
+    ${newProjects.length > 0 ? `
+    <h2>New Projects (${newProjects.length})</h2>
+    <table>
+      <thead><tr><th>Project</th><th>Instance</th></tr></thead>
+      <tbody>${newProjects.map(p => `<tr><td>${p.project}<span class="badge">New</span></td><td class="m">${p.instanceLabel}</td></tr>`).join("")}</tbody>
+    </table>` : ""}
+    <h2>New Signups (${recentSignups.length})</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Joined</th></tr></thead>
+      <tbody>${signupRows}</tbody>
+    </table>
+  </div>
+  <div class="ftr"><p>Fastr Analytics Admin · Automated weekly report</p></div>
+</div>
 </body>
 </html>`;
 }
