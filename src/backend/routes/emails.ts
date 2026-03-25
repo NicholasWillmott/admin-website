@@ -45,6 +45,7 @@ async function fetchServers(): Promise<Server[]> {
 interface SuperAdminEmailState {
     lastSentAt: number;
     knownInstanceIds: string[];
+    knownProjects: Record<string, string[]>;
 }
 
 const STATE_FILE = "/mnt/fastr-config/superadmin-email-state.json";
@@ -60,6 +61,17 @@ async function readEmailState(): Promise<SuperAdminEmailState | null> {
 async function writeEmailState(state: SuperAdminEmailState): Promise<void> {
     await Deno.mkdir("/mnt/fastr-config", { recursive: true });
     await Deno.writeTextFile(STATE_FILE, JSON.stringify(state));
+}
+
+async function fetchServerProjects(serverId: string): Promise<string[]> {
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/projects`);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.projects ?? [];
+    } catch {
+        return [];
+    }
 }
 
 async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
@@ -80,7 +92,8 @@ function buildEmailHtml(
     totalActiveUsers: number,
     instanceStats: { label: string; id: string; activeUsers: number }[],
     recentSignups: { name: string; email: string; joinedDate: string }[],
-    newInstanceIds: Set<string>
+    newInstanceIds: Set<string>,
+    newProjects: { instanceLabel: string; project: string }[]
 ): string {
     const sortedInstances = instanceStats.sort((a, b) => b.activeUsers - a.activeUsers);
     const displayedInstances = sortedInstances.slice(0, 50);
@@ -143,6 +156,23 @@ function buildEmailHtml(
           ${instanceRows}${instancesHiddenNote}
         </tbody>
       </table>
+      ${newProjects.length > 0 ? `
+      <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.06em;">New Projects (${newProjects.length})</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:32px;border:1px solid #cacaca;border-radius:4px;">
+        <thead>
+          <tr style="background:#f2f2f2;">
+            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Project</th>
+            <th style="padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #cacaca;">Instance</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${newProjects.map(p => `
+            <tr>
+                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a;">${p.project}<span style="margin-left:8px;background:#0e706c;color:#ffffff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:0.06em;vertical-align:middle;">New</span></td>
+                <td style="padding:10px 16px;border-bottom:1px solid #cacaca;color:#a1a1a1;font-size:13px;">${p.instanceLabel}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>` : ""}
       <h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:0.06em;">New Signups (${recentSignups.length})</h2>
       <table style="width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;border:1px solid #cacaca;border-radius:4px;">
         <thead>
@@ -217,6 +247,7 @@ router.post("/superadmin-email", async (c) => {
             servers.map(async (server: Server) => ({
                 server,
                 logs: await fetchServerUserLogs(server.id),
+                projects: await fetchServerProjects(server.id),
             }))
         );
 
@@ -232,11 +263,24 @@ router.post("/superadmin-email", async (c) => {
         const knownIds = new Set(state?.knownInstanceIds ?? []);
         const newInstanceIds = new Set(servers.filter(s => !knownIds.has(s.id)).map(s => s.id));
 
+        const knownProjects = state?.knownProjects ?? {};
+        const newProjects: { instanceLabel: string; project: string }[] = [];
+        const currentProjects: Record<string, string[]> = {};
+        for (const { server, projects } of logResults) {
+            currentProjects[server.id] = projects;
+            const previouslyKnown = new Set(knownProjects[server.id] ?? []);
+            for (const project of projects) {
+                if (!previouslyKnown.has(project)) {
+                    newProjects.push({ instanceLabel: server.label, project });
+                }
+            }
+        }
+
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
-        const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds);
+        const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects);
 
         await sendEmail(adminEmails, subject, html);
-        await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id) });
+        await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects });
 
         return c.json({ success: true, sentTo: adminEmails.length });
     } catch (error) {
