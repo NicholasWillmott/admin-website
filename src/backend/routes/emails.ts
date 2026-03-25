@@ -48,6 +48,7 @@ interface SuperAdminEmailState {
     knownProjects: Record<string, string[]>;
     knownVersions: Record<string, string>;
     knownUserCounts: Record<string, number>;
+    knownTotalUsers: number;
 }
 
 const STATE_FILE = "/mnt/fastr-config/superadmin-email-state.json";
@@ -102,6 +103,8 @@ async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
 function buildEmailHtml(
     weekStart: string,
     weekEnd: string,
+    totalUsers: number,
+    totalUsersDiff: number,
     totalActiveUsers: number,
     instanceStats: { label: string; id: string; activeUsers: number; version: string; versionIsNew: boolean; projectCount: number; userCount: number; userCountDiff: number }[],
     recentSignups: { name: string; email: string; joinedDate: string }[],
@@ -162,6 +165,10 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 .badge{margin-left:8px;background:#0e706c;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;vertical-align:middle}
 .diff-up{margin-left:6px;color:#0e706c;font-size:11px;font-weight:700;vertical-align:middle}
 .diff-dn{margin-left:6px;color:#c0392b;font-size:11px;font-weight:700;vertical-align:middle}
+.stats{display:flex;gap:16px;margin-bottom:28px}
+.stats .stat{margin-bottom:0;flex:1}
+.sdiff-up{margin-left:10px;color:#0e706c;font-size:18px;font-weight:700;vertical-align:middle}
+.sdiff-dn{margin-left:10px;color:#c0392b;font-size:18px;font-weight:700;vertical-align:middle}
 .ftr{padding:16px 32px;border-top:1px solid #cacaca;text-align:center}
 .ftr p{margin:0;font-size:12px;color:#a1a1a1}
 </style>
@@ -173,9 +180,15 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     <p>${weekStart} – ${weekEnd}</p>
   </div>
   <div class="bdy">
-    <div class="stat">
-      <div class="stat-lbl">Total Active Users (7 days)</div>
-      <div class="stat-val">${totalActiveUsers}</div>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-lbl">Total Users (Clerk)</div>
+        <div class="stat-val">${totalUsers}${totalUsersDiff > 0 ? `<span class="sdiff-up">+${totalUsersDiff}</span>` : totalUsersDiff < 0 ? `<span class="sdiff-dn">${totalUsersDiff}</span>` : ""}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Total Active Users (7 days)</div>
+        <div class="stat-val">${totalActiveUsers}</div>
+      </div>
     </div>
     <h2>Instance Info</h2>
     <table>
@@ -290,11 +303,14 @@ router.post("/superadmin-email", async (c) => {
             }
         }
 
+        const totalUsers = allUsers.length;
+        const totalUsersDiff = state?.knownTotalUsers !== undefined ? totalUsers - state.knownTotalUsers : 0;
+
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
-        const html = buildEmailHtml(weekStart, weekEnd, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects);
+        const html = buildEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects);
 
         await sendEmail(adminEmails, subject, html);
-        await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects, knownVersions: currentVersions, knownUserCounts: currentUserCounts });
+        await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects, knownVersions: currentVersions, knownUserCounts: currentUserCounts, knownTotalUsers: totalUsers });
 
         return c.json({ success: true, sentTo: adminEmails.length });
     } catch (error) {
