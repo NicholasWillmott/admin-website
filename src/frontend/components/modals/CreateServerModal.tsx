@@ -150,7 +150,16 @@ export function CreateServerModal(props: CreateServerModalProps) {
     const ok1 = await runStep(0, () => createDnsRecordApi(sub, token));
     if (!ok1) { setFinished(true); return; }
 
-    const ok2 = await runStep(1, () => createServerApi(sub, token));
+    const ok2 = await runStep(1, async () => {
+      const r = await createServerApi(sub, token);
+      if (!r.success) return r;
+      const vol = selectedVolume();
+      if (vol) {
+        const vr = await updateServerVolumeApi(sub, vol, token);
+        if (!vr.success) return vr;
+      }
+      return { success: true };
+    });
     if (!ok2) { setFinished(true); return; }
 
     const ok3 = await runStep(2, () => initDirsApi(sub, token));
@@ -176,11 +185,6 @@ export function CreateServerModal(props: CreateServerModalProps) {
       }
       if (openAccess()) {
         const r = await updateServerOpenAccessApi(sub, true, token);
-        if (!r.success) return r;
-      }
-      const vol = selectedVolume();
-      if (vol) {
-        const r = await updateServerVolumeApi(sub, vol, token);
         if (!r.success) return r;
       }
       if (category()) {
