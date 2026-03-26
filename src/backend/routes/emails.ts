@@ -228,14 +228,31 @@ function buildInstanceAdminEmailHtml(
         return `<tr><td>${p}${newBadge}</td></tr>`;
     }).join("") || `<tr><td class="empty">No projects</td></tr>`;
 
-    const displayedLogs = recentLogs.slice(0, 20);
-    const logsHiddenCount = recentLogs.length - displayedLogs.length;
-    const logsHiddenNote = logsHiddenCount > 0
-        ? `<tr><td colspan="3" class="note">+ ${logsHiddenCount} more activity entries not shown</td></tr>`
-        : "";
-    const logRows = displayedLogs.length > 0
-        ? displayedLogs.map(l => `<tr><td class="m">${l.user_email}</td><td class="m">${l.endpoint}</td><td class="m">${new Date(l.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td></tr>`).join("") + logsHiddenNote
-        : `<tr><td colspan="3" class="empty">No activity this week</td></tr>`;
+    const chartDays: string[] = [];
+    const chartCounts: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+        chartDays.push(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+        const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+        const uniqueUsers = new Set(recentLogs.filter(l => {
+            const t = new Date(l.timestamp).getTime();
+            return t >= dayStart && t < dayEnd;
+        }).map(l => l.user_email));
+        chartCounts.push(uniqueUsers.size);
+    }
+    const chartConfig = {
+        type: "bar",
+        data: {
+            labels: chartDays,
+            datasets: [{ data: chartCounts, backgroundColor: "#0e706c", borderRadius: 3 }],
+        },
+        options: {
+            legend: { display: false },
+            scales: { yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }] },
+        },
+    };
+    const chartUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}&w=576&h=260&bkg=%23ffffff`;
 
     const diffFlair = userCountDiff > 0
         ? `<span class="sdiff-up">+${userCountDiff}</span>`
@@ -256,8 +273,6 @@ body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#f2f2f2;mar
 .stat{background:#f2f2f2;border-radius:4px;padding:20px 24px;margin-bottom:16px;border:1px solid #cacaca}
 .stat-lbl{font-size:11px;color:#2a2a2a;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
 .stat-val{font-size:40px;font-weight:700;color:#0e706c;margin-top:4px}
-.stats-row{display:flex;gap:16px;margin-bottom:28px}
-.stats-row .stat{flex:1;margin-bottom:0}
 h2{font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em}
 table{width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:32px;border:1px solid #cacaca;border-radius:4px}
 thead tr{background:#f2f2f2}
@@ -282,26 +297,21 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
   </div>
   <div class="bdy">
     <p class="meta">Instance ID: ${instanceId} &nbsp;·&nbsp; Version: ${version || "—"}</p>
-    <div class="stats-row">
-      <div class="stat">
-        <div class="stat-lbl">Total Users</div>
-        <div class="stat-val">${userCount}${diffFlair}</div>
-      </div>
-      <div class="stat">
-        <div class="stat-lbl">Active Users (7 days)</div>
-        <div class="stat-val">${activeUsers}</div>
-      </div>
+    <div class="stat">
+      <div class="stat-lbl">Total Users</div>
+      <div class="stat-val">${userCount}${diffFlair}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Active Users (7 days)</div>
+      <div class="stat-val">${activeUsers}</div>
     </div>
     <h2>Projects (${projects.length})</h2>
     <table>
       <thead><tr><th>Project</th></tr></thead>
       <tbody>${projectRows}</tbody>
     </table>
-    <h2>Recent Activity</h2>
-    <table>
-      <thead><tr><th>User</th><th>Endpoint</th><th>Time</th></tr></thead>
-      <tbody>${logRows}</tbody>
-    </table>
+    <h2>Active Users — Last 7 Days</h2>
+    <img src="${chartUrl}" width="576" alt="Active users per day" style="display:block;border-radius:4px;border:1px solid #cacaca;margin-bottom:32px" />
   </div>
   <div class="ftr"><p>Fastr Analytics · Automated weekly report for ${instanceLabel}</p></div>
 </div>
