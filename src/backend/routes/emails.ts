@@ -52,6 +52,25 @@ interface SuperAdminEmailState {
 }
 
 const STATE_FILE = "/mnt/fastr-config/superadmin-email-state.json";
+const INSTANCE_ADMIN_STATE_FILE = "/mnt/fastr-config/instance-admin-email-state.json";
+
+interface InstanceAdminEmailState {
+    knownProjects: Record<string, string[]>;
+    knownUserCounts: Record<string, number>;
+}
+
+async function readInstanceAdminEmailState(): Promise<InstanceAdminEmailState | null> {
+    try {
+        return JSON.parse(await Deno.readTextFile(INSTANCE_ADMIN_STATE_FILE));
+    } catch {
+        return null;
+    }
+}
+
+async function writeInstanceAdminEmailState(state: InstanceAdminEmailState): Promise<void> {
+    await Deno.mkdir("/mnt/fastr-config", { recursive: true });
+    await Deno.writeTextFile(INSTANCE_ADMIN_STATE_FILE, JSON.stringify(state));
+}
 
 async function readEmailState(): Promise<SuperAdminEmailState | null> {
     try {
@@ -437,7 +456,7 @@ router.post("/instance-admin-emails", async (c) => {
 
         const [servers, state] = await Promise.all([
             fetchServers(),
-            readEmailState(),
+            readInstanceAdminEmailState(),
         ]);
 
         const knownUserCounts = state?.knownUserCounts ?? {};
@@ -455,7 +474,13 @@ router.post("/instance-admin-emails", async (c) => {
 
         const testOverrideEmail = "nicholaswillmottvball@gmail.com";
 
+        const newKnownProjects: Record<string, string[]> = {};
+        const newKnownUserCounts: Record<string, number> = {};
+
         for (const { server, logs, projects, health } of results) {
+            newKnownProjects[server.id] = projects;
+            newKnownUserCounts[server.id] = health.userCount;
+
             if (health.adminUsers.length === 0) continue;
 
             const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
@@ -474,6 +499,8 @@ router.post("/instance-admin-emails", async (c) => {
             await sendEmail([testOverrideEmail], subject(server.label), html);
             emailsSent += 1;
         }
+
+        await writeInstanceAdminEmailState({ knownProjects: newKnownProjects, knownUserCounts: newKnownUserCounts });
 
         return c.json({ success: true, emailsSent });
     } catch (error) {
