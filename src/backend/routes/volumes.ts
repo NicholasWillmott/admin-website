@@ -57,19 +57,28 @@ function parseDuOutput(output: string, mountPath: string): DirEntry[] {
   return entries;
 }
 
-const VOLUMES_FILE = new URL('../data/volumes.json', import.meta.url).pathname;
-
 // GET /api/volumes/list
 router.get("/list", async (c) => {
   const authError = await requireAdmin(c);
   if (authError) return authError;
-  try {
-    const text = await Deno.readTextFile(VOLUMES_FILE);
-    const data = JSON.parse(text);
-    return c.json({ success: true, volumes: data.volumes ?? [] });
-  } catch {
-    return c.json({ success: true, volumes: [] });
+
+  const dropletIp = Deno.env.get("DROPLET_IP");
+  if (!dropletIp) {
+    return c.json({ success: false, error: "DROPLET_IP not configured" }, 500);
   }
+
+  const command = "ls /mnt";
+  if (!isCommandAllowed(command)) {
+    return c.json({ success: false, error: "Command not allowed" }, 403);
+  }
+
+  const result = await executeCommand(dropletIp, command);
+  if (!result.success) {
+    return c.json({ success: false, error: result.stderr || "Failed to list /mnt" }, 500);
+  }
+
+  const volumes = result.stdout.trim().split("\n").map(s => s.trim()).filter(Boolean);
+  return c.json({ success: true, volumes });
 });
 
 // GET /api/volumes/usage?volume=volume_nyc3_abc

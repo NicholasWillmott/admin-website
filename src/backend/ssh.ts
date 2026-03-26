@@ -107,6 +107,7 @@ const ALLOWED_COMMANDS = [
   /^wb prune$/,
 
   // DISK USAGE
+  /^ls \/mnt$/,
   /^df -BG$/,
   /^df -BG \/mnt\/[\w_-]+$/,
   /^du -BG --max-depth=1 \/mnt\/[\w_-]+$/,
