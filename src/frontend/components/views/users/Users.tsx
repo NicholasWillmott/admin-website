@@ -21,6 +21,7 @@ interface UsersProps {
     onFetchInstanceStatus: (serverId: string) => Promise<HealthCheckResponse | null>;
     userLogs: ServerUserLogs | undefined;
     onSendWeeklyReport: () => Promise<void>;
+    onSendInstanceAdminReports: () => Promise<void>;
 }
 
 function getPrimaryEmail(user: ClerkUser): string {
@@ -132,6 +133,15 @@ export function Users(p: UsersProps) {
         setSendingReport(true);
         await p.onSendWeeklyReport();
         setSendingReport(false);
+    }
+
+    const [sendingInstanceReports, setSendingInstanceReports] = createSignal(false);
+
+    async function sendInstanceAdminReports() {
+        if (sendingInstanceReports()) return;
+        setSendingInstanceReports(true);
+        await p.onSendInstanceAdminReports();
+        setSendingInstanceReports(false);
     }
 
     const [exporting, setExporting] = createSignal(false);
@@ -271,6 +281,9 @@ export function Users(p: UsersProps) {
                                     </button>
                                     <button type="button" class="dropdown-item" onClick={sendWeeklyReport} disabled={sendingReport()}>
                                         {sendingReport() ? 'Sending...' : 'Send Weekly Report'}
+                                    </button>
+                                    <button type="button" class="dropdown-item" onClick={sendInstanceAdminReports} disabled={sendingInstanceReports()}>
+                                        {sendingInstanceReports() ? 'Sending...' : 'Send Instance Admin Reports'}
                                     </button>
                                 </div>
                             </div>

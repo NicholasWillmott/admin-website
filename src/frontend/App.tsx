@@ -48,6 +48,7 @@ import {
   fetchCategoriesApi,
   fetchVolumesApi,
   sendWeeklySuperAdminReportApi,
+  sendInstanceAdminReportsApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -552,6 +553,16 @@ function App() {
     }
   };
 
+  const handleSendInstanceAdminReports = async () => {
+    const token = await getToken();
+    const result = await sendInstanceAdminReportsApi(token);
+    if (result.success) {
+      addToast(`Instance admin reports sent (${result.emailsSent} email(s))`, 'success');
+    } else {
+      addToast(`Failed to send instance admin reports: ${result.error}`, 'error');
+    }
+  };
+
   const handleFetchActivity = async (email: string, serverId: string | null): Promise<string[]> => {
     const logs = allServerUserLogs();
     if (!logs) return [];
@@ -916,6 +927,7 @@ function App() {
               onFetchSessions={handleFetchSessions}
               onFetchActivity={handleFetchActivity}
               onSendWeeklyReport={handleSendWeeklyReport}
+              onSendInstanceAdminReports={handleSendInstanceAdminReports}
               servers={servers()}
               userLogs={allServerUserLogs()}
               onFetchInstanceStatus={async (serverId) => {

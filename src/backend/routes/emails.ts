@@ -77,14 +77,14 @@ async function fetchServerProjects(serverId: string): Promise<string[]> {
     }
 }
 
-async function fetchServerHealth(serverId: string): Promise<{ version: string; userCount: number }> {
+async function fetchServerHealth(serverId: string): Promise<{ version: string; userCount: number; adminUsers: string[] }> {
     try {
         const response = await fetch(`https://${serverId}.fastr-analytics.org/health_check`);
-        if (!response.ok) return { version: "", userCount: 0 };
+        if (!response.ok) return { version: "", userCount: 0, adminUsers: [] };
         const data = await response.json();
-        return { version: data.serverVersion ?? "", userCount: data.totalUsers ?? 0 };
+        return { version: data.serverVersion ?? "", userCount: data.totalUsers ?? 0, adminUsers: data.adminUsers ?? [] };
     } catch {
-        return { version: "", userCount: 0 };
+        return { version: "", userCount: 0, adminUsers: [] };
     }
 }
 
@@ -100,7 +100,7 @@ async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
 }
 
 
-function buildEmailHtml(
+function buildSuperAdminEmailHtml(
     weekStart: string,
     weekEnd: string,
     totalUsers: number,
@@ -209,6 +209,106 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 </html>`;
 }
 
+function buildInstanceAdminEmailHtml(
+    weekStart: string,
+    weekEnd: string,
+    instanceLabel: string,
+    instanceId: string,
+    version: string,
+    userCount: number,
+    userCountDiff: number,
+    activeUsers: number,
+    projects: string[],
+    newProjects: string[],
+    recentLogs: UserLog[]
+): string {
+    const projectRows = projects.map(p => {
+        const isNew = newProjects.includes(p);
+        const newBadge = isNew ? `<span class="badge">New</span>` : "";
+        return `<tr><td>${p}${newBadge}</td></tr>`;
+    }).join("") || `<tr><td class="empty">No projects</td></tr>`;
+
+    const displayedLogs = recentLogs.slice(0, 20);
+    const logsHiddenCount = recentLogs.length - displayedLogs.length;
+    const logsHiddenNote = logsHiddenCount > 0
+        ? `<tr><td colspan="3" class="note">+ ${logsHiddenCount} more activity entries not shown</td></tr>`
+        : "";
+    const logRows = displayedLogs.length > 0
+        ? displayedLogs.map(l => `<tr><td class="m">${l.user_email}</td><td class="m">${l.endpoint}</td><td class="m">${new Date(l.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</td></tr>`).join("") + logsHiddenNote
+        : `<tr><td colspan="3" class="empty">No activity this week</td></tr>`;
+
+    const diffFlair = userCountDiff > 0
+        ? `<span class="sdiff-up">+${userCountDiff}</span>`
+        : userCountDiff < 0
+            ? `<span class="sdiff-dn">${userCountDiff}</span>`
+            : "";
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#f2f2f2;margin:0;padding:32px}
+.wrap{max-width:640px;margin:0 auto;background:#fff;border-radius:4px;overflow:hidden;border:1px solid #cacaca}
+.hdr{background:#0e706c;padding:28px 32px}
+.hdr h1{color:#fff;margin:0;font-size:20px;font-weight:700}
+.hdr p{color:rgba(255,255,255,.7);margin:4px 0 0;font-size:14px}
+.bdy{padding:28px 32px}
+.stat{background:#f2f2f2;border-radius:4px;padding:20px 24px;margin-bottom:16px;border:1px solid #cacaca}
+.stat-lbl{font-size:11px;color:#2a2a2a;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.stat-val{font-size:40px;font-weight:700;color:#0e706c;margin-top:4px}
+.stats-row{display:flex;gap:16px;margin-bottom:28px}
+.stats-row .stat{flex:1;margin-bottom:0}
+h2{font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em}
+table{width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:32px;border:1px solid #cacaca;border-radius:4px}
+thead tr{background:#f2f2f2}
+th{padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #cacaca}
+td{padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a}
+td.m{color:#a1a1a1;font-size:13px}
+td.note{text-align:center;color:#a1a1a1;font-size:12px}
+td.empty{padding:16px;text-align:center;color:#a1a1a1}
+.badge{margin-left:8px;background:#0e706c;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;vertical-align:middle}
+.sdiff-up{margin-left:10px;color:#0e706c;font-size:18px;font-weight:700;vertical-align:middle}
+.sdiff-dn{margin-left:10px;color:#c0392b;font-size:18px;font-weight:700;vertical-align:middle}
+.meta{font-size:12px;color:#a1a1a1;margin-bottom:28px}
+.ftr{padding:16px 32px;border-top:1px solid #cacaca;text-align:center}
+.ftr p{margin:0;font-size:12px;color:#a1a1a1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <h1>${instanceLabel} — Weekly Report</h1>
+    <p>${weekStart} – ${weekEnd}</p>
+  </div>
+  <div class="bdy">
+    <p class="meta">Instance ID: ${instanceId} &nbsp;·&nbsp; Version: ${version || "—"}</p>
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-lbl">Total Users</div>
+        <div class="stat-val">${userCount}${diffFlair}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Active Users (7 days)</div>
+        <div class="stat-val">${activeUsers}</div>
+      </div>
+    </div>
+    <h2>Projects (${projects.length})</h2>
+    <table>
+      <thead><tr><th>Project</th></tr></thead>
+      <tbody>${projectRows}</tbody>
+    </table>
+    <h2>Recent Activity</h2>
+    <table>
+      <thead><tr><th>User</th><th>Endpoint</th><th>Time</th></tr></thead>
+      <tbody>${logRows}</tbody>
+    </table>
+  </div>
+  <div class="ftr"><p>Fastr Analytics · Automated weekly report for ${instanceLabel}</p></div>
+</div>
+</body>
+</html>`;
+}
+
 async function sendEmail(toEmails: string[], subject: string, html: string): Promise<void> {
     const sendGridKey = Deno.env.get("SEND_GRID_API");
     const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
@@ -303,7 +403,7 @@ router.post("/superadmin-email", async (c) => {
         const totalUsersDiff = state?.knownTotalUsers !== undefined ? totalUsers - state.knownTotalUsers : 0;
 
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
-        const html = buildEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects);
+        const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects);
 
         await sendEmail(adminEmails, subject, html);
         await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects, knownVersions: currentVersions, knownUserCounts: currentUserCounts, knownTotalUsers: totalUsers });
@@ -311,6 +411,63 @@ router.post("/superadmin-email", async (c) => {
         return c.json({ success: true, sentTo: adminEmails.length });
     } catch (error) {
         console.error("Failed to send weekly report:", error);
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
+router.post("/instance-admin-emails", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    try {
+        const weekAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const weekStart = fmt(new Date(weekAgoMs));
+        const weekEnd = fmt(new Date());
+
+        const [servers, state] = await Promise.all([
+            fetchServers(),
+            readEmailState(),
+        ]);
+
+        const knownUserCounts = state?.knownUserCounts ?? {};
+        const knownProjects = state?.knownProjects ?? {};
+
+        const results = await Promise.all(servers.map(async (server: Server) => ({
+            server,
+            logs: await fetchServerUserLogs(server.id),
+            projects: await fetchServerProjects(server.id),
+            health: await fetchServerHealth(server.id),
+        })));
+
+        let emailsSent = 0;
+        const subject = (label: string) => `${label} Weekly Report · ${weekStart} – ${weekEnd}`;
+
+        const testOverrideEmail = "nicholaswillmottvball@gmail.com";
+
+        for (const { server, logs, projects, health } of results) {
+            if (health.adminUsers.length === 0) continue;
+
+            const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
+            const activeUsers = new Set(recentLogs.map((l: UserLog) => l.user_email)).size;
+            const userCountDiff = (server.id in knownUserCounts) ? health.userCount - knownUserCounts[server.id] : 0;
+            const previouslyKnown = new Set(knownProjects[server.id] ?? []);
+            const newProjects = projects.filter(p => !previouslyKnown.has(p));
+
+            const html = buildInstanceAdminEmailHtml(
+                weekStart, weekEnd,
+                server.label, server.id,
+                health.version, health.userCount, userCountDiff,
+                activeUsers, projects, newProjects, recentLogs
+            );
+
+            await sendEmail([testOverrideEmail], subject(server.label), html);
+            emailsSent += 1;
+        }
+
+        return c.json({ success: true, emailsSent });
+    } catch (error) {
+        console.error("Failed to send instance admin emails:", error);
         return c.json({ error: String(error) }, 500);
     }
 });

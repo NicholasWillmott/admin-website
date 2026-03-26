@@ -595,3 +595,11 @@ export async function sendWeeklySuperAdminReportApi(token: string | null): Promi
   });
   return await response.json();
 }
+
+export async function sendInstanceAdminReportsApi(token: string | null): Promise<{ success: boolean; emailsSent?: number; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/emails/instance-admin-emails`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+  return await response.json();
+}
