@@ -57,6 +57,7 @@ const INSTANCE_ADMIN_STATE_FILE = "/mnt/fastr-config/instance-admin-email-state.
 interface InstanceAdminEmailState {
     knownProjects: Record<string, string[]>;
     knownUserCounts: Record<string, number>;
+    knownVersions: Record<string, string>;
 }
 
 async function readInstanceAdminEmailState(): Promise<InstanceAdminEmailState | null> {
@@ -105,6 +106,42 @@ async function fetchServerHealth(serverId: string): Promise<{ version: string; u
     } catch {
         return { version: "", userCount: 0, adminUsers: [] };
     }
+}
+
+async function fetchServerChangelog(serverId: string): Promise<string> {
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/changelog`);
+        if (!response.ok) return "";
+        return await response.text();
+    } catch {
+        return "";
+    }
+}
+
+function compareVersions(a: string, b: string): number {
+    const pa = a.split(".").map(Number);
+    const pb = b.split(".").map(Number);
+    for (let i = 0; i < 3; i++) {
+        if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) - (pb[i] ?? 0);
+    }
+    return 0;
+}
+
+function parseChangelogEntriesSince(changelog: string, sinceVersion: string): string {
+    const sections = changelog.split(/(?=^## \[)/m).filter(s => s.startsWith("## ["));
+    const newEntries = sections.filter(section => {
+        const match = section.match(/^## \[([^\]]+)\]/);
+        if (!match) return false;
+        return compareVersions(match[1], sinceVersion) > 0;
+    });
+    if (newEntries.length === 0) return "";
+    return newEntries.map(entry => {
+        let html = entry.replace(/^## (\[.+?\] - .+)$/m, "<h3>$1</h3>");
+        html = html.replace(/^### (.+)$/gm, "<strong>$1</strong>");
+        html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
+        html = html.replace(/(<li>.*<\/li>\n?)+/gs, "<ul>$&</ul>");
+        return `<div class="changelog-entry">${html.trim()}</div>`;
+    }).join("\n");
 }
 
 async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
@@ -239,7 +276,8 @@ function buildInstanceAdminEmailHtml(
     activeUsers: number,
     projects: string[],
     newProjects: string[],
-    recentLogs: UserLog[]
+    recentLogs: UserLog[],
+    changelogHtml: string
 ): string {
     const projectRows = projects.map(p => {
         const isNew = newProjects.includes(p);
@@ -304,6 +342,12 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 .sdiff-up{margin-left:10px;color:#0e706c;font-size:18px;font-weight:700;vertical-align:middle}
 .sdiff-dn{margin-left:10px;color:#c0392b;font-size:18px;font-weight:700;vertical-align:middle}
 .meta{font-size:12px;color:#a1a1a1;margin-bottom:28px}
+.changelog{margin-bottom:32px}
+.changelog-entry{margin-bottom:20px}
+.changelog-entry h3{font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em}
+.changelog-entry strong{display:block;font-size:11px;color:#0e706c;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px}
+.changelog-entry ul{margin:0;padding-left:18px}
+.changelog-entry li{font-size:14px;color:#2a2a2a;margin-bottom:3px}
 .ftr{padding:16px 32px;border-top:1px solid #cacaca;text-align:center}
 .ftr p{margin:0;font-size:12px;color:#a1a1a1}
 </style>
@@ -331,6 +375,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     </table>
     <h2>Active Users — Last 7 Days</h2>
     <img src="${chartUrl}" width="576" alt="Active users per day" style="display:block;border-radius:4px;border:1px solid #cacaca;margin-bottom:32px" />
+    ${changelogHtml ? `<h2>What's New</h2><div class="changelog">${changelogHtml}</div>` : ""}
   </div>
   <div class="ftr"><p>Fastr Analytics · Automated weekly report for ${instanceLabel}</p></div>
 </div>
@@ -461,6 +506,7 @@ router.post("/instance-admin-emails", async (c) => {
 
         const knownUserCounts = state?.knownUserCounts ?? {};
         const knownProjects = state?.knownProjects ?? {};
+        const knownVersions = state?.knownVersions ?? {};
 
         const results = await Promise.all(servers.map(async (server: Server) => ({
             server,
@@ -476,10 +522,12 @@ router.post("/instance-admin-emails", async (c) => {
 
         const newKnownProjects: Record<string, string[]> = {};
         const newKnownUserCounts: Record<string, number> = {};
+        const newKnownVersions: Record<string, string> = {};
 
         for (const { server, logs, projects, health } of results) {
             newKnownProjects[server.id] = projects;
             newKnownUserCounts[server.id] = health.userCount;
+            newKnownVersions[server.id] = health.version;
 
             if (health.adminUsers.length === 0) continue;
 
@@ -489,18 +537,26 @@ router.post("/instance-admin-emails", async (c) => {
             const previouslyKnown = new Set(knownProjects[server.id] ?? []);
             const newProjects = projects.filter(p => !previouslyKnown.has(p));
 
+            const lastKnownVersion = knownVersions[server.id] ?? "";
+            let changelogHtml = "";
+            if (lastKnownVersion && health.version && compareVersions(health.version, lastKnownVersion) > 0) {
+                const changelog = await fetchServerChangelog(server.id);
+                changelogHtml = parseChangelogEntriesSince(changelog, lastKnownVersion);
+            }
+
             const html = buildInstanceAdminEmailHtml(
                 weekStart, weekEnd,
                 server.label, server.id,
                 health.version, health.userCount, userCountDiff,
-                activeUsers, projects, newProjects, recentLogs
+                activeUsers, projects, newProjects, recentLogs,
+                changelogHtml
             );
 
             await sendEmail([testOverrideEmail], subject(server.label), html);
             emailsSent += 1;
         }
 
-        await writeInstanceAdminEmailState({ knownProjects: newKnownProjects, knownUserCounts: newKnownUserCounts });
+        await writeInstanceAdminEmailState({ knownProjects: newKnownProjects, knownUserCounts: newKnownUserCounts, knownVersions: newKnownVersions });
 
         return c.json({ success: true, emailsSent });
     } catch (error) {
