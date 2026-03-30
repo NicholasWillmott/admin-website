@@ -14,6 +14,7 @@ import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
 import { ConfigureCategoriesModal } from './components/modals/CreateCategoryModal.tsx';
 import { DeleteServerModal } from './components/modals/DeleteServerModal.tsx';
 import { ConfigModal } from './components/modals/ConfigModal.tsx';
+import { MoveVolumeModal } from './components/modals/MoveVolumeModal.tsx';
 import { ServerMultiSelectModal } from './components/modals/ServerMultiSelectModal.tsx'
 import type { ServerRestartStatus, BackupInfo, ViewType } from './types.ts';
 import {
@@ -49,6 +50,7 @@ import {
   fetchVolumesApi,
   sendWeeklySuperAdminReportApi,
   sendInstanceAdminReportsApi,
+  moveServerVolumeApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -117,6 +119,9 @@ function App() {
 
   // track config modal
   const [configModalServerId, setConfigModalServerId] = createSignal<string | null>(null);
+
+  // track move volume modal
+  const [moveVolumeModalId, setMoveVolumeModalId] = createSignal<string | null>(null);
 
   // track which server's activity modal to show
   const [activityModalServerId, setActivityModalServerId] = createSignal<string | null>(null);
@@ -631,6 +636,23 @@ function App() {
     }
   };
 
+  const handleMoveVolume = async (serverId: string, newVolume: string) => {
+    setSshOperationInProgress(true);
+    try {
+      const token = await getToken();
+      const result = await moveServerVolumeApi(serverId, newVolume, token);
+      if (!result.success) { addToast(`Move failed: ${result.error}`, 'error'); return; }
+      await refetchServers();
+      await refetchVolumeUsages();
+      addToast(`${serverId} moved to /mnt/${newVolume}`, 'success');
+      setMoveVolumeModalId(null);
+    } catch (error) {
+      addToast(`Move failed: ${error}`, 'error');
+    } finally {
+      setSshOperationInProgress(false);
+    }
+  };
+
   return (
     <>
       <ToastContainer />
@@ -838,6 +860,7 @@ function App() {
                                   )}
                                   onDelete={(id) => setDeleteServerModalId(id)}
                                   onConfig={(id) => setConfigModalServerId(id)}
+                                  onMoveVolume={(id) => setMoveVolumeModalId(id)}
                                   onActivityDotClick={(id) => setActivityModalServerId(id)}
                                 />
                               )}
@@ -978,6 +1001,17 @@ function App() {
             sshOperationInProgress={sshOperationInProgress()}
             onClose={() => setConfigModalServerId(null)}
             onSave={handleSaveConfig}
+          />
+        )}
+
+        {/* Move Volume Modal */}
+        {moveVolumeModalId() && (
+          <MoveVolumeModal
+            server={servers()!.find(s => s.id === moveVolumeModalId())!}
+            volumes={volumes() ?? []}
+            inProgress={sshOperationInProgress()}
+            onClose={() => setMoveVolumeModalId(null)}
+            onConfirm={handleMoveVolume}
           />
         )}
 

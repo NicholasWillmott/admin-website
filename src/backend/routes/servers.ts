@@ -409,6 +409,41 @@ router.post("/update/volume", async (c) => {
     }
 });
 
+// Move server to a new volume
+router.post("/:id/move-volume", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+    const { newVolume } = await c.req.json<{ newVolume: string }>();
+
+    if (!isSafeParam(serverId) || !isSafeParam(newVolume)) {
+        return c.json({ error: "Invalid parameters" }, 400);
+    }
+
+    const server = await getServerInfo(serverId);
+    if (!server?.id) {
+        return c.json({ error: "Server not found" }, 404);
+    }
+
+    const command = `wb move-volume ${serverId} ${newVolume}`;
+
+    if (!isCommandAllowed(command)) {
+        return c.json({ error: "Command not allowed" }, 403);
+    }
+
+    try {
+        const result = await executeCommand(getDropletIp(), command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr,
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // Run a server
 router.post("/run", async (c) => {
     const authError = await requireAdmin(c);
