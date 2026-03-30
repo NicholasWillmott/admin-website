@@ -90,11 +90,18 @@ export async function listModules(): Promise<ModuleInfo[]> {
             const content = await getDefinitionFileByName(`${moduleId}/definition.json`);
             const parsed = JSON.parse(content);
 
+            const vizPresetsCount = Array.isArray(parsed.metrics)
+                ? parsed.metrics.reduce(
+                    (sum: number, m: any) => sum + (Array.isArray(m.vizPresets) ? m.vizPresets.length : 0),
+                    0
+                )
+                : 0;
+
             return {
                 moduleId,
                 version: parsed.version ?? "1.0.0",
                 label: parsed.label?.en ?? parsed.label ?? moduleId,
-                vizPresetsCount: Array.isArray(parsed.vizPresets) ? parsed.vizPresets.length : 0,
+                vizPresetsCount,
                 filename: "definition.json",
             };
         })
