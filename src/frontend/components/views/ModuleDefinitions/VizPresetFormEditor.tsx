@@ -36,9 +36,19 @@ interface FilterByEntry {
     values: string[];
 }
 
+type PeriodFilterType = "last_n_months" | "from_month" | "last_calendar_year" | "custom";
+
+interface PeriodFilterConfig {
+    filterType: PeriodFilterType;
+    nMonths?: number;
+    min?: number;
+    max?: number;
+}
+
 interface DataConfig {
-    type: "table" | "timeseries" | "chart";
+    type: "table" | "timeseries" | "chart" | "map";
     periodOpt: string;
+    periodFilter?: PeriodFilterConfig;
     valuesDisDisplayOpt: string;
     disaggregateBy: DisaggregateByEntry[];
     filterBy: FilterByEntry[];
@@ -183,9 +193,18 @@ const DIS_DISPLAY_OPTIONS_CHART = [
     { value: "replicant", label: "Different charts" },
 ];
 
+const DIS_DISPLAY_OPTIONS_MAP = [
+    { value: "mapArea", label: "Map regions" },
+    { value: "cell", label: "Grid cells" },
+    { value: "row", label: "Rows" },
+    { value: "col", label: "Columns" },
+    { value: "replicant", label: "Different charts" },
+];
+
 function getDisplayOptions(type: string) {
     if (type === "table") return DIS_DISPLAY_OPTIONS_TABLE;
     if (type === "timeseries") return DIS_DISPLAY_OPTIONS_TIMESERIES;
+    if (type === "map") return DIS_DISPLAY_OPTIONS_MAP;
     return DIS_DISPLAY_OPTIONS_CHART;
 }
 
@@ -209,6 +228,13 @@ const COLOR_SCALE_OPTIONS = [
     { value: "blue-green", label: "Blue-green" },
     { value: "single-grey", label: "Single grey" },
     { value: "custom", label: "Custom colours" },
+];
+
+const FIXED_FILTER_OPTIONS = [
+    { disOpt: "admin_area_1", label: "Admin area 1" },
+    { disOpt: "admin_area_2", label: "Admin area 2" },
+    { disOpt: "admin_area_3", label: "Admin area 3" },
+    { disOpt: "indicator_common_id", label: "Indicator" },
 ];
 
 const SQL_TYPE_OPTIONS = [
@@ -588,6 +614,112 @@ function KeyValueEditor(p: {
             <button class="p-btn-sm p-btn-primary" onClick={addEntry}>
                 + Add
             </button>
+        </div>
+    );
+}
+
+// ────────────────────────────────────────────
+// Period filter section
+// ────────────────────────────────────────────
+
+const PERIOD_FILTER_MIN_YEAR = 2010;
+const PERIOD_FILTER_MAX_YEAR = new Date().getFullYear() + 5;
+
+function PeriodFilterSection(p: {
+    form: PresetFormData;
+    setForm: SetStoreFunction<PresetFormData>;
+}) {
+    const pf = () => p.form.config.d.periodFilter;
+
+    function enable() {
+        p.setForm("config", "d", "periodFilter", {
+            filterType: "last_n_months",
+            nMonths: 12,
+        });
+    }
+
+    function disable() {
+        (p.setForm as any)("config", "d", "periodFilter", undefined);
+    }
+
+    function setFilterType(v: PeriodFilterType) {
+        const defaults: Record<PeriodFilterType, Partial<PeriodFilterConfig>> = {
+            last_n_months: { nMonths: 12 },
+            from_month: { min: new Date().getFullYear() - 2 },
+            last_calendar_year: {},
+            custom: { min: new Date().getFullYear() - 2, max: new Date().getFullYear() },
+        };
+        p.setForm("config", "d", "periodFilter", { filterType: v, ...defaults[v] });
+    }
+
+    return (
+        <div class="p-spy-sm">
+            <PCheckbox
+                label="Time period"
+                checked={!!pf()}
+                onChange={(checked) => (checked ? enable() : disable())}
+            />
+            <Show when={pf()}>
+                <div style={{ "padding-left": "16px" }} class="p-spy-sm">
+                    <PRadioGroup
+                        label="Filter type"
+                        options={[
+                            { value: "last_n_months", label: "Last N months" },
+                            { value: "from_month", label: "From specific month to present" },
+                            { value: "last_calendar_year", label: "Last full calendar year" },
+                            { value: "custom", label: "Custom" },
+                        ]}
+                        value={pf()!.filterType}
+                        onChange={(v) => setFilterType(v as PeriodFilterType)}
+                    />
+                    <Show when={pf()!.filterType === "last_n_months"}>
+                        <PSlider
+                            label="Number of months"
+                            min={1}
+                            max={60}
+                            step={1}
+                            value={pf()!.nMonths ?? 12}
+                            onChange={(v) =>
+                                p.setForm("config", "d", "periodFilter", "nMonths", v)
+                            }
+                        />
+                    </Show>
+                    <Show when={pf()!.filterType === "from_month"}>
+                        <PSlider
+                            label="Starting year"
+                            min={PERIOD_FILTER_MIN_YEAR}
+                            max={PERIOD_FILTER_MAX_YEAR}
+                            step={1}
+                            value={pf()!.min ?? new Date().getFullYear() - 2}
+                            onChange={(v) =>
+                                p.setForm("config", "d", "periodFilter", "min", v)
+                            }
+                        />
+                    </Show>
+                    <Show when={pf()!.filterType === "custom"}>
+                        <PSlider
+                            label="From year"
+                            min={PERIOD_FILTER_MIN_YEAR}
+                            max={PERIOD_FILTER_MAX_YEAR}
+                            step={1}
+                            value={pf()!.min ?? new Date().getFullYear() - 2}
+                            onChange={(v) =>
+                                p.setForm("config", "d", "periodFilter", "min", v)
+                            }
+                        />
+                        <PSlider
+                            label="To year"
+                            min={PERIOD_FILTER_MIN_YEAR}
+                            max={PERIOD_FILTER_MAX_YEAR}
+                            step={1}
+                            value={pf()!.max ?? new Date().getFullYear()}
+                            onChange={(v) =>
+                                p.setForm("config", "d", "periodFilter", "max", v)
+                            }
+                        />
+                    </Show>
+                </div>
+            </Show>
         </div>
     );
 }
@@ -1087,13 +1219,14 @@ function DataTab(p: {
                     { value: "table", label: "Table" },
                     { value: "timeseries", label: "Timeseries" },
                     { value: "chart", label: "Bar chart" },
+                    { value: "map", label: "Map" },
                 ]}
                 value={d().type}
                 onChange={(v) =>
                     p.setForm("config", "d", "type", v as DataConfig["type"])
                 }
             />
-            <PRadioGroup
+            <PSelect
                 label="Period"
                 options={[
                     { value: "period_id", label: "Monthly" },
@@ -1181,59 +1314,43 @@ function DataTab(p: {
             {/* Filter by */}
             <PLabelHolder label="Filter by">
                 <div class="p-spy-sm">
-                    <For each={d().filterBy}>
-                        {(entry, idx) => (
-                            <div class="p-spy-sm">
-                                <div class="p-dis-row">
-                                    <select
-                                        class="p-select-input"
-                                        value={entry.disOpt}
-                                        onChange={(e) =>
-                                            p.setForm("config", "d", "filterBy", idx(), "disOpt",
-                                                e.currentTarget.value
-                                            )
-                                        }
-                                    >
-                                        <For each={DISAGGREGATION_OPTIONS}>
-                                            {(opt) => (
-                                                <option value={opt}>
-                                                    {opt}
-                                                </option>
-                                            )}
-                                        </For>
-                                    </select>
-                                    <button
-                                        class="p-btn-remove"
-                                        onClick={() =>
-                                            p.setForm("config", "d", "filterBy", (prev) => [
-                                                ...prev.slice(0, idx()),
-                                                ...prev.slice(idx() + 1),
-                                            ])
-                                        }
-                                    >
-                                        &times;
-                                    </button>
+                    <PeriodFilterSection form={p.form} setForm={p.setForm} />
+                    <For each={FIXED_FILTER_OPTIONS}>
+                        {(opt) => {
+                            const entry = () => d().filterBy.find(e => e.disOpt === opt.disOpt);
+                            return (
+                                <div class="p-spy-sm">
+                                    <PCheckbox
+                                        label={opt.label}
+                                        checked={!!entry()}
+                                        onChange={(checked) => {
+                                            if (checked) {
+                                                p.setForm("config", "d", "filterBy", (prev) => [
+                                                    ...prev,
+                                                    { disOpt: opt.disOpt, values: [] },
+                                                ]);
+                                            } else {
+                                                p.setForm("config", "d", "filterBy", (prev) =>
+                                                    prev.filter(e => e.disOpt !== opt.disOpt)
+                                                );
+                                            }
+                                        }}
+                                    />
+                                    <Show when={entry()}>
+                                        <FilterValuesEditor
+                                            values={entry()!.values}
+                                            onChange={(vals) => {
+                                                const idx = d().filterBy.findIndex(e => e.disOpt === opt.disOpt);
+                                                if (idx !== -1) {
+                                                    p.setForm("config", "d", "filterBy", idx, "values", vals);
+                                                }
+                                            }}
+                                        />
+                                    </Show>
                                 </div>
-                                <FilterValuesEditor
-                                    values={entry.values}
-                                    onChange={(vals) =>
-                                        p.setForm("config", "d", "filterBy", idx(), "values", vals)
-                                    }
-                                />
-                            </div>
-                        )}
+                            );
+                        }}
                     </For>
-                    <button
-                        class="p-btn-sm p-btn-primary"
-                        onClick={() =>
-                            p.setForm("config", "d", "filterBy", (prev) => [
-                                ...prev,
-                                { disOpt: "indicator_common_id", values: [] },
-                            ])
-                        }
-                    >
-                        + Add filter
-                    </button>
                 </div>
             </PLabelHolder>
 
