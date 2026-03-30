@@ -624,6 +624,61 @@ function KeyValueEditor(p: {
 
 const PERIOD_FILTER_MIN_YEAR = 2010;
 const PERIOD_FILTER_MAX_YEAR = new Date().getFullYear() + 5;
+const PERIOD_FILTER_MAX_IDX = (PERIOD_FILTER_MAX_YEAR - PERIOD_FILTER_MIN_YEAR + 1) * 12 - 1;
+
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function yyyymmToIdx(yyyymm: number): number {
+    const year = Math.floor(yyyymm / 100);
+    const month = yyyymm % 100;
+    return (year - PERIOD_FILTER_MIN_YEAR) * 12 + (month - 1);
+}
+
+function idxToYYYYMM(idx: number): number {
+    const year = PERIOD_FILTER_MIN_YEAR + Math.floor(idx / 12);
+    const month = (idx % 12) + 1;
+    return year * 100 + month;
+}
+
+function formatYYYYMM(yyyymm: number): string {
+    const year = Math.floor(yyyymm / 100);
+    const month = yyyymm % 100;
+    return `${MONTH_NAMES[(month - 1) % 12]} ${year}`;
+}
+
+function defaultMin(): number {
+    const d = new Date();
+    return (d.getFullYear() - 2) * 100 + 1;
+}
+
+function defaultMax(): number {
+    const d = new Date();
+    return d.getFullYear() * 100 + (d.getMonth() + 1);
+}
+
+function PMonthSlider(p: {
+    label: string;
+    value: number;   // YYYYMM
+    onChange: (v: number) => void;
+}) {
+    return (
+        <div class="p-slider-container">
+            <div class="p-slider-label-row">
+                <div class="p-label">{p.label}</div>
+                <span class="p-slider-value">{formatYYYYMM(p.value)}</span>
+            </div>
+            <input
+                class="p-slider-input"
+                type="range"
+                min={0}
+                max={PERIOD_FILTER_MAX_IDX}
+                step={1}
+                value={yyyymmToIdx(p.value)}
+                onInput={(e) => p.onChange(idxToYYYYMM(Number(e.currentTarget.value)))}
+            />
+        </div>
+    );
+}
 
 function PeriodFilterSection(p: {
     form: PresetFormData;
@@ -645,9 +700,9 @@ function PeriodFilterSection(p: {
     function setFilterType(v: PeriodFilterType) {
         const defaults: Record<PeriodFilterType, Partial<PeriodFilterConfig>> = {
             last_n_months: { nMonths: 12 },
-            from_month: { min: new Date().getFullYear() - 2 },
+            from_month: { min: defaultMin() },
             last_calendar_year: {},
-            custom: { min: new Date().getFullYear() - 2, max: new Date().getFullYear() },
+            custom: { min: defaultMin(), max: defaultMax() },
         };
         p.setForm("config", "d", "periodFilter", { filterType: v, ...defaults[v] });
     }
@@ -685,34 +740,25 @@ function PeriodFilterSection(p: {
                         />
                     </Show>
                     <Show when={pf()!.filterType === "from_month"}>
-                        <PSlider
-                            label="Starting year"
-                            min={PERIOD_FILTER_MIN_YEAR}
-                            max={PERIOD_FILTER_MAX_YEAR}
-                            step={1}
-                            value={pf()!.min ?? new Date().getFullYear() - 2}
+                        <PMonthSlider
+                            label="Starting month"
+                            value={pf()!.min ?? defaultMin()}
                             onChange={(v) =>
                                 p.setForm("config", "d", "periodFilter", "min", v)
                             }
                         />
                     </Show>
                     <Show when={pf()!.filterType === "custom"}>
-                        <PSlider
-                            label="From year"
-                            min={PERIOD_FILTER_MIN_YEAR}
-                            max={PERIOD_FILTER_MAX_YEAR}
-                            step={1}
-                            value={pf()!.min ?? new Date().getFullYear() - 2}
+                        <PMonthSlider
+                            label="From"
+                            value={pf()!.min ?? defaultMin()}
                             onChange={(v) =>
                                 p.setForm("config", "d", "periodFilter", "min", v)
                             }
                         />
-                        <PSlider
-                            label="To year"
-                            min={PERIOD_FILTER_MIN_YEAR}
-                            max={PERIOD_FILTER_MAX_YEAR}
-                            step={1}
-                            value={pf()!.max ?? new Date().getFullYear()}
+                        <PMonthSlider
+                            label="To"
+                            value={pf()!.max ?? defaultMax()}
                             onChange={(v) =>
                                 p.setForm("config", "d", "periodFilter", "max", v)
                             }
@@ -1225,16 +1271,6 @@ function DataTab(p: {
                 onChange={(v) =>
                     p.setForm("config", "d", "type", v as DataConfig["type"])
                 }
-            />
-            <PSelect
-                label="Period"
-                options={[
-                    { value: "period_id", label: "Monthly" },
-                    { value: "quarter_id", label: "Quarterly" },
-                    { value: "year", label: "Yearly" },
-                ]}
-                value={d().periodOpt}
-                onChange={(v) => p.setForm("config", "d", "periodOpt", v)}
             />
             <PSelect
                 label="Data values display"
