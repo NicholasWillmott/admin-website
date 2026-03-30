@@ -235,7 +235,7 @@ export function ModuleEditorContent() {
                     <div class="module-editor-content-area">
                         <Show when={!diffingChangeId() && editorView() === "code"}>
                             <MonacoEditor
-                                language="typescript"
+                                language="json"
                                 value={fileContent}
                                 onChange={setFileContent}
                                 theme={editorTheme}
@@ -257,7 +257,7 @@ export function ModuleEditorContent() {
                                                     &times;
                                                 </button>
                                                 <MonacoDiffEditor
-                                                    language="typescript"
+                                                    language="json"
                                                     original={() => c().originalContent}
                                                     modified={() => c().newContent}
                                                     theme={editorTheme}
