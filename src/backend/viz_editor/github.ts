@@ -24,14 +24,14 @@ export interface FileChange {
     newContent: string;
 }
 
-// Module filename mapping
+// Module filename mapping (folder/filename format for new per-module folder structure)
 const MODULE_FILES: Record<string, string> = {
-    "m001": "m001_module_data_quality_assessment.ts",
-    "m002": "m002_module_data_quality_adjustments.ts",
-    "m003": "m003_module_service_utilization.ts",
-    "m004": "m004_module_coverage_estimates.ts",
-    "m005": "m005_module_coverage_estimates_part1.ts",
-    "m006": "m006_module_coverage_estimates_part2.ts",
+    "m001": "m001/m001_module_data_quality_assessment.ts",
+    "m002": "m002/m002_module_data_quality_adjustments.ts",
+    "m003": "m003/m003_module_service_utilization.ts",
+    "m004": "m004/m004_module_coverage_estimates.ts",
+    "m005": "m005/m005_module_coverage_estimates_part1.ts",
+    "m006": "m006/m006_module_coverage_estimates_part2.ts",
 };
 
 // Helper to get file by exact name
@@ -52,28 +52,42 @@ async function getDefinitionFileByName(filename: string): Promise<string> {
 
 // List all module files from GitHub
 export async function listModules(): Promise<ModuleInfo[]> {
-    const { data } = await getOctokit().rest.repos.getContent({
+    const { data: rootData } = await getOctokit().rest.repos.getContent({
         owner: REPO_OWNER,
         repo: REPO_NAME,
         path: "",
     });
 
-    if (!Array.isArray(data)) {
+    if (!Array.isArray(rootData)) {
         throw new Error("Expected directory listing");
     }
 
-    // Filter for module TypeScript files
-    const moduleFiles = data.filter(
-        (file) => file.name.startsWith("m00") && file.name.endsWith(".ts")
+    // Filter for module folders (m001, m002, ...)
+    const moduleFolders = rootData.filter(
+        (entry) => entry.type === "dir" && /^m\d{3}$/.test(entry.name)
     );
 
-    // Fetch each file to extract metadata
+    // For each folder, find the .ts file inside and extract metadata
     const modules = await Promise.all(
-        moduleFiles.map(async (file) => {
-            const content = await getDefinitionFileByName(file.name);
+        moduleFolders.map(async (folder) => {
+            const moduleId = folder.name;
 
-            // Extract module ID from filename (e.g., "m001" from "m001_module_data_quality_assessment.ts")
-            const moduleId = file.name.split("_")[0];
+            const { data: folderData } = await getOctokit().rest.repos.getContent({
+                owner: REPO_OWNER,
+                repo: REPO_NAME,
+                path: moduleId,
+            });
+
+            if (!Array.isArray(folderData)) {
+                throw new Error(`Expected directory listing for ${moduleId}`);
+            }
+
+            const tsFile = folderData.find((f) => f.name.endsWith(".ts"));
+            if (!tsFile) {
+                throw new Error(`No .ts file found in folder ${moduleId}`);
+            }
+
+            const content = await getDefinitionFileByName(`${moduleId}/${tsFile.name}`);
 
             // Parse the file to extract label and count vizPresets
             const labelMatch = content.match(/label:\s*{[^}]*en:\s*"([^"]+)"/);
@@ -81,10 +95,10 @@ export async function listModules(): Promise<ModuleInfo[]> {
 
             return {
                 moduleId,
-                version: "1.0.0", // Could be extracted from file if versioned
+                version: "1.0.0",
                 label: labelMatch ? labelMatch[1] : moduleId,
                 vizPresetsCount: vizPresetsMatches ? vizPresetsMatches.length : 0,
-                filename: file.name,
+                filename: tsFile.name,
             };
         })
     );
