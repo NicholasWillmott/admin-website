@@ -24,14 +24,14 @@ export interface FileChange {
     newContent: string;
 }
 
-// Module filename mapping (folder/filename format for new per-module folder structure)
+// Module filename mapping (folder/filename format for per-module folder structure)
 const MODULE_FILES: Record<string, string> = {
-    "m001": "m001/m001_module_data_quality_assessment.ts",
-    "m002": "m002/m002_module_data_quality_adjustments.ts",
-    "m003": "m003/m003_module_service_utilization.ts",
-    "m004": "m004/m004_module_coverage_estimates.ts",
-    "m005": "m005/m005_module_coverage_estimates_part1.ts",
-    "m006": "m006/m006_module_coverage_estimates_part2.ts",
+    "m001": "m001/definition.json",
+    "m002": "m002/definition.json",
+    "m003": "m003/definition.json",
+    "m004": "m004/definition.json",
+    "m005": "m005/definition.json",
+    "m006": "m006/definition.json",
 };
 
 // Helper to get file by exact name
@@ -82,23 +82,20 @@ export async function listModules(): Promise<ModuleInfo[]> {
                 throw new Error(`Expected directory listing for ${moduleId}`);
             }
 
-            const tsFile = folderData.find((f) => f.name.endsWith(".ts"));
-            if (!tsFile) {
-                throw new Error(`No .ts file found in folder ${moduleId}`);
+            const defFile = folderData.find((f) => f.name === "definition.json");
+            if (!defFile) {
+                throw new Error(`No definition.json found in folder ${moduleId}`);
             }
 
-            const content = await getDefinitionFileByName(`${moduleId}/${tsFile.name}`);
-
-            // Parse the file to extract label and count vizPresets
-            const labelMatch = content.match(/label:\s*{[^}]*en:\s*"([^"]+)"/);
-            const vizPresetsMatches = content.match(/vizPresets:\s*\[/g);
+            const content = await getDefinitionFileByName(`${moduleId}/definition.json`);
+            const parsed = JSON.parse(content);
 
             return {
                 moduleId,
-                version: "1.0.0",
-                label: labelMatch ? labelMatch[1] : moduleId,
-                vizPresetsCount: vizPresetsMatches ? vizPresetsMatches.length : 0,
-                filename: tsFile.name,
+                version: parsed.version ?? "1.0.0",
+                label: parsed.label?.en ?? parsed.label ?? moduleId,
+                vizPresetsCount: Array.isArray(parsed.vizPresets) ? parsed.vizPresets.length : 0,
+                filename: "definition.json",
             };
         })
     );
