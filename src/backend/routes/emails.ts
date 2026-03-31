@@ -165,7 +165,8 @@ function buildSuperAdminEmailHtml(
     instanceStats: { label: string; id: string; activeUsers: number; version: string; versionIsNew: boolean; projectCount: number; userCount: number; userCountDiff: number }[],
     recentSignups: { name: string; email: string; joinedDate: string }[],
     newInstanceIds: Set<string>,
-    newProjects: { instanceLabel: string; project: string }[]
+    newProjects: { instanceLabel: string; project: string }[],
+    aiSummary: string
 ): string {
     const sortedInstances = instanceStats.sort((a, b) => b.activeUsers - a.activeUsers);
     const displayedInstances = sortedInstances.slice(0, 50);
@@ -225,6 +226,9 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 .sdiff-dn{margin-left:10px;color:#c0392b;font-size:18px;font-weight:700;vertical-align:middle}
 .ftr{padding:16px 32px;border-top:1px solid #cacaca;text-align:center}
 .ftr p{margin:0;font-size:12px;color:#a1a1a1}
+.ai-summary{background:#f7fffe;border:1px solid #0e706c;border-radius:4px;padding:20px 24px;margin-bottom:28px}
+.ai-summary-lbl{font-size:11px;color:#0e706c;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px}
+.ai-summary-text{font-size:14px;color:#2a2a2a;line-height:1.6;margin:0}
 </style>
 </head>
 <body>
@@ -234,6 +238,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     <p>${weekStart} – ${weekEnd}</p>
   </div>
   <div class="bdy">
+    ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">AI Summary</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}
     <div class="stat">
       <div class="stat-lbl">Total Users</div>
       <div class="stat-val">${totalUsers}${totalUsersDiff > 0 ? `<span class="sdiff-up">+${totalUsersDiff}</span>` : totalUsersDiff < 0 ? `<span class="sdiff-dn">${totalUsersDiff}</span>` : ""}</div>
@@ -383,6 +388,59 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 </html>`;
 }
 
+async function generateAiSummary(data: {
+    weekStart: string;
+    weekEnd: string;
+    totalUsers: number;
+    totalUsersDiff: number;
+    totalActiveUsers: number;
+    newSignups: number;
+    newInstances: number;
+    newProjects: { instanceLabel: string; project: string }[];
+    instanceStats: { label: string; activeUsers: number; version: string; versionIsNew: boolean; userCount: number; userCountDiff: number }[];
+}): Promise<string> {
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) return "";
+
+    const prompt = `You are writing a brief executive summary for a weekly analytics platform report. Be concise (3-5 sentences), factual, and highlight the most notable changes. Use plain language — no markdown, no bullet points, just flowing prose.
+
+Here is the data for the week of ${data.weekStart} to ${data.weekEnd}:
+
+- Total registered users: ${data.totalUsers} (change from last week: ${data.totalUsersDiff > 0 ? "+" : ""}${data.totalUsersDiff})
+- Total active users (last 7 days): ${data.totalActiveUsers}
+- New signups this week: ${data.newSignups}
+- New instances: ${data.newInstances}
+- New projects added: ${data.newProjects.length}${data.newProjects.length > 0 ? ` (${data.newProjects.slice(0, 5).map(p => `${p.project} on ${p.instanceLabel}`).join(", ")}${data.newProjects.length > 5 ? ` and ${data.newProjects.length - 5} more` : ""})` : ""}
+- Instances with version updates: ${data.instanceStats.filter(i => i.versionIsNew).map(i => i.label).join(", ") || "none"}
+- Top instances by active users: ${data.instanceStats.sort((a, b) => b.activeUsers - a.activeUsers).slice(0, 3).map(i => `${i.label} (${i.activeUsers} active)`).join(", ")}
+
+I already have tables for all the data, so just give me a high-level summary of the most important trends and changes this week. Remember to keep it concise and focused on the most notable insights.
+
+Write the summary now:`;
+
+    try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+                "x-api-key": anthropicKey,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "claude-haiku-4-5-20251001",
+                max_tokens: 300,
+                messages: [{ role: "user", content: prompt }],
+            }),
+        });
+
+        if (!response.ok) return "";
+        const result = await response.json();
+        return result.content?.[0]?.text ?? "";
+    } catch {
+        return "";
+    }
+}
+
 async function sendEmail(toEmails: string[], subject: string, html: string): Promise<void> {
     const sendGridKey = Deno.env.get("SEND_GRID_API");
     const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
@@ -476,8 +534,18 @@ router.post("/superadmin-email", async (c) => {
         const totalUsers = allUsers.length;
         const totalUsersDiff = state?.knownTotalUsers !== undefined ? totalUsers - state.knownTotalUsers : 0;
 
+        const aiSummary = await generateAiSummary({
+            weekStart, weekEnd,
+            totalUsers, totalUsersDiff,
+            totalActiveUsers: allActiveUsers.size,
+            newSignups: recentSignups.length,
+            newInstances: newInstanceIds.size,
+            newProjects,
+            instanceStats,
+        });
+
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
-        const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects);
+        const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects, aiSummary);
 
         await sendEmail(adminEmails, subject, html);
         await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects, knownVersions: currentVersions, knownUserCounts: currentUserCounts, knownTotalUsers: totalUsers });
