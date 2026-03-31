@@ -108,14 +108,14 @@ async function fetchServerHealth(serverId: string): Promise<{ version: string; u
     }
 }
 
-async function fetchServerChangelog(serverId: string): Promise<string> {
-    try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/changelog`);
-        if (!response.ok) return "";
-        return await response.text();
-    } catch {
-        return "";
-    }
+async function fetchChangelog(): Promise<string> {
+    const { readChangelog } = await import("./changelog.ts");
+    return readChangelog();
+}
+
+async function fetchChangelogAdmin(): Promise<string> {
+    const { readChangelogAdmin } = await import("./changelog.ts");
+    return readChangelogAdmin();
 }
 
 function compareVersions(a: string, b: string): number {
@@ -166,7 +166,8 @@ function buildSuperAdminEmailHtml(
     recentSignups: { name: string; email: string; joinedDate: string }[],
     newInstanceIds: Set<string>,
     newProjects: { instanceLabel: string; project: string }[],
-    aiSummary: string
+    aiSummary: string,
+    changelogHtml: string
 ): string {
     const sortedInstances = instanceStats.sort((a, b) => b.activeUsers - a.activeUsers);
     const displayedInstances = sortedInstances.slice(0, 50);
@@ -229,6 +230,12 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 .ai-summary{background:#f7fffe;border:1px solid #0e706c;border-radius:4px;padding:20px 24px;margin-bottom:28px}
 .ai-summary-lbl{font-size:11px;color:#0e706c;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px}
 .ai-summary-text{font-size:14px;color:#2a2a2a;line-height:1.6;margin:0}
+.changelog{margin-bottom:32px}
+.changelog-entry{margin-bottom:20px}
+.changelog-entry h3{font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em}
+.changelog-entry strong{display:block;font-size:11px;color:#0e706c;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 4px}
+.changelog-entry ul{margin:0;padding-left:18px}
+.changelog-entry li{font-size:14px;color:#2a2a2a;margin-bottom:3px}
 </style>
 </head>
 <body>
@@ -263,6 +270,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
       <thead><tr><th>Name</th><th>Email</th><th>Joined</th></tr></thead>
       <tbody>${signupRows}</tbody>
     </table>
+    ${changelogHtml ? `<h2>What's New</h2><div class="changelog">${changelogHtml}</div>` : ""}
   </div>
   <div class="ftr"><p>Fastr Analytics Admin · Automated weekly report</p></div>
 </div>
@@ -544,8 +552,22 @@ router.post("/superadmin-email", async (c) => {
             instanceStats,
         });
 
+        const updatedServersMinVersion = Object.entries(currentVersions)
+            .filter(([id, ver]) => ver && knownVersions[id] && compareVersions(ver, knownVersions[id]) > 0)
+            .map(([, ver]) => ver)
+            .sort((a, b) => compareVersions(a, b))[0] ?? "";
+
+        let changelogHtml = "";
+        if (updatedServersMinVersion) {
+            const sinceVersion = Object.values(knownVersions)
+                .filter(v => v && compareVersions(updatedServersMinVersion, v) > 0)
+                .sort((a, b) => compareVersions(a, b))[0] ?? updatedServersMinVersion;
+            const adminChangelog = await fetchChangelogAdmin();
+            changelogHtml = parseChangelogEntriesSince(adminChangelog, sinceVersion);
+        }
+
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
-        const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects, aiSummary);
+        const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects, aiSummary, changelogHtml);
 
         await sendEmail(adminEmails, subject, html);
         await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects, knownVersions: currentVersions, knownUserCounts: currentUserCounts, knownTotalUsers: totalUsers });
@@ -608,7 +630,7 @@ router.post("/instance-admin-emails", async (c) => {
             const lastKnownVersion = knownVersions[server.id] ?? "";
             let changelogHtml = "";
             if (lastKnownVersion && health.version && compareVersions(health.version, lastKnownVersion) > 0) {
-                const changelog = await fetchServerChangelog(server.id);
+                const changelog = await fetchChangelog();
                 changelogHtml = parseChangelogEntriesSince(changelog, lastKnownVersion);
             }
 
