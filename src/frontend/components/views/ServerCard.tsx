@@ -217,6 +217,7 @@ export function ServerCard(props: ServerCardProps) {
             <button class="action-btn" onClick={() => props.onConfig(props.server.id)}>Configuration</button>
             <button
               class="action-btn"
+              style="background: #2563eb"
               onClick={() => props.onMoveVolume(props.server.id)}
               disabled={props.isLocked || props.sshOperationInProgress}
             >

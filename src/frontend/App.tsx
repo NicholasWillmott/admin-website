@@ -51,6 +51,7 @@ import {
   sendWeeklySuperAdminReportApi,
   sendInstanceAdminReportsApi,
   moveServerVolumeApi,
+  assignServerCategoryApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -601,7 +602,7 @@ function App() {
 
   const handleSaveConfig = async (
     serverId: string,
-    changes: { french?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string },
+    changes: { french?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string; category?: string },
   ) => {
     if (sshOperationInProgress()) {
       addToast('Another SSH operation is in progress. Please wait.', 'info');
@@ -625,6 +626,11 @@ function App() {
       if (changes.label !== undefined) {
         const r = await updateServerLabelApi(serverId, changes.label, token);
         if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
+      }
+      if (changes.category !== undefined) {
+        const r = await assignServerCategoryApi(serverId, changes.category, token);
+        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
+        refetchDynamicCategories();
       }
       mutate(prev => prev?.map(s => s.id === serverId ? { ...s, ...changes } : s));
       addToast('Configuration saved', 'success');
@@ -999,6 +1005,8 @@ function App() {
           <ConfigModal
             server={servers()!.find(s => s.id === configModalServerId())!}
             sshOperationInProgress={sshOperationInProgress()}
+            categories={categories() || []}
+            currentCategory={(categories() || []).find(c => c.servers.includes(configModalServerId()!))?.name ?? ''}
             onClose={() => setConfigModalServerId(null)}
             onSave={handleSaveConfig}
           />

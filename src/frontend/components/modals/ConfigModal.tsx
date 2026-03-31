@@ -1,11 +1,14 @@
-import { createSignal } from 'solid-js';
+import { createSignal, For } from 'solid-js';
 import type { Server } from '../../types.ts';
+import type { ServerCategory } from '../../services.ts';
 
-type ConfigChanges = { french?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string };
+type ConfigChanges = { french?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string; category?: string };
 
 interface ConfigModalProps {
   server: Server;
   sshOperationInProgress: boolean;
+  categories: ServerCategory[];
+  currentCategory: string;
   onClose: () => void;
   onSave: (serverId: string, changes: ConfigChanges) => Promise<void>;
 }
@@ -15,12 +18,14 @@ export function ConfigModal(props: ConfigModalProps) {
   const [ethiopian, setEthiopian] = createSignal(props.server.ethiopian ?? false);
   const [openAccess, setOpenAccess] = createSignal(props.server.openAccess ?? false);
   const [label, setLabel] = createSignal(props.server.label);
+  const [category, setCategory] = createSignal(props.currentCategory);
 
   const hasChanges = () =>
     french() !== (props.server.french ?? false) ||
     ethiopian() !== (props.server.ethiopian ?? false) ||
     openAccess() !== (props.server.openAccess ?? false) ||
-    label() !== props.server.label;
+    label() !== props.server.label ||
+    category() !== props.currentCategory;
 
   const handleSave = async () => {
     const changes: ConfigChanges = {};
@@ -28,6 +33,7 @@ export function ConfigModal(props: ConfigModalProps) {
     if (ethiopian() !== (props.server.ethiopian ?? false)) changes.ethiopian = ethiopian();
     if (openAccess() !== (props.server.openAccess ?? false)) changes.openAccess = openAccess();
     if (label() !== props.server.label) changes.label = label();
+    if (category() !== props.currentCategory) changes.category = category();
     await props.onSave(props.server.id, changes);
   };
 
@@ -89,6 +95,20 @@ export function ConfigModal(props: ConfigModalProps) {
                   Ethiopian
                 </button>
               </div>
+            </div>
+
+            <div class="config-row">
+              <span class="config-label">Category</span>
+              <select
+                value={category()}
+                onChange={(e) => setCategory(e.currentTarget.value)}
+                style="flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color, #ccc); background: var(--input-bg, #fff); color: #000; font-size: 14px;"
+              >
+                <option value="">None (Misc)</option>
+                <For each={props.categories}>
+                  {(cat) => <option value={cat.name}>{cat.name}</option>}
+                </For>
+              </select>
             </div>
 
             <div class="config-row">
