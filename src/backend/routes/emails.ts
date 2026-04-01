@@ -424,6 +424,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     <p>${weekStart} – ${weekEnd}</p>
   </div>
   <div class="bdy">
+    <p class="meta">This is an automated weekly report sent to all admins of the <strong>${instanceLabel}</strong> FASTR Analytics Platform.</p>
     ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">AI Summary</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}
     <p class="meta">Instance ID: ${instanceId} &nbsp;·&nbsp; Version: ${version || "—"}</p>
     <div class="stat">
