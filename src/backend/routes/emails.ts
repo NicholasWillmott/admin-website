@@ -97,14 +97,14 @@ async function fetchServerProjects(serverId: string): Promise<string[]> {
     }
 }
 
-async function fetchServerHealth(serverId: string): Promise<{ version: string; userCount: number; adminUsers: string[] }> {
+async function fetchServerHealth(serverId: string): Promise<{ online: boolean; version: string; userCount: number; adminUsers: string[] }> {
     try {
         const response = await fetch(`https://${serverId}.fastr-analytics.org/health_check`);
-        if (!response.ok) return { version: "", userCount: 0, adminUsers: [] };
+        if (!response.ok) return { online: false, version: "", userCount: 0, adminUsers: [] };
         const data = await response.json();
-        return { version: data.serverVersion ?? "", userCount: data.totalUsers ?? 0, adminUsers: data.adminUsers ?? [] };
+        return { online: true, version: data.serverVersion ?? "", userCount: data.totalUsers ?? 0, adminUsers: data.adminUsers ?? [] };
     } catch {
-        return { version: "", userCount: 0, adminUsers: [] };
+        return { online: false, version: "", userCount: 0, adminUsers: [] };
     }
 }
 
@@ -568,14 +568,16 @@ router.post("/superadmin-email", async (c) => {
         const knownProjects = state?.knownProjects ?? {};
 
         const allActiveUsers = new Set<string>();
-        const instanceStats = logResults.map(({ server, logs, health, projects }) => {
-            const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
-            const uniqueUsers = new Set(recentLogs.map((l: UserLog) => l.user_email));
-            uniqueUsers.forEach((u: string) => allActiveUsers.add(u));
-            const versionIsNew = (server.id in knownVersions) && knownVersions[server.id] !== health.version && health.version !== "";
-            const userCountDiff = (server.id in knownUserCounts) ? health.userCount - knownUserCounts[server.id] : 0;
-            return { label: server.label, id: server.id, activeUsers: uniqueUsers.size, version: health.version, versionIsNew, projectCount: projects.length, userCount: health.userCount, userCountDiff };
-        });
+        const instanceStats = logResults
+            .filter(({ health }) => health.online)
+            .map(({ server, logs, health, projects }) => {
+                const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
+                const uniqueUsers = new Set(recentLogs.map((l: UserLog) => l.user_email));
+                uniqueUsers.forEach((u: string) => allActiveUsers.add(u));
+                const versionIsNew = (server.id in knownVersions) && knownVersions[server.id] !== health.version && health.version !== "";
+                const userCountDiff = (server.id in knownUserCounts) ? health.userCount - knownUserCounts[server.id] : 0;
+                return { label: server.label, id: server.id, activeUsers: uniqueUsers.size, version: health.version, versionIsNew, projectCount: projects.length, userCount: health.userCount, userCountDiff };
+            });
 
         const newProjects: { instanceLabel: string; project: string }[] = [];
         const currentProjects: Record<string, string[]> = {};
@@ -679,7 +681,7 @@ router.post("/instance-admin-emails", async (c) => {
             newKnownUserCounts[server.id] = health.userCount;
             newKnownVersions[server.id] = health.version;
 
-            if (health.adminUsers.length === 0) continue;
+            if (!health.online || health.adminUsers.length === 0) continue;
 
             const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
             const activeUsers = new Set(recentLogs.map((l: UserLog) => l.user_email)).size;
