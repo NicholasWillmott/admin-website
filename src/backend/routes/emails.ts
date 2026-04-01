@@ -402,8 +402,8 @@ td.m{color:#a1a1a1;font-size:13px}
 td.note{text-align:center;color:#a1a1a1;font-size:12px}
 td.empty{padding:16px;text-align:center;color:#a1a1a1}
 .badge{margin-left:8px;background:#0e706c;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;vertical-align:middle}
-.sdiff-up{margin-left:10px;color:#0e706c;font-size:18px;font-weight:700;vertical-align:middle}
-.sdiff-dn{margin-left:10px;color:#c0392b;font-size:18px;font-weight:700;vertical-align:middle}
+.sdiff-up{margin-left:12px;background:#d4edda;color:#155724;font-size:16px;font-weight:700;padding:4px 12px;border-radius:12px;vertical-align:middle;display:inline-block}
+.sdiff-dn{margin-left:12px;background:#f8d7da;color:#721c24;font-size:16px;font-weight:700;padding:4px 12px;border-radius:12px;vertical-align:middle;display:inline-block}
 .meta{font-size:12px;color:#a1a1a1;margin-bottom:28px}
 .changelog{margin-bottom:32px}
 .changelog-entry{margin-bottom:20px}
