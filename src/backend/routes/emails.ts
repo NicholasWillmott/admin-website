@@ -278,6 +278,54 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 </html>`;
 }
 
+async function generateInstanceAiSummary(data: {
+    weekStart: string;
+    weekEnd: string;
+    instanceLabel: string;
+    version: string;
+    userCount: number;
+    userCountDiff: number;
+    activeUsers: number;
+    newProjects: string[];
+    changelogText: string;
+}): Promise<string> {
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) return "";
+
+    const prompt = `You are writing a brief summary for a weekly instance report sent to the admin of a FASTR Analytics instance called "${data.instanceLabel}". Be concise (2-4 sentences), factual, and highlight the most notable activity or changes. Use plain language — no markdown, no bullet points, just flowing prose.
+
+Here is the data for the week of ${data.weekStart} to ${data.weekEnd}:
+
+- Total users: ${data.userCount} (change from last week: ${data.userCountDiff > 0 ? "+" : ""}${data.userCountDiff})
+- Active users (last 7 days): ${data.activeUsers}
+- New projects this week: ${data.newProjects.length > 0 ? data.newProjects.join(", ") : "none"}
+- Platform version: ${data.version || "unknown"}
+${data.changelogText ? `\nNew platform changes deployed to this instance:\n${data.changelogText}` : ""}
+Write the summary now:`;
+
+    try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+                "x-api-key": anthropicKey,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "claude-haiku-4-5-20251001",
+                max_tokens: 200,
+                messages: [{ role: "user", content: prompt }],
+            }),
+        });
+
+        if (!response.ok) return "";
+        const result = await response.json();
+        return result.content?.[0]?.text ?? "";
+    } catch {
+        return "";
+    }
+}
+
 function buildInstanceAdminEmailHtml(
     weekStart: string,
     weekEnd: string,
@@ -290,7 +338,8 @@ function buildInstanceAdminEmailHtml(
     projects: string[],
     newProjects: string[],
     recentLogs: UserLog[],
-    changelogHtml: string
+    changelogHtml: string,
+    aiSummary: string
 ): string {
     const projectRows = projects.map(p => {
         const isNew = newProjects.includes(p);
@@ -363,6 +412,9 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 .changelog-entry li{font-size:14px;color:#2a2a2a;margin-bottom:3px}
 .ftr{padding:16px 32px;border-top:1px solid #cacaca;text-align:center}
 .ftr p{margin:0;font-size:12px;color:#a1a1a1}
+.ai-summary{background:#f7fffe;border:1px solid #0e706c;border-radius:4px;padding:20px 24px;margin-bottom:28px}
+.ai-summary-lbl{font-size:11px;color:#0e706c;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px}
+.ai-summary-text{font-size:14px;color:#2a2a2a;line-height:1.6;margin:0}
 </style>
 </head>
 <body>
@@ -372,6 +424,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     <p>${weekStart} – ${weekEnd}</p>
   </div>
   <div class="bdy">
+    ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">AI Summary</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}
     <p class="meta">Instance ID: ${instanceId} &nbsp;·&nbsp; Version: ${version || "—"}</p>
     <div class="stat">
       <div class="stat-lbl">Total Users</div>
@@ -406,6 +459,7 @@ async function generateAiSummary(data: {
     newInstances: number;
     newProjects: { instanceLabel: string; project: string }[];
     instanceStats: { label: string; activeUsers: number; version: string; versionIsNew: boolean; userCount: number; userCountDiff: number }[];
+    changelogText: string;
 }): Promise<string> {
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!anthropicKey) return "";
@@ -421,7 +475,7 @@ Here is the data for the week of ${data.weekStart} to ${data.weekEnd}:
 - New projects added: ${data.newProjects.length}${data.newProjects.length > 0 ? ` (${data.newProjects.slice(0, 5).map(p => `${p.project} on ${p.instanceLabel}`).join(", ")}${data.newProjects.length > 5 ? ` and ${data.newProjects.length - 5} more` : ""})` : ""}
 - Instances with version updates: ${data.instanceStats.filter(i => i.versionIsNew).map(i => i.label).join(", ") || "none"}
 - Top instances by active users: ${data.instanceStats.sort((a, b) => b.activeUsers - a.activeUsers).slice(0, 3).map(i => `${i.label} (${i.activeUsers} active)`).join(", ")}
-
+${data.changelogText ? `\nNew platform changes deployed this week:\n${data.changelogText}` : ""}
 I already have tables for all the data, so just give me a high-level summary of the most important trends and changes this week. Remember to keep it concise and focused on the most notable insights.
 
 Write the summary now:`;
@@ -542,6 +596,25 @@ router.post("/superadmin-email", async (c) => {
         const totalUsers = allUsers.length;
         const totalUsersDiff = state?.knownTotalUsers !== undefined ? totalUsers - state.knownTotalUsers : 0;
 
+        const updatedServersMinVersion = Object.entries(currentVersions)
+            .filter(([id, ver]) => ver && knownVersions[id] && compareVersions(ver, knownVersions[id]) > 0)
+            .map(([, ver]) => ver)
+            .sort((a, b) => compareVersions(a, b))[0] ?? "";
+
+        let changelogHtml = "";
+        let changelogText = "";
+        if (updatedServersMinVersion) {
+            const sinceVersion = Object.values(knownVersions)
+                .filter(v => v && compareVersions(updatedServersMinVersion, v) > 0)
+                .sort((a, b) => compareVersions(a, b))[0] ?? updatedServersMinVersion;
+            const adminChangelog = await fetchChangelogAdmin();
+            changelogHtml = parseChangelogEntriesSince(adminChangelog, sinceVersion);
+            changelogText = adminChangelog.split(/(?=^## \[)/m)
+                .filter(s => s.startsWith("## ["))
+                .filter(s => { const m = s.match(/^## \[([^\]]+)\]/); return m ? compareVersions(m[1], sinceVersion) > 0 : false; })
+                .join("\n");
+        }
+
         const aiSummary = await generateAiSummary({
             weekStart, weekEnd,
             totalUsers, totalUsersDiff,
@@ -550,21 +623,8 @@ router.post("/superadmin-email", async (c) => {
             newInstances: newInstanceIds.size,
             newProjects,
             instanceStats,
+            changelogText,
         });
-
-        const updatedServersMinVersion = Object.entries(currentVersions)
-            .filter(([id, ver]) => ver && knownVersions[id] && compareVersions(ver, knownVersions[id]) > 0)
-            .map(([, ver]) => ver)
-            .sort((a, b) => compareVersions(a, b))[0] ?? "";
-
-        let changelogHtml = "";
-        if (updatedServersMinVersion) {
-            const sinceVersion = Object.values(knownVersions)
-                .filter(v => v && compareVersions(updatedServersMinVersion, v) > 0)
-                .sort((a, b) => compareVersions(a, b))[0] ?? updatedServersMinVersion;
-            const adminChangelog = await fetchChangelogAdmin();
-            changelogHtml = parseChangelogEntriesSince(adminChangelog, sinceVersion);
-        }
 
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
         const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects, aiSummary, changelogHtml);
@@ -629,17 +689,33 @@ router.post("/instance-admin-emails", async (c) => {
 
             const lastKnownVersion = knownVersions[server.id] ?? "";
             let changelogHtml = "";
+            let changelogText = "";
             if (lastKnownVersion && health.version && compareVersions(health.version, lastKnownVersion) > 0) {
                 const changelog = await fetchChangelog();
                 changelogHtml = parseChangelogEntriesSince(changelog, lastKnownVersion);
+                changelogText = changelog.split(/(?=^## \[)/m)
+                    .filter(s => s.startsWith("## ["))
+                    .filter(s => { const m = s.match(/^## \[([^\]]+)\]/); return m ? compareVersions(m[1], lastKnownVersion) > 0 : false; })
+                    .join("\n");
             }
+
+            const aiSummary = await generateInstanceAiSummary({
+                weekStart, weekEnd,
+                instanceLabel: server.label,
+                version: health.version,
+                userCount: health.userCount,
+                userCountDiff,
+                activeUsers,
+                newProjects,
+                changelogText,
+            });
 
             const html = buildInstanceAdminEmailHtml(
                 weekStart, weekEnd,
                 server.label, server.id,
                 health.version, health.userCount, userCountDiff,
                 activeUsers, projects, newProjects, recentLogs,
-                changelogHtml
+                changelogHtml, aiSummary
             );
 
             await sendEmail([testOverrideEmail], subject(server.label), html);
