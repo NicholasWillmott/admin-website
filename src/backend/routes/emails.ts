@@ -198,7 +198,7 @@ function buildSuperAdminEmailHtml(
         ? displayedSignups.map(u => {
             const [local, domain] = u.email.split("@");
             const broken = domain ? `${local}<span></span>@${domain.replace(/\./g, "<span></span>.")}` : u.email;
-            return `<tr><td>${u.name}</td><td class="m"><strong>${broken}</strong></td><td class="m">${u.joinedDate}</td></tr>`;
+            return `<tr><td>${u.name}</td><td class="m"><span style="color:#1a73e8">${broken}</span></td><td class="m">${u.joinedDate}</td></tr>`;
         }).join("") + signupsHiddenNote
         : `<tr><td colspan="3" class="empty">No new signups this week</td></tr>`;
 
