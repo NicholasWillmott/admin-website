@@ -195,7 +195,11 @@ function buildSuperAdminEmailHtml(
         ? `<tr><td colspan="3" class="note">+ ${signupsHiddenCount} more signups not shown</td></tr>`
         : "";
     const signupRows = displayedSignups.length > 0
-        ? displayedSignups.map(u => `<tr><td>${u.name}</td><td class="m">${u.email.replace("@", "<span></span>@")}</td><td class="m">${u.joinedDate}</td></tr>`).join("") + signupsHiddenNote
+        ? displayedSignups.map(u => {
+            const [local, domain] = u.email.split("@");
+            const broken = domain ? `${local}<span></span>@${domain.replace(/\./g, "<span></span>.")}` : u.email;
+            return `<tr><td>${u.name}</td><td class="m"><strong>${broken}</strong></td><td class="m">${u.joinedDate}</td></tr>`;
+        }).join("") + signupsHiddenNote
         : `<tr><td colspan="3" class="empty">No new signups this week</td></tr>`;
 
     return `<!DOCTYPE html>
