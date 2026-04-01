@@ -518,6 +518,10 @@ async function sendEmail(toEmails: string[], subject: string, html: string): Pro
             from: { email: "noreply@fastr-analytics.org", name: "Fastr Analytics" },
             subject,
             content: [{ type: "text/html", value: html }],
+            tracking_settings: {
+                click_tracking: { enable: false },
+                open_tracking: { enable: false },
+            },
         }),
     });
 
