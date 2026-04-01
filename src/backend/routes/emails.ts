@@ -1,6 +1,7 @@
 /// <reference lib="deno.ns" />
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
+import { H_USERS } from "../../frontend/h_users.ts";
 
 const router = new Hono();
 
@@ -544,7 +545,7 @@ router.post("/superadmin-email", async (c) => {
         const adminEmails = ["nicholaswillmottvball@gmail.com"];
 
         const recentSignups = allUsers
-            .filter(u => u.created_at >= weekAgoMs)
+            .filter(u => u.created_at >= weekAgoMs && !H_USERS.has(getPrimaryEmail(u)))
             .sort((a, b) => b.created_at - a.created_at)
             .map(u => ({
                 name: [u.first_name, u.last_name].filter(Boolean).join(" ") || "—",
@@ -572,7 +573,7 @@ router.post("/superadmin-email", async (c) => {
         const instanceStats = logResults
             .filter(({ health }) => health.online)
             .map(({ server, logs, health, projects }) => {
-                const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
+                const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs && !H_USERS.has(l.user_email));
                 const uniqueUsers = new Set(recentLogs.map((l: UserLog) => l.user_email));
                 uniqueUsers.forEach((u: string) => allActiveUsers.add(u));
                 const versionIsNew = (server.id in knownVersions) && knownVersions[server.id] !== health.version && health.version !== "";
@@ -596,7 +597,7 @@ router.post("/superadmin-email", async (c) => {
             }
         }
 
-        const totalUsers = allUsers.length;
+        const totalUsers = allUsers.filter(u => !H_USERS.has(getPrimaryEmail(u))).length;
         const totalUsersDiff = state?.knownTotalUsers !== undefined ? totalUsers - state.knownTotalUsers : 0;
 
         const updatedServersMinVersion = Object.entries(currentVersions)

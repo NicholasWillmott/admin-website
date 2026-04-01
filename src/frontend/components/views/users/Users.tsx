@@ -1,6 +1,7 @@
 import { For, createSignal } from 'solid-js';
 import type { ClerkUser, ClerkSession, Server, HealthCheckResponse, ServerUserLogs } from '../../../types.ts';
 import { formatDate } from '../../../utils.ts';
+import { H_USERS } from '../../../h_users.ts';
 import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
 import { ActiveUsersExportModal } from '../../modals/ActiveUsersExportModal.tsx';
 import { UserActivityGraph } from './graphs/UserActivityGraph.tsx';
@@ -210,6 +211,8 @@ export function Users(p: UsersProps) {
         setExporting(false);
     }
 
+    const graphUsers = () => filteredUsers().filter(u => !H_USERS.has(getPrimaryEmail(u)));
+
     const filteredUsers = () => {
         if (!p.users) return [];
         const emailFilter = instanceEmails();
@@ -400,12 +403,12 @@ export function Users(p: UsersProps) {
                     )}
 
                     {/** Graphs */}                    
-                    <UserActivityGraph users={filteredUsers()} userLogs={p.userLogs} selectedInstance={selectedInstance()} />
-                    <UserRegistrationsGraph users={filteredUsers()} />
-                    <SignInHeatmap users={filteredUsers()} userLogs={p.userLogs} selectedInstance={selectedInstance()} />
-                    <UserRetentionChart users={filteredUsers()} />
-                    <EmailOptInChart users={filteredUsers()} />
-                    <RecentSignupsCard users={filteredUsers()} />
+                    <UserActivityGraph users={graphUsers()} userLogs={p.userLogs} selectedInstance={selectedInstance()} />
+                    <UserRegistrationsGraph users={graphUsers()} />
+                    <SignInHeatmap users={graphUsers()} userLogs={p.userLogs} selectedInstance={selectedInstance()} />
+                    <UserRetentionChart users={graphUsers()} />
+                    <EmailOptInChart users={graphUsers()} />
+                    <RecentSignupsCard users={graphUsers()} />
                     {selectedInstance() === null && (
                         <InstanceActivityChart servers={p.servers} userLogs={p.userLogs} />
                     )}
