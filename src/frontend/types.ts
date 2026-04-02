@@ -126,4 +126,25 @@ export interface VolumeUsage {
   directories: VolumeDirEntry[];
 }
 
-export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage";
+export interface AiUsageLog {
+  id: number;
+  timestamp: string;
+  user_email: string;
+  project_id: string | null;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens: number;
+  cache_creation_input_tokens: number;
+}
+
+export type ServerAiUsageLogs = { [serverId: string]: AiUsageLog[] };
+
+export interface ModelPricing {
+  input_cost_per_token?: number;
+  output_cost_per_token?: number;
+  cache_creation_input_token_cost?: number;
+  cache_read_input_token_cost?: number;
+}
+
+export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage";

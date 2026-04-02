@@ -9,6 +9,7 @@ import { ServerActivityModal } from './components/modals/ServerActivityModal.tsx
 import { BackupsModal } from './components/modals/BackupsModal.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
+import { AiUsageView } from './components/views/AiUsageView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
 import { ConfigureCategoriesModal } from './components/modals/CreateCategoryModal.tsx';
@@ -45,6 +46,8 @@ import {
   updateServerOpenAccessApi,
   updateServerLabelApi,
   fetchAllServerUserLogs,
+  fetchAllServerAiUsage,
+  fetchModelPricing,
   fetchVolumeUsage,
   fetchCategoriesApi,
   fetchVolumesApi,
@@ -92,6 +95,18 @@ function App() {
       return fetchAllServerUserLogs(serverList, token);
     }
   );
+
+  // get AI usage logs for all servers, keyed by server id
+  const [allServerAiUsage, { refetch: refetchAiUsage }] = createResource(
+    servers,
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerAiUsage(serverList, token);
+    }
+  );
+
+  // get LiteLLM model pricing
+  const [modelPricing] = createResource(fetchModelPricing);
 
   // get server versions
   const [serverVersions, { refetch: refetchServerVersions }] = createResource(async () => {
@@ -741,6 +756,13 @@ function App() {
                 </button>
                 <button
                   type="button"
+                  data-selected={activeView() === "aiUsage"}
+                  onClick={() => setActiveView("aiUsage")}
+                >
+                  AI Usage
+                </button>
+                <button
+                  type="button"
                   data-selected={activeView() === "moduleEditor"}
                   onClick={() => setActiveView("moduleEditor")}
                 >
@@ -941,6 +963,17 @@ function App() {
               loading={volumeUsages.loading}
               error={volumeUsages.error}
               onRefetch={refetchVolumeUsages}
+            />
+          </Show>
+
+          <Show when={activeView() === "aiUsage"}>
+            <AiUsageView
+              servers={servers()}
+              aiUsageLogs={allServerAiUsage()}
+              pricing={modelPricing()}
+              loading={allServerAiUsage.loading || modelPricing.loading}
+              error={allServerAiUsage.error}
+              onRefetch={refetchAiUsage}
             />
           </Show>
 

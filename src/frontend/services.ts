@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, VolumeUsage } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -611,4 +611,40 @@ export async function sendInstanceAdminReportsApi(token: string | null): Promise
     headers: getAuthHeaders(token),
   });
   return await response.json();
+}
+
+export async function fetchServerAiUsage(serverId: string, token: string | null): Promise<AiUsageLog[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/ai_usage`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.logs ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAllServerAiUsage(servers: Server[], token: string | null): Promise<ServerAiUsageLogs> {
+  const results = await Promise.all(servers.map(async (server) => ({
+    id: server.id,
+    logs: await fetchServerAiUsage(server.id, token),
+  })));
+  return results.reduce((acc, { id, logs }) => {
+    acc[id] = logs;
+    return acc;
+  }, {} as ServerAiUsageLogs);
+}
+
+const LITELLM_PRICING_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
+
+export async function fetchModelPricing(): Promise<Record<string, ModelPricing>> {
+  try {
+    const response = await fetch(LITELLM_PRICING_URL);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch {
+    return {};
+  }
 }

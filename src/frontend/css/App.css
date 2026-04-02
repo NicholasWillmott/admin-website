@@ -4508,3 +4508,135 @@ h1 {
     display: none;
   }
 }
+
+/* ============================================================================
+   AI USAGE VIEW
+   ============================================================================ */
+
+.ai-usage-container {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  background: #243d2e;
+}
+
+.ai-usage-content {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ai-usage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-usage-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0;
+}
+
+.ai-usage-loading,
+.ai-usage-error {
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0;
+}
+
+.ai-usage-empty,
+.ai-usage-warning {
+  color: #94a3b8;
+  font-size: 0.875rem;
+  padding: 12px 0;
+}
+
+.ai-usage-warning {
+  color: #f59e0b;
+}
+
+.ai-usage-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #1a2e22;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ai-usage-table thead {
+  background: #152318;
+}
+
+.ai-usage-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.ai-usage-table th:not(:first-child) {
+  text-align: right;
+}
+
+.ai-usage-table tbody tr {
+  border-top: 1px solid #243d2e;
+}
+
+.ai-usage-table tbody tr:hover {
+  background: #1e3528;
+}
+
+.ai-usage-row-empty {
+  opacity: 0.45;
+}
+
+.ai-usage-table td {
+  padding: 12px 16px;
+  font-size: 0.875rem;
+  color: #cbd5e1;
+}
+
+.ai-usage-instance {
+  font-weight: 500;
+  color: #e2e8f0;
+}
+
+.ai-usage-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #94a3b8;
+}
+
+.ai-usage-cost {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #4ade80;
+}
+
+.ai-usage-total-row {
+  border-top: 2px solid #3f6652 !important;
+  background: #152318;
+}
+
+.ai-usage-total-row td {
+  font-weight: 600;
+  color: #e2e8f0;
+}
