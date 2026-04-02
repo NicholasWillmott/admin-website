@@ -2,6 +2,7 @@
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
 import { H_USERS } from "../../frontend/h_users.ts";
+import type { AiUsageLog, ModelPricing } from "../../frontend/types.ts";
 
 const router = new Hono();
 
@@ -156,6 +157,45 @@ async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
     }
 }
 
+async function fetchServerAiUsageLogs(serverId: string): Promise<AiUsageLog[]> {
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/ai_usage`);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.logs ?? [];
+    } catch {
+        return [];
+    }
+}
+
+async function fetchModelPricing(): Promise<Record<string, ModelPricing>> {
+    try {
+        const response = await fetch("https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json");
+        if (!response.ok) return {};
+        return await response.json();
+    } catch {
+        return {};
+    }
+}
+
+function computeAiCost(logs: AiUsageLog[], pricing: Record<string, ModelPricing>): number {
+    return logs.reduce((total, log) => {
+        const p = pricing[log.model];
+        if (!p) return total;
+        return total
+            + (log.input_tokens * (p.input_cost_per_token ?? 0))
+            + (log.output_tokens * (p.output_cost_per_token ?? 0))
+            + (log.cache_creation_input_tokens * (p.cache_creation_input_token_cost ?? 0))
+            + (log.cache_read_input_tokens * (p.cache_read_input_token_cost ?? 0));
+    }, 0);
+}
+
+function formatAiCost(cost: number): string {
+    if (cost === 0) return "$0.00";
+    if (cost < 0.01) return `${(cost * 100).toFixed(3)}¢`;
+    return `$${cost.toFixed(2)}`;
+}
+
 
 function buildSuperAdminEmailHtml(
     weekStart: string,
@@ -163,7 +203,7 @@ function buildSuperAdminEmailHtml(
     totalUsers: number,
     totalUsersDiff: number,
     totalActiveUsers: number,
-    instanceStats: { label: string; id: string; activeUsers: number; version: string; versionIsNew: boolean; projectCount: number; userCount: number; userCountDiff: number }[],
+    instanceStats: { label: string; id: string; activeUsers: number; version: string; versionIsNew: boolean; projectCount: number; userCount: number; userCountDiff: number; aiCostUsd: number }[],
     recentSignups: { name: string; email: string; joinedDate: string }[],
     newInstanceIds: Set<string>,
     newProjects: { instanceLabel: string; project: string }[],
@@ -181,7 +221,7 @@ function buildSuperAdminEmailHtml(
             : inst.userCountDiff < 0
                 ? `<span class="diff-dn">${inst.userCountDiff}</span>`
                 : "";
-        return `<tr><td>${inst.label}${newBadge}</td><td class="m">${inst.id}</td><td class="m">${inst.version}${versionBadge}</td><td class="c">${inst.projectCount}</td><td class="c">${inst.userCount}${diffFlair}</td><td class="c">${inst.activeUsers}</td></tr>`;
+        return `<tr><td>${inst.label}${newBadge}</td><td class="m">${inst.id}</td><td class="m">${inst.version}${versionBadge}</td><td class="c">${inst.projectCount}</td><td class="c">${inst.userCount}${diffFlair}</td><td class="c">${inst.activeUsers}</td><td class="c">${formatAiCost(inst.aiCostUsd)}</td></tr>`;
     }).join("");
 
     const instancesHiddenCount = sortedInstances.length - displayedInstances.length;
@@ -261,7 +301,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     </div>
     <h2>Instance Info</h2>
     <table>
-      <thead><tr><th>Instance</th><th>ID</th><th>Version</th><th class="c">Projects</th><th class="c">Users</th><th class="c">Active Users</th></tr></thead>
+      <thead><tr><th>Instance</th><th>ID</th><th>Version</th><th class="c">Projects</th><th class="c">Users</th><th class="c">Active Users</th><th class="c">AI Cost</th></tr></thead>
       <tbody>${instanceRows}${instancesHiddenNote}</tbody>
     </table>
     ${newProjects.length > 0 ? `
@@ -561,14 +601,16 @@ router.post("/superadmin-email", async (c) => {
                 joinedDate: fmt(new Date(u.created_at)),
             }));
 
-        const [logResults, state] = await Promise.all([
+        const [logResults, state, pricing] = await Promise.all([
             Promise.all(servers.map(async (server: Server) => ({
                 server,
                 logs: await fetchServerUserLogs(server.id),
                 projects: await fetchServerProjects(server.id),
                 health: await fetchServerHealth(server.id),
+                aiUsage: await fetchServerAiUsageLogs(server.id),
             }))),
             readEmailState(),
+            fetchModelPricing(),
         ]);
 
         const knownIds = new Set(state?.knownInstanceIds ?? []);
@@ -580,13 +622,14 @@ router.post("/superadmin-email", async (c) => {
         const allActiveUsers = new Set<string>();
         const instanceStats = logResults
             .filter(({ health }) => health.online)
-            .map(({ server, logs, health, projects }) => {
+            .map(({ server, logs, health, projects, aiUsage }) => {
                 const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs && !H_USERS.has(l.user_email));
                 const uniqueUsers = new Set(recentLogs.map((l: UserLog) => l.user_email));
                 uniqueUsers.forEach((u: string) => allActiveUsers.add(u));
                 const versionIsNew = (server.id in knownVersions) && knownVersions[server.id] !== health.version && health.version !== "";
                 const userCountDiff = (server.id in knownUserCounts) ? health.userCount - knownUserCounts[server.id] : 0;
-                return { label: server.label, id: server.id, activeUsers: uniqueUsers.size, version: health.version, versionIsNew, projectCount: projects.length, userCount: health.userCount, userCountDiff };
+                const aiCostUsd = computeAiCost(aiUsage, pricing);
+                return { label: server.label, id: server.id, activeUsers: uniqueUsers.size, version: health.version, versionIsNew, projectCount: projects.length, userCount: health.userCount, userCountDiff, aiCostUsd };
             });
 
         const newProjects: { instanceLabel: string; project: string }[] = [];
