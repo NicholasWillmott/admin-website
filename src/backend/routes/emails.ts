@@ -110,14 +110,9 @@ async function fetchServerHealth(serverId: string): Promise<{ online: boolean; v
     }
 }
 
-async function fetchChangelog(): Promise<string> {
-    const { readChangelog } = await import("./changelog.ts");
-    return readChangelog();
-}
-
-async function fetchChangelogAdmin(): Promise<string> {
-    const { readChangelogAdmin } = await import("./changelog.ts");
-    return readChangelogAdmin();
+async function fetchChangelogAuto(): Promise<string> {
+    const { readChangelogAuto } = await import("./changelog.ts");
+    return readChangelogAuto();
 }
 
 function compareVersions(a: string, b: string): number {
@@ -129,21 +124,37 @@ function compareVersions(a: string, b: string): number {
     return 0;
 }
 
-function parseChangelogEntriesSince(changelog: string, sinceVersion: string): string {
-    const sections = changelog.split(/(?=^## \[)/m).filter(s => s.startsWith("## ["));
-    const newEntries = sections.filter(section => {
-        const match = section.match(/^## \[([^\]]+)\]/);
-        if (!match) return false;
-        return compareVersions(match[1], sinceVersion) > 0;
+// Parse flat CHANGELOG_AUTO.txt lines of the form:
+// [version] [audience] [type] - Description
+// Returns HTML for lines matching the given audience that are newer than sinceVersion.
+function parseAutoChangelogSince(changelog: string, audience: "user" | "admin" | ("user" | "admin")[], sinceVersion: string): { html: string; text: string } {
+    const audiences = Array.isArray(audience) ? audience : [audience];
+    const lines = changelog.split("\n").filter(l => l.trim().startsWith(`[`) && audiences.some(a => l.includes(`] [${a}]`)));
+    const filtered = lines.filter(line => {
+        const m = line.match(/^\[([^\]]+)\]/);
+        if (!m || m[1] === "TBD") return false;
+        return compareVersions(m[1], sinceVersion) > 0;
     });
-    if (newEntries.length === 0) return "";
-    return newEntries.map(entry => {
-        let html = entry.replace(/^## (\[.+?\] - .+)$/m, "<h3>$1</h3>");
-        html = html.replace(/^### (.+)$/gm, "<strong>$1</strong>");
-        html = html.replace(/^- (.+)$/gm, "<li>$1</li>");
-        html = html.replace(/(<li>.*<\/li>\n?)+/gs, "<ul>$&</ul>");
-        return `<div class="changelog-entry">${html.trim()}</div>`;
-    }).join("\n");
+    if (filtered.length === 0) return { html: "", text: "" };
+    const items = filtered.map(line => {
+        const m = line.match(/^\[[^\]]+\] \[[^\]]+\] \[([^\]]+)\] - (.+)$/);
+        const type = m?.[1] ?? "";
+        const desc = m?.[2] ?? line;
+        return { type, desc };
+    });
+    const byType = new Map<string, string[]>();
+    for (const { type, desc } of items) {
+        if (!byType.has(type)) byType.set(type, []);
+        byType.get(type)!.push(desc);
+    }
+    let html = "";
+    for (const [type, descs] of byType) {
+        html += `<strong>${type.charAt(0).toUpperCase() + type.slice(1)}</strong><ul>`;
+        html += descs.map(d => `<li>${d}</li>`).join("");
+        html += `</ul>`;
+    }
+    const text = filtered.map(l => l.replace(/^\[[^\]]+\] \[[^\]]+\] /, "")).join("\n");
+    return { html: `<div class="changelog-entry">${html}</div>`, text };
 }
 
 async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
@@ -662,12 +673,8 @@ router.post("/superadmin-email", async (c) => {
             const sinceVersion = Object.values(knownVersions)
                 .filter(v => v && compareVersions(updatedServersMinVersion, v) > 0)
                 .sort((a, b) => compareVersions(a, b))[0] ?? updatedServersMinVersion;
-            const adminChangelog = await fetchChangelogAdmin();
-            changelogHtml = parseChangelogEntriesSince(adminChangelog, sinceVersion);
-            changelogText = adminChangelog.split(/(?=^## \[)/m)
-                .filter(s => s.startsWith("## ["))
-                .filter(s => { const m = s.match(/^## \[([^\]]+)\]/); return m ? compareVersions(m[1], sinceVersion) > 0 : false; })
-                .join("\n");
+            const adminChangelog = await fetchChangelogAuto();
+            ({ html: changelogHtml, text: changelogText } = parseAutoChangelogSince(adminChangelog, ["user", "admin"], sinceVersion));
         }
 
         const aiSummary = await generateAiSummary({
@@ -746,12 +753,8 @@ router.post("/instance-admin-emails", async (c) => {
             let changelogHtml = "";
             let changelogText = "";
             if (lastKnownVersion && health.version && compareVersions(health.version, lastKnownVersion) > 0) {
-                const changelog = await fetchChangelog();
-                changelogHtml = parseChangelogEntriesSince(changelog, lastKnownVersion);
-                changelogText = changelog.split(/(?=^## \[)/m)
-                    .filter(s => s.startsWith("## ["))
-                    .filter(s => { const m = s.match(/^## \[([^\]]+)\]/); return m ? compareVersions(m[1], lastKnownVersion) > 0 : false; })
-                    .join("\n");
+                const changelog = await fetchChangelogAuto();
+                ({ html: changelogHtml, text: changelogText } = parseAutoChangelogSince(changelog, "user", lastKnownVersion));
             }
 
             const aiSummary = await generateInstanceAiSummary({
