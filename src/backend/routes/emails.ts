@@ -221,7 +221,7 @@ function buildSuperAdminEmailHtml(
             : inst.userCountDiff < 0
                 ? `<span class="diff-dn">${inst.userCountDiff}</span>`
                 : "";
-        return `<tr><td>${inst.label}${newBadge}</td><td class="m">${inst.id}</td><td class="m">${inst.version}${versionBadge}</td><td class="c">${inst.projectCount}</td><td class="c">${inst.userCount}${diffFlair}</td><td class="c">${inst.activeUsers}</td><td class="c">${formatAiCost(inst.aiCostUsd)}</td></tr>`;
+        return `<tr><td>${inst.label}${newBadge}</td><td class="m">${inst.version}${versionBadge}</td><td class="c">${inst.projectCount}</td><td class="c">${inst.userCount}${diffFlair}</td><td class="c">${inst.activeUsers}</td><td class="c">${formatAiCost(inst.aiCostUsd)}</td></tr>`;
     }).join("");
 
     const instancesHiddenCount = sortedInstances.length - displayedInstances.length;
@@ -301,7 +301,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     </div>
     <h2>Instance Info</h2>
     <table>
-      <thead><tr><th>Instance</th><th>ID</th><th>Version</th><th class="c">Projects</th><th class="c">Users</th><th class="c">Active Users</th><th class="c">AI Cost</th></tr></thead>
+      <thead><tr><th>Instance</th><th>Version</th><th class="c">Projects</th><th class="c">Users</th><th class="c">Active Users</th><th class="c">AI Cost</th></tr></thead>
       <tbody>${instanceRows}${instancesHiddenNote}</tbody>
     </table>
     ${newProjects.length > 0 ? `
