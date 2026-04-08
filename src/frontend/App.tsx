@@ -33,6 +33,7 @@ import {
   createVolumeSnapshotApi,
   updateServerVersionApi,
   restartServerApi,
+  stopServerApi,
   backupServerApi,
   getUsersApi,
   getUserSessionsApi,
@@ -154,6 +155,7 @@ function App() {
   // track when updating server and restarting server ids are loading
   const [updatingServerId, setUpdatingServerId] = createSignal<string | null>(null);
   const [restartingServerId, setRestartingServerId] = createSignal<string | null>(null);
+  const [stoppingServerId, setStoppingServerId] = createSignal<string | null>(null);
 
   // track server restart statuses (idle, pending, online)
   const [serverRestartStatuses, setServerRestartStatuses] = createSignal<Record<string, ServerRestartStatus>>({});
@@ -538,6 +540,32 @@ function App() {
   };
 
 
+  // stop server
+  const stopServer = async (serverId: string) => {
+    if (sshOperationInProgress()) {
+      addToast('Another SSH operation is in progress. Please wait.', "info");
+      return;
+    }
+
+    setSshOperationInProgress(true);
+    setStoppingServerId(serverId);
+    try {
+      const token = await getToken();
+      const result = await stopServerApi(serverId, token);
+      if (result.success) {
+        addToast(`Server ${serverId} stopped successfully.`, "success");
+        refetchStatuses();
+      } else {
+        addToast(`Failed to stop server ${serverId}: ${result.error}`, "error");
+      }
+    } catch (error) {
+      addToast(`Error stopping server ${serverId}: ${error}`, "error");
+    } finally {
+      setStoppingServerId(null);
+      setSshOperationInProgress(false);
+    }
+  };
+
   // backup server
   const backupServer = async (serverId: string) => {
     setBackingUpServerId(serverId);
@@ -876,6 +904,8 @@ function App() {
                                   sshOperationInProgress={sshOperationInProgress()}
                                   onUpdate={updateServerVersion}
                                   onRestart={restartServer}
+                                  onStop={stopServer}
+                                  stoppingServerId={stoppingServerId()}
                                   onBackup={backupServer}
                                   onViewBackups={openBackupsModal}
                                   onViewLogs={openLogsModal}

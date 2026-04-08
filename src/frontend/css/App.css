@@ -588,6 +588,16 @@ h1 {
   transform: translateY(-2px) scale(1.05);
 }
 
+.action-btn.stop {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: white;
+  border: none;
+}
+
+.action-btn.stop:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.05);
+}
+
 .status-online {
   font-size: 20px;
   color: #28a745;  /* Green */

@@ -12,10 +12,12 @@ interface ServerCardProps {
   versions: string[];
   updatingServerId: string | null;
   restartingServerId: string | null;
+  stoppingServerId: string | null;
   backingUpServerId: string | null;
   sshOperationInProgress: boolean;
   onUpdate: (serverId: string, version: string) => void;
   onRestart: (serverId: string) => void;
+  onStop: (serverId: string) => void;
   onBackup: (serverId: string) => void;
   onViewBackups: (serverId: string) => void;
   onViewLogs: (serverId: string) => void;
@@ -196,6 +198,22 @@ export function ServerCard(props: ServerCardProps) {
                 'SSH Operation in Progress...'
               ) : (
                 'Restart Server'
+              )}
+            </button>
+            <button
+              class="action-btn stop"
+              onClick={() => props.onStop(props.server.id)}
+              disabled={props.isLocked || props.stoppingServerId === props.server.id || props.sshOperationInProgress}
+            >
+              {props.isLocked ? 'Server Locked' : props.stoppingServerId === props.server.id ? (
+                <>
+                  <span class="button-spinner"></span>
+                  Stopping...
+                </>
+              ) : props.sshOperationInProgress ? (
+                'SSH Operation in Progress...'
+              ) : (
+                'Stop Server'
               )}
             </button>
             <button
