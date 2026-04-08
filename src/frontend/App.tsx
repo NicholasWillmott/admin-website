@@ -632,9 +632,9 @@ function App() {
     return getUserSessionsApi(userId, token, since);
   };
 
-  const handleSendWeeklyReport = async () => {
+  const handleSendWeeklyReport = async (emails: string[]) => {
     const token = await getToken();
-    const result = await sendWeeklySuperAdminReportApi(token);
+    const result = await sendWeeklySuperAdminReportApi(token, emails);
     if (result.success) {
       addToast(`Weekly report sent to ${result.sentTo} admin(s)`, 'success');
     } else {
@@ -642,9 +642,9 @@ function App() {
     }
   };
 
-  const handleSendInstanceAdminReports = async () => {
+  const handleSendInstanceAdminReports = async (serverIds: string[]) => {
     const token = await getToken();
-    const result = await sendInstanceAdminReportsApi(token);
+    const result = await sendInstanceAdminReportsApi(token, serverIds);
     if (result.success) {
       addToast(`Instance admin reports sent (${result.emailsSent} email(s))`, 'success');
     } else {

@@ -4,6 +4,8 @@ import { formatDate } from '../../../utils.ts';
 import { H_USERS } from '../../../h_users.ts';
 import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
 import { ActiveUsersExportModal } from '../../modals/ActiveUsersExportModal.tsx';
+import { SuperAdminEmailModal } from '../../modals/SuperAdminEmailModal.tsx';
+import { InstanceAdminEmailModal } from '../../modals/InstanceAdminEmailModal.tsx';
 import { UserActivityGraph } from './graphs/UserActivityGraph.tsx';
 import { UserRegistrationsGraph } from './graphs/UserRegistrationsGraph.tsx';
 import { SignInHeatmap } from './graphs/SignInHeatmap.tsx';
@@ -21,8 +23,8 @@ interface UsersProps {
     servers: Server[] | undefined;
     onFetchInstanceStatus: (serverId: string) => Promise<HealthCheckResponse | null>;
     userLogs: ServerUserLogs | undefined;
-    onSendWeeklyReport: () => Promise<void>;
-    onSendInstanceAdminReports: () => Promise<void>;
+    onSendWeeklyReport: (emails: string[]) => Promise<void>;
+    onSendInstanceAdminReports: (serverIds: string[]) => Promise<void>;
 }
 
 function getPrimaryEmail(user: ClerkUser): string {
@@ -127,21 +129,23 @@ export function Users(p: UsersProps) {
         URL.revokeObjectURL(url);
     }
 
+    const [superAdminEmailOpen, setSuperAdminEmailOpen] = createSignal(false);
     const [sendingReport, setSendingReport] = createSignal(false);
 
-    async function sendWeeklyReport() {
+    async function sendWeeklyReport(emails: string[]) {
         if (sendingReport()) return;
         setSendingReport(true);
-        await p.onSendWeeklyReport();
+        await p.onSendWeeklyReport(emails);
         setSendingReport(false);
     }
 
+    const [instanceAdminEmailOpen, setInstanceAdminEmailOpen] = createSignal(false);
     const [sendingInstanceReports, setSendingInstanceReports] = createSignal(false);
 
-    async function sendInstanceAdminReports() {
+    async function sendInstanceAdminReports(serverIds: string[]) {
         if (sendingInstanceReports()) return;
         setSendingInstanceReports(true);
-        await p.onSendInstanceAdminReports();
+        await p.onSendInstanceAdminReports(serverIds);
         setSendingInstanceReports(false);
     }
 
@@ -282,10 +286,10 @@ export function Users(p: UsersProps) {
                                     <button type="button" class="dropdown-item" onClick={downloadFilteredTableCsv}>
                                         Export Table as CSV
                                     </button>
-                                    <button type="button" class="dropdown-item" onClick={sendWeeklyReport} disabled={sendingReport()}>
+                                    <button type="button" class="dropdown-item" onClick={() => setSuperAdminEmailOpen(true)} disabled={sendingReport()}>
                                         {sendingReport() ? 'Sending...' : 'Send Weekly Report'}
                                     </button>
-                                    <button type="button" class="dropdown-item" onClick={sendInstanceAdminReports} disabled={sendingInstanceReports()}>
+                                    <button type="button" class="dropdown-item" onClick={() => setInstanceAdminEmailOpen(true)} disabled={sendingInstanceReports()}>
                                         {sendingInstanceReports() ? 'Sending...' : 'Send Instance Admin Reports'}
                                     </button>
                                 </div>
@@ -430,6 +434,22 @@ export function Users(p: UsersProps) {
                     userLogs={p.userLogs}
                     initialInstance={selectedInstance()}
                     onClose={() => setActiveUsersExportOpen(false)}
+                />
+            )}
+            {superAdminEmailOpen() && (
+                <SuperAdminEmailModal
+                    users={p.users}
+                    sending={sendingReport()}
+                    onSend={sendWeeklyReport}
+                    onClose={() => setSuperAdminEmailOpen(false)}
+                />
+            )}
+            {instanceAdminEmailOpen() && (
+                <InstanceAdminEmailModal
+                    servers={p.servers}
+                    sending={sendingInstanceReports()}
+                    onSend={sendInstanceAdminReports}
+                    onClose={() => setInstanceAdminEmailOpen(false)}
                 />
             )}
         </>

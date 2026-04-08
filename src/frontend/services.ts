@@ -609,18 +609,20 @@ export async function stopServerApi(serverId: string, token: string | null): Pro
   return await response.json();
 }
 
-export async function sendWeeklySuperAdminReportApi(token: string | null): Promise<{ success: boolean; sentTo?: number; error?: string }> {
+export async function sendWeeklySuperAdminReportApi(token: string | null, emails?: string[]): Promise<{ success: boolean; sentTo?: number; error?: string }> {
   const response = await fetch(`${API_BASE}/api/emails/superadmin-email`, {
     method: 'POST',
-    headers: getAuthHeaders(token),
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: emails ? JSON.stringify({ emails }) : undefined,
   });
   return await response.json();
 }
 
-export async function sendInstanceAdminReportsApi(token: string | null): Promise<{ success: boolean; emailsSent?: number; error?: string }> {
+export async function sendInstanceAdminReportsApi(token: string | null, serverIds?: string[]): Promise<{ success: boolean; emailsSent?: number; error?: string }> {
   const response = await fetch(`${API_BASE}/api/emails/instance-admin-emails`, {
     method: 'POST',
-    headers: getAuthHeaders(token),
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: serverIds ? JSON.stringify({ serverIds }) : undefined,
   });
   return await response.json();
 }

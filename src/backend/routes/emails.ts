@@ -596,12 +596,15 @@ router.post("/superadmin-email", async (c) => {
         const weekStart = fmt(new Date(weekAgoMs));
         const weekEnd = fmt(new Date());
 
+        const body = await c.req.json().catch(() => ({}));
+        const requestedEmails: string[] | undefined = Array.isArray(body?.emails) ? body.emails : undefined;
+
         const [allUsers, servers] = await Promise.all([
             fetchAllUsers(),
             fetchServers(),
         ]);
 
-        const adminEmails = ["nicholaswillmottvball@gmail.com"];
+        const adminEmails = requestedEmails ?? ["nicholaswillmottvball@gmail.com"];
 
         const recentSignups = allUsers
             .filter(u => u.created_at >= weekAgoMs && !H_USERS.has(getPrimaryEmail(u)))
@@ -711,10 +714,17 @@ router.post("/instance-admin-emails", async (c) => {
         const weekStart = fmt(new Date(weekAgoMs));
         const weekEnd = fmt(new Date());
 
-        const [servers, state] = await Promise.all([
+        const body = await c.req.json().catch(() => ({}));
+        const requestedServerIds: string[] | undefined = Array.isArray(body?.serverIds) ? body.serverIds : undefined;
+
+        const [allServers, state] = await Promise.all([
             fetchServers(),
             readInstanceAdminEmailState(),
         ]);
+
+        const servers = requestedServerIds
+            ? allServers.filter((s: Server) => requestedServerIds.includes(s.id))
+            : allServers;
 
         const knownUserCounts = state?.knownUserCounts ?? {};
         const knownProjects = state?.knownProjects ?? {};
