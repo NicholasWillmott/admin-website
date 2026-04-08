@@ -490,6 +490,36 @@ router.post("/run", async (c) => {
     }
 });
 
+// Stop bulk servers
+router.post("/bulk-stop", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ ids: string[] }>();
+    const ids: string[] = body.ids;
+
+    if (!ids.every(id => isSafeParam(id))) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
+    const command = "wb stop " + ids.join(" ");
+
+    if (!isCommandAllowed(command)) {
+        return c.json({ error: "Command not allowed" }, 403);
+    }
+
+    try {
+        const result = await executeCommand(getDropletIp(), command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr,
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // Stop a server
 router.post("/stop", async (c) => {
     const authError = await requireAdmin(c);

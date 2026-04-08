@@ -239,6 +239,18 @@ export async function bulkRestartServerVersionApi(serverIds: string[], token: st
   return await response.json();
 }
 
+export async function bulkStopServerApi(serverIds: string[], token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/bulk-stop`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ids: serverIds }),
+  });
+  return await response.json();
+}
+
 export async function updateServerVersionApi(serverId: string, version: string, token: string | null): Promise<{ success: boolean; error?: string }> {
   const response = await fetch(`${API_BASE}/api/servers/${serverId}/update`, {
     method: 'POST',

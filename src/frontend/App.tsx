@@ -42,6 +42,7 @@ import {
   unlockServerApi,
   bulkUpdateServerVersionApi,
   bulkRestartServerVersionApi,
+  bulkStopServerApi,
   updateServerLanguageApi,
   updateServerCalendarApi,
   updateServerOpenAccessApi,
@@ -524,6 +525,45 @@ function App() {
     }
   };
 
+  // bulk restart servers (user-initiated)
+  const bulkRestartServer = async (serverIds: string[]) => {
+    if (sshOperationInProgress()) {
+      addToast('Another SSH operation is in progress. Please wait.', "info");
+      return;
+    }
+
+    setSshOperationInProgress(true);
+    try {
+      await bulkRestartServerInternal(serverIds);
+    } finally {
+      setSshOperationInProgress(false);
+    }
+  };
+
+  // bulk stop servers
+  const bulkStopServer = async (serverIds: string[]) => {
+    if (sshOperationInProgress()) {
+      addToast('Another SSH operation is in progress. Please wait.', "info");
+      return;
+    }
+
+    setSshOperationInProgress(true);
+    try {
+      const token = await getToken();
+      const result = await bulkStopServerApi(serverIds, token);
+      if (result.success) {
+        addToast(`${serverIds.length} servers stopped successfully.`, "success");
+        refetchStatuses();
+      } else {
+        addToast(`Failed to stop servers: ${result.error}`, "error");
+      }
+    } catch (error) {
+      addToast(`Error stopping servers: ${error}`, "error");
+    } finally {
+      setSshOperationInProgress(false);
+    }
+  };
+
   // restart server (user-initiated)
   const restartServer = async (serverId: string) => {
     if (sshOperationInProgress()) {
@@ -969,6 +1009,8 @@ function App() {
                     versions={serverVersions() || []}
                     sshOperationInProgress={sshOperationInProgress()}
                     onUpdate={bulkUpdateServerVersion}
+                    onRestart={bulkRestartServer}
+                    onStop={bulkStopServer}
                   />
                 )}
               </div>
