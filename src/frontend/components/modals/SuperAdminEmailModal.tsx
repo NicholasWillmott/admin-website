@@ -1,20 +1,13 @@
 import { createSignal, For } from 'solid-js';
-import type { ClerkUser } from '../../types.ts';
 
 interface SuperAdminEmailModalProps {
-    users: ClerkUser[] | undefined;
+    emails: string[];
     sending: boolean;
     onSend: (emails: string[]) => Promise<void>;
     onClose: () => void;
 }
 
-function getPrimaryEmail(user: ClerkUser): string {
-    return user.email_addresses.find(e => e.id === user.primary_email_address_id)?.email_address ?? '';
-}
-
 export function SuperAdminEmailModal(p: SuperAdminEmailModalProps) {
-    const superAdmins = () => (p.users ?? []).filter(u => u.public_metadata.isAdmin === true);
-
     const [excluded, setExcluded] = createSignal<Set<string>>(new Set());
 
     const toggle = (email: string) => {
@@ -25,9 +18,7 @@ export function SuperAdminEmailModal(p: SuperAdminEmailModalProps) {
         });
     };
 
-    const selectedEmails = () => superAdmins()
-        .map(u => getPrimaryEmail(u))
-        .filter(e => e && !excluded().has(e));
+    const selectedEmails = () => p.emails.filter(e => !excluded().has(e));
 
     async function handleSend() {
         if (selectedEmails().length === 0 || p.sending) return;
@@ -53,45 +44,23 @@ export function SuperAdminEmailModal(p: SuperAdminEmailModalProps) {
                                     </span>
                                 </p>
                                 <div style="display: flex; gap: 8px">
-                                    <button
-                                        type="button"
-                                        class="activity-btn"
-                                        onClick={() => setExcluded(new Set())}
-                                    >All</button>
-                                    <button
-                                        type="button"
-                                        class="activity-btn"
-                                        onClick={() => setExcluded(new Set(superAdmins().map(u => getPrimaryEmail(u))))}
-                                    >None</button>
+                                    <button type="button" class="activity-btn" onClick={() => setExcluded(new Set())}>All</button>
+                                    <button type="button" class="activity-btn" onClick={() => setExcluded(new Set(p.emails))}>None</button>
                                 </div>
                             </div>
                             <div style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
-                                {superAdmins().length === 0
-                                    ? <p style="color: #666; font-size: 13px">No super admins found.</p>
-                                    : (
-                                        <For each={superAdmins()}>
-                                            {(user) => {
-                                                const email = getPrimaryEmail(user);
-                                                return (
-                                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={!excluded().has(email)}
-                                                            onChange={() => toggle(email)}
-                                                        />
-                                                        <img
-                                                            src={user.image_url}
-                                                            alt=""
-                                                            style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover"
-                                                        />
-                                                        <span>{user.first_name} {user.last_name}</span>
-                                                        <span style="color: #666; font-size: 12px">{email}</span>
-                                                    </label>
-                                                );
-                                            }}
-                                        </For>
-                                    )
-                                }
+                                <For each={p.emails}>
+                                    {(email) => (
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc">
+                                            <input
+                                                type="checkbox"
+                                                checked={!excluded().has(email)}
+                                                onChange={() => toggle(email)}
+                                            />
+                                            <span>{email}</span>
+                                        </label>
+                                    )}
+                                </For>
                             </div>
                         </div>
 

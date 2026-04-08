@@ -438,7 +438,7 @@ export function Users(p: UsersProps) {
             )}
             {superAdminEmailOpen() && (
                 <SuperAdminEmailModal
-                    users={p.users}
+                    emails={[...H_USERS]}
                     sending={sendingReport()}
                     onSend={sendWeeklyReport}
                     onClose={() => setSuperAdminEmailOpen(false)}
