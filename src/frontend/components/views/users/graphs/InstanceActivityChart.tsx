@@ -91,7 +91,7 @@ export function InstanceActivityChart(p: InstanceActivityChartProps) {
         </div>
       </div>
       <Show when={data().length === 0}>
-        <p style="color: #64748b; font-size: 13px; padding: 12px 0">No activity data available.</p>
+        <p style="color: #94a3b8; font-size: 13px; padding: 12px 0">No activity data available.</p>
       </Show>
       <Show when={data().length > 0}>
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" class="activity-graph-svg">
@@ -107,7 +107,7 @@ export function InstanceActivityChart(p: InstanceActivityChartProps) {
                   x={PAD.left - 4} y={tick.y + 4}
                   text-anchor="end"
                   font-size="9"
-                  fill="#64748b"
+                  fill="#94a3b8"
                 >{tick.value}</text>
               </g>
             )}
@@ -136,7 +136,7 @@ export function InstanceActivityChart(p: InstanceActivityChartProps) {
                     y={BASELINE + 10}
                     text-anchor="end"
                     font-size="8"
-                    fill="#64748b"
+                    fill="#94a3b8"
                     transform={`rotate(-40, ${cx}, ${BASELINE + 10})`}
                   >{d.label}</text>
                 </g>

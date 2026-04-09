@@ -119,7 +119,7 @@ export function UserRegistrationsGraph(p: UserRegistrationsGraphProps) {
                                 x={PAD.left - 4} y={tick.y + 4}
                                 text-anchor="end"
                                 font-size="9"
-                                fill="#64748b"
+                                fill="#94a3b8"
                             >{tick.value}</text>
                         </g>
                     )}
@@ -149,7 +149,7 @@ export function UserRegistrationsGraph(p: UserRegistrationsGraphProps) {
                                 y={BASELINE + 14}
                                 text-anchor="middle"
                                 font-size="9"
-                                fill="#64748b"
+                                fill="#94a3b8"
                                 style={{ "pointer-events": "none" }}
                             >{bar.label}</text>
                         </g>

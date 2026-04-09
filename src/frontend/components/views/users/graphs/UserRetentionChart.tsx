@@ -99,7 +99,7 @@ export function UserRetentionChart(p: UserRetentionChartProps) {
                                     text-anchor="end"
                                     font-size="11"
                                     font-weight="500"
-                                    fill="#64748b"
+                                    fill="#94a3b8"
                                 >{bar.label}</text>
 
                                 {/* Background track */}
@@ -134,7 +134,7 @@ export function UserRetentionChart(p: UserRetentionChartProps) {
                                     x={PAD.left + Math.max(bar.barW, bar.count > 0 ? 4 : 0) + 8}
                                     y={midY + 4}
                                     font-size="10"
-                                    fill="#64748b"
+                                    fill="#94a3b8"
                                     style={{ "pointer-events": "none" }}
                                 >{bar.count} ({pct}%)</text>
 

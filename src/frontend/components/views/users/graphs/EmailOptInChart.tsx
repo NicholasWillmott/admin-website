@@ -108,7 +108,7 @@ export function EmailOptInChart(p: EmailOptInChartProps) {
 
             <svg viewBox={`0 0 ${W} ${H}`} width="100%" class="activity-graph-svg">
                 {total() === 0 ? (
-                    <text x={CX} y={CY} text-anchor="middle" font-size="12" fill="#64748b">No data</text>
+                    <text x={CX} y={CY} text-anchor="middle" font-size="12" fill="#94a3b8">No data</text>
                 ) : (
                     <>
                         <For each={arcs()}>
@@ -145,7 +145,7 @@ export function EmailOptInChart(p: EmailOptInChartProps) {
                                         x={LEGEND_X + 18}
                                         y={LEGEND_Y + i() * 22 + 10}
                                         font-size="11"
-                                        fill="#64748b"
+                                        fill="#94a3b8"
                                     >
                                         {seg.label}: {seg.count} ({Math.round((seg.count / total()) * 100)}%)
                                     </text>

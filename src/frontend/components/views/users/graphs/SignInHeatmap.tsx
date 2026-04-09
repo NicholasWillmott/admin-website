@@ -116,7 +116,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                             text-anchor="end"
                             font-size="10"
                             font-weight="500"
-                            fill="#64748b"
+                            fill="#94a3b8"
                         >{day}</text>
                     )}
                 </For>
@@ -129,7 +129,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                                 y={H - PAD.bottom + 14}
                                 text-anchor="middle"
                                 font-size="9"
-                                fill="#64748b"
+                                fill="#94a3b8"
                             >{formatHour(h)}</text>
                         ) : null
                     )}
