@@ -686,8 +686,8 @@ router.post("/superadmin-email", async (c) => {
         let changelogText = "";
         if (updatedServersMinVersion) {
             const sinceVersion = Object.values(knownVersions)
-                .filter(v => v && compareVersions(updatedServersMinVersion, v) > 0)
-                .sort((a, b) => compareVersions(a, b))[0] ?? updatedServersMinVersion;
+                .filter(v => !!v)
+                .sort((a, b) => compareVersions(b, a))[0] ?? "";
             const adminChangelog = await fetchChangelogAuto();
             ({ html: changelogHtml, text: changelogText } = parseAutoChangelogSince(adminChangelog, ["user", "admin"], sinceVersion));
         }
