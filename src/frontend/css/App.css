@@ -1860,10 +1860,11 @@ h1 {
 /* ===== User Activity Graph ===== */
 
 .activity-graph-section {
-  background: white;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .activity-graph-header {
@@ -1876,19 +1877,19 @@ h1 {
 .activity-graph-title {
   font-size: 13px;
   font-weight: 600;
-  color: #555;
+  color: #94a3b8;
 }
 
 .activity-graph-subtitle {
   font-size: 11px;
-  color: #bbb;
+  color: #64748b;
   margin-left: 6px;
 }
 
 .activity-graph-toggle {
   display: flex;
   gap: 4px;
-  background: #f0f0f0;
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 6px;
   padding: 3px;
 }
@@ -1897,21 +1898,21 @@ h1 {
   border: none;
   background: transparent;
   font-size: 12px;
-  color: #777;
+  color: #64748b;
   padding: 3px 10px;
   border-radius: 4px;
   cursor: pointer;
 }
 
 .activity-graph-btn.active {
-  background: #fff;
-  color: #1e293b;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .activity-graph-btn:hover:not(.active) {
-  color: #333;
+  color: #94a3b8;
 }
 
 .activity-graph-svg {
@@ -1937,7 +1938,7 @@ h1 {
 }
 
 .recent-signup-row:hover {
-  background: #f7f7f7;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .recent-signup-info {
@@ -1950,7 +1951,7 @@ h1 {
 .recent-signup-name {
   font-size: 13px;
   font-weight: 500;
-  color: #1e293b;
+  color: #e2e8f0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1958,7 +1959,7 @@ h1 {
 
 .recent-signup-email {
   font-size: 11px;
-  color: #aaa;
+  color: #64748b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1966,16 +1967,16 @@ h1 {
 
 .recent-signup-time {
   font-size: 11px;
-  color: #bbb;
+  color: #64748b;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .graph-year-select {
   font-size: 12px;
-  color: #555;
-  background: #f0f0f0;
-  border: none;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   padding: 4px 8px;
   cursor: pointer;
@@ -1983,7 +1984,7 @@ h1 {
 }
 
 .graph-year-select:hover {
-  background: #e4e4e4;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .dropdown {

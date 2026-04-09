@@ -32,8 +32,8 @@ function buildSegments(users: ClerkUser[]): Segment[] {
 
     return [
         { label: 'Opted In', count: optedIn, color: '#0e706c' },
-        { label: 'Opted Out', count: optedOut, color: '#7b9376ff' },
-        { label: 'Not Asked', count: notAsked, color: '#bdb7b7ff'},
+        { label: 'Opted Out', count: optedOut, color: '#1a8f89' },
+        { label: 'Not Asked', count: notAsked, color: '#334155' },
     ];
 }
 
@@ -58,8 +58,8 @@ function renderTooltip(t: TooltipState) {
     const ty = Math.max(t.y - th - 10, 4);
     return (
         <g style={{ "pointer-events": "none" }}>
-            <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="white" stroke="#ddd" stroke-width="1" />
-            <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#333">
+            <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="#1a2e22" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+            <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#e2e8f0">
                 {t.text}
             </text>
         </g>
@@ -108,7 +108,7 @@ export function EmailOptInChart(p: EmailOptInChartProps) {
 
             <svg viewBox={`0 0 ${W} ${H}`} width="100%" class="activity-graph-svg">
                 {total() === 0 ? (
-                    <text x={CX} y={CY} text-anchor="middle" font-size="12" fill="#bbb">No data</text>
+                    <text x={CX} y={CY} text-anchor="middle" font-size="12" fill="#64748b">No data</text>
                 ) : (
                     <>
                         <For each={arcs()}>
@@ -116,7 +116,7 @@ export function EmailOptInChart(p: EmailOptInChartProps) {
                                 <path
                                     d={arc.path}
                                     fill={arc.color}
-                                    stroke="white"
+                                    stroke="#1a2e22"
                                     stroke-width="2"
                                     style={{ cursor: 'default' }}
                                     onMouseEnter={() => setTooltip({
@@ -145,7 +145,7 @@ export function EmailOptInChart(p: EmailOptInChartProps) {
                                         x={LEGEND_X + 18}
                                         y={LEGEND_Y + i() * 22 + 10}
                                         font-size="11"
-                                        fill="#999"
+                                        fill="#64748b"
                                     >
                                         {seg.label}: {seg.count} ({Math.round((seg.count / total()) * 100)}%)
                                     </text>

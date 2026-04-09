@@ -34,8 +34,8 @@ function renderTooltip(t: TooltipState) {
     const ty = Math.max(t.y - th - 10, 4);
     return (
         <g style={{ "pointer-events": "none" }}>
-            <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="white" stroke="#ddd" stroke-width="1" />
-            <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#333">
+            <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="#1a2e22" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+            <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#e2e8f0">
                 {t.text}
             </text>
         </g>
@@ -113,13 +113,13 @@ export function UserRegistrationsGraph(p: UserRegistrationsGraphProps) {
                             <line
                                 x1={PAD.left} y1={tick.y}
                                 x2={W - PAD.right} y2={tick.y}
-                                stroke="#e8e8e8" stroke-width="1"
+                                stroke="rgba(255,255,255,0.08)" stroke-width="1"
                             />
                             <text
                                 x={PAD.left - 4} y={tick.y + 4}
                                 text-anchor="end"
                                 font-size="9"
-                                fill="#bbb"
+                                fill="#64748b"
                             >{tick.value}</text>
                         </g>
                     )}
@@ -134,7 +134,7 @@ export function UserRegistrationsGraph(p: UserRegistrationsGraphProps) {
                                 width={barWidth}
                                 height={Math.max(bar.height, 0.5)}
                                 rx="3"
-                                fill={bar.count > 0 ? '#0e706c' : '#e8e8e8'}
+                                fill={bar.count > 0 ? '#0e706c' : 'rgba(255,255,255,0.08)'}
                                 fill-opacity={bar.count > 0 ? '0.85' : '1'}
                                 style={{ cursor: 'default' }}
                                 onMouseEnter={() => setTooltip({
@@ -149,7 +149,7 @@ export function UserRegistrationsGraph(p: UserRegistrationsGraphProps) {
                                 y={BASELINE + 14}
                                 text-anchor="middle"
                                 font-size="9"
-                                fill="#bbb"
+                                fill="#64748b"
                                 style={{ "pointer-events": "none" }}
                             >{bar.label}</text>
                         </g>

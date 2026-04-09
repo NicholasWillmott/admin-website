@@ -36,11 +36,11 @@ function buildGridFromLogs(logs: UserLog[], emailSet: Set<string>): number[][] {
 }
 
 function cellColor(count: number, max: number): string {
-    if (count === 0 || max === 0) return '#f0f0f0';
+    if (count === 0 || max === 0) return 'rgba(255,255,255,0.06)';
     const t = count / max;
-    const r = Math.round(230 - t * 216);
-    const g = Math.round(240 - t * 128);
-    const b = Math.round(238 - t * 130);
+    const r = Math.round(14 + t * 30);
+    const g = Math.round(112 + t * 30);
+    const b = Math.round(108 + t * 20);
     return `rgb(${r},${g},${b})`;
 }
 
@@ -58,8 +58,8 @@ function renderTooltip(t: TooltipState) {
     const ty = Math.max(t.y - th - 10, 4);
     return (
         <g style={{ "pointer-events": "none" }}>
-            <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="white" stroke="#ddd" stroke-width="1" />
-            <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#333">
+            <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="#1a2e22" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+            <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#e2e8f0">
                 {t.text}
             </text>
         </g>
@@ -116,7 +116,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                             text-anchor="end"
                             font-size="10"
                             font-weight="500"
-                            fill="#999"
+                            fill="#64748b"
                         >{day}</text>
                     )}
                 </For>
@@ -129,7 +129,7 @@ export function SignInHeatmap(p: SignInHeatmapProps) {
                                 y={H - PAD.bottom + 14}
                                 text-anchor="middle"
                                 font-size="9"
-                                fill="#bbb"
+                                fill="#64748b"
                             >{formatHour(h)}</text>
                         ) : null
                     )}

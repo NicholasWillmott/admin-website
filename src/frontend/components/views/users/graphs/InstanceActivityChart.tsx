@@ -91,7 +91,7 @@ export function InstanceActivityChart(p: InstanceActivityChartProps) {
         </div>
       </div>
       <Show when={data().length === 0}>
-        <p style="color: #bbb; font-size: 13px; padding: 12px 0">No activity data available.</p>
+        <p style="color: #64748b; font-size: 13px; padding: 12px 0">No activity data available.</p>
       </Show>
       <Show when={data().length > 0}>
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" class="activity-graph-svg">
@@ -101,13 +101,13 @@ export function InstanceActivityChart(p: InstanceActivityChartProps) {
                 <line
                   x1={PAD.left} y1={tick.y}
                   x2={W - PAD.right} y2={tick.y}
-                  stroke="#e8e8e8" stroke-width="1"
+                  stroke="rgba(255,255,255,0.08)" stroke-width="1"
                 />
                 <text
                   x={PAD.left - 4} y={tick.y + 4}
                   text-anchor="end"
                   font-size="9"
-                  fill="#bbb"
+                  fill="#64748b"
                 >{tick.value}</text>
               </g>
             )}
@@ -136,7 +136,7 @@ export function InstanceActivityChart(p: InstanceActivityChartProps) {
                     y={BASELINE + 10}
                     text-anchor="end"
                     font-size="8"
-                    fill="#bbb"
+                    fill="#64748b"
                     transform={`rotate(-40, ${cx}, ${BASELINE + 10})`}
                   >{d.label}</text>
                 </g>
@@ -152,8 +152,8 @@ export function InstanceActivityChart(p: InstanceActivityChartProps) {
             const ty = Math.max(t.y - th - 10, 4);
             return (
               <g style={{ "pointer-events": "none" }}>
-                <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="white" stroke="#ddd" stroke-width="1" />
-                <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#333">
+                <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="#1a2e22" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+                <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#e2e8f0">
                   {t.text}
                 </text>
               </g>

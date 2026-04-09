@@ -18,8 +18,8 @@ const BUCKETS = [
     { label: 'Last 7d',   color: '#1a8f89',   ms: 7 * 24 * 60 * 60 * 1000 },
     { label: 'Last 30d',  color: '#2aada6',   ms: 30 * 24 * 60 * 60 * 1000 },
     { label: 'Last 90d',  color: '#7bcbc8',   ms: 90 * 24 * 60 * 60 * 1000 },
-    { label: '90d+',      color: '#bdb7b7',   ms: Infinity },
-    { label: 'Never',     color: '#e0e0e0',   ms: -1 },
+    { label: '90d+',      color: '#475569',   ms: Infinity },
+    { label: 'Never',     color: '#334155',   ms: -1 },
 ];
 
 function buildBuckets(users: ClerkUser[]) {
@@ -49,8 +49,8 @@ function renderTooltip(t: TooltipState) {
     const ty = Math.max(t.y - th - 10, 4);
     return (
         <g style={{ "pointer-events": "none" }}>
-            <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="white" stroke="#ddd" stroke-width="1" />
-            <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#333">
+            <rect x={tx} y={ty} width={tw} height={th} rx="4" fill="#1a2e22" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+            <text x={tx + tw / 2} y={ty + 13} text-anchor="middle" font-size="10" font-weight="500" fill="#e2e8f0">
                 {t.text}
             </text>
         </g>
@@ -99,7 +99,7 @@ export function UserRetentionChart(p: UserRetentionChartProps) {
                                     text-anchor="end"
                                     font-size="11"
                                     font-weight="500"
-                                    fill="#999"
+                                    fill="#64748b"
                                 >{bar.label}</text>
 
                                 {/* Background track */}
@@ -109,7 +109,7 @@ export function UserRetentionChart(p: UserRetentionChartProps) {
                                     width={IW}
                                     height={BAR_INNER}
                                     rx="3"
-                                    fill="#f0f0f0"
+                                    fill="rgba(255,255,255,0.06)"
                                 />
 
                                 {/* Filled bar */}
@@ -134,9 +134,10 @@ export function UserRetentionChart(p: UserRetentionChartProps) {
                                     x={PAD.left + Math.max(bar.barW, bar.count > 0 ? 4 : 0) + 8}
                                     y={midY + 4}
                                     font-size="10"
-                                    fill="#aaa"
+                                    fill="#64748b"
                                     style={{ "pointer-events": "none" }}
                                 >{bar.count} ({pct}%)</text>
+
                             </g>
                         );
                     }}
