@@ -7,6 +7,7 @@ import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { AiUsageView } from './components/views/AiUsageView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
+import { ServerVersionsModal } from './components/modals/ServerVersionsModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
 import { ConfigureCategoriesModal } from './components/modals/CreateCategoryModal.tsx';
 import type { ViewType } from './types.ts';
@@ -121,6 +122,9 @@ function App() {
 
   // track docker pull modal
   const [dockerPullModalOpen, setDockerPullModalOpen] = createSignal<boolean>(false);
+
+  // track server versions modal
+  const [serverVersionsModalOpen, setServerVersionsModalOpen] = createSignal<boolean>(false);
 
   // track create server modal
   const [createServerModalOpen, setCreateServerModalOpen] = createSignal<boolean>(false);
@@ -360,6 +364,12 @@ function App() {
                 >
                   Docker Pull
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setServerVersionsModalOpen(true)}
+                >
+                  Server Versions
+                </button>
               </div>
               <div class="nav-right" />
             </div>
@@ -484,6 +494,14 @@ function App() {
           </Show>
 
         </Show>
+
+        {/* Server Versions Modal */}
+        {serverVersionsModalOpen() && (
+          <ServerVersionsModal
+            servers={servers}
+            onClose={() => setServerVersionsModalOpen(false)}
+          />
+        )}
 
         {/* Docker Pull Modal */}
         {dockerPullModalOpen() && (
