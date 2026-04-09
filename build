@@ -32,20 +32,23 @@ DURATION=$((SECONDS - START_TIME))
 DURATION_MIN=$((DURATION / 60))
 DURATION_SEC=$((DURATION % 60))
 
+TEAL='\033[0;36m'
+NC='\033[0m'
+
 echo ""
-echo "╔══════════════════════════════════════════════════════════════════════╗"
-echo "║                                                                      ║"
-echo "║                      DEPLOYMENT SUCCESSFUL!                          ║"
-echo "║                                                                      ║"
-echo "╠══════════════════════════════════════════════════════════════════════╣"
-echo "║  Operations Completed:                                               ║"
-echo "║    - Frontend built successfully                                     ║"
-echo "║    - Frontend deployed to droplet                                    ║"
-echo "║    - Changes committed to Git                                        ║"
-echo "║    - Changes pushed to remote repository                             ║"
-echo "║    - .env synced to droplet                                          ║"
-echo "║    - Backend pulled and restarted on droplet                         ║"
-echo "║                                                                      ║"
-printf "║  %-68s║\n" "Duration: ${DURATION_MIN} minutes ${DURATION_SEC} seconds"
-echo "╚══════════════════════════════════════════════════════════════════════╝"
+echo -e "${TEAL}╔══════════════════════════════════════════════════════════════════════╗"
+echo -e "║                                                                      ║"
+echo -e "║                      DEPLOYMENT SUCCESSFUL!                          ║"
+echo -e "║                                                                      ║"
+echo -e "╠══════════════════════════════════════════════════════════════════════╣"
+echo -e "║  Operations Completed:                                               ║"
+echo -e "║    - Frontend built successfully                                     ║"
+echo -e "║    - Frontend deployed to droplet                                    ║"
+echo -e "║    - Changes committed to Git                                        ║"
+echo -e "║    - Changes pushed to remote repository                             ║"
+echo -e "║    - .env synced to droplet                                          ║"
+echo -e "║    - Backend pulled and restarted on droplet                         ║"
+echo -e "║                                                                      ║"
+printf "${TEAL}║  %-68s║\n" "Duration: ${DURATION_MIN} minutes ${DURATION_SEC} seconds"
+echo -e "╚══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
