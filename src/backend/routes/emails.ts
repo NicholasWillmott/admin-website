@@ -15,6 +15,7 @@ interface UserLog {
 interface Server {
     id: string;
     label: string;
+    serverVersion: string;
 }
 
 interface ClerkUser {
@@ -640,10 +641,11 @@ router.post("/superadmin-email", async (c) => {
                 const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs && !H_USERS.has(l.user_email));
                 const uniqueUsers = new Set(recentLogs.map((l: UserLog) => l.user_email));
                 uniqueUsers.forEach((u: string) => allActiveUsers.add(u));
-                const versionIsNew = (server.id in knownVersions) && knownVersions[server.id] !== health.version && health.version !== "";
+                const version = server.serverVersion || health.version;
+                const versionIsNew = (server.id in knownVersions) && knownVersions[server.id] !== version && version !== "";
                 const userCountDiff = (server.id in knownUserCounts) ? health.userCount - knownUserCounts[server.id] : 0;
                 const aiCostUsd = computeAiCost(aiUsage, pricing);
-                return { label: server.label, id: server.id, activeUsers: uniqueUsers.size, version: health.version, versionIsNew, projectCount: projects.length, userCount: health.userCount, userCountDiff, aiCostUsd };
+                return { label: server.label, id: server.id, activeUsers: uniqueUsers.size, version, versionIsNew, projectCount: projects.length, userCount: health.userCount, userCountDiff, aiCostUsd };
             });
 
         const newProjects: { instanceLabel: string; project: string }[] = [];
@@ -652,7 +654,7 @@ router.post("/superadmin-email", async (c) => {
         const currentUserCounts: Record<string, number> = {};
         for (const { server, projects, health } of logResults) {
             currentProjects[server.id] = projects;
-            currentVersions[server.id] = health.version;
+            currentVersions[server.id] = server.serverVersion || health.version;
             currentUserCounts[server.id] = health.userCount;
             const previouslyKnown = new Set(knownProjects[server.id] ?? []);
             for (const project of projects) {
@@ -747,9 +749,10 @@ router.post("/instance-admin-emails", async (c) => {
         const newKnownVersions: Record<string, string> = {};
 
         for (const { server, logs, projects, health } of results) {
+            const version = server.serverVersion || health.version;
             newKnownProjects[server.id] = projects;
             newKnownUserCounts[server.id] = health.userCount;
-            newKnownVersions[server.id] = health.version;
+            newKnownVersions[server.id] = version;
 
             if (!health.online || health.adminUsers.length === 0) continue;
 
@@ -762,7 +765,7 @@ router.post("/instance-admin-emails", async (c) => {
             const lastKnownVersion = knownVersions[server.id] ?? "";
             let changelogHtml = "";
             let changelogText = "";
-            if (lastKnownVersion && health.version && compareVersions(health.version, lastKnownVersion) > 0) {
+            if (lastKnownVersion && version && compareVersions(version, lastKnownVersion) > 0) {
                 const changelog = await fetchChangelogAuto();
                 ({ html: changelogHtml, text: changelogText } = parseAutoChangelogSince(changelog, "user", lastKnownVersion));
             }
@@ -770,7 +773,7 @@ router.post("/instance-admin-emails", async (c) => {
             const aiSummary = await generateInstanceAiSummary({
                 weekStart, weekEnd,
                 instanceLabel: server.label,
-                version: health.version,
+                version,
                 userCount: health.userCount,
                 userCountDiff,
                 activeUsers,
@@ -781,7 +784,7 @@ router.post("/instance-admin-emails", async (c) => {
             const html = buildInstanceAdminEmailHtml(
                 weekStart, weekEnd,
                 server.label, server.id,
-                health.version, health.userCount, userCountDiff,
+                version, health.userCount, userCountDiff,
                 activeUsers, projects, newProjects, recentLogs,
                 changelogHtml, aiSummary
             );
