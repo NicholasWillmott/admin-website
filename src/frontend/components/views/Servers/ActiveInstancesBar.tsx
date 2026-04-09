@@ -1,5 +1,5 @@
 import { For, Show } from 'solid-js';
-import type { Server, ServerStatuses } from '../../types.ts';
+import type { Server, ServerStatuses } from '../../../types.ts';
 
 interface ActiveInstancesBarProps {
   instances: Server[];

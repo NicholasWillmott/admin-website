@@ -21,6 +21,9 @@ import {
   createVolumeSnapshotApi,
   getUsersApi,
   getUserSessionsApi,
+  fetchLockedServersApi,
+  lockServerApi,
+  unlockServerApi,
   fetchAllServerUserLogs,
   fetchAllServerAiUsage,
   fetchModelPricing,
@@ -88,80 +91,6 @@ function App() {
     return fetchServerVersions(token);
   });
 
-
-  // track setting snapshot
-  const [snappingVolume, setSnappingVolume] = createSignal<boolean>(false);
-
-  // track expanded card
-  const [expandedId, setExpandedId] = createSignal<string | null>(null)
-
-  // track docker pull modal
-  const [dockerPullModalOpen, setDockerPullModalOpen] = createSignal<boolean>(false);
-
-  // track create server modal
-  const [createServerModalOpen, setCreateServerModalOpen] = createSignal<boolean>(false);
-
-  // track create category modal
-  const [createCategoryModalOpen, setCreateCategoryModalOpen] = createSignal<boolean>(false);
-
-  // track delete server modal
-  const [deleteServerModalId, setDeleteServerModalId] = createSignal<string | null>(null);
-
-  // track config modal
-  const [configModalServerId, setConfigModalServerId] = createSignal<string | null>(null);
-
-  // track move volume modal
-  const [moveVolumeModalId, setMoveVolumeModalId] = createSignal<string | null>(null);
-
-  // track which server's activity modal to show
-  const [activityModalServerId, setActivityModalServerId] = createSignal<string | null>(null);
-
-  // track which server's logs to show in modal
-  const [logsModalServerId, setLogsModalServerId] = createSignal<string | null>(null);
-  const [modalLogs, setModalLogs] = createSignal<string>('');
-  const [logsLoading, setLogsLoading] = createSignal<boolean>(false);
-
-  // track which servers I have multi selected
-  const [multiSelectMode, setMultiSelectMode] = createSignal(false);
-  const [multiSelectedServerIds, setMultiSelectedServerIds] = createSignal<string[] | null>([]);
-
-  // track when updating server and restarting server ids are loading
-  const [updatingServerId, setUpdatingServerId] = createSignal<string | null>(null);
-  const [restartingServerId, setRestartingServerId] = createSignal<string | null>(null);
-  const [stoppingServerId, setStoppingServerId] = createSignal<string | null>(null);
-
-  // track server restart statuses (idle, pending, online)
-  const [serverRestartStatuses, setServerRestartStatuses] = createSignal<Record<string, ServerRestartStatus>>({});
-
-  // track server backup statuses
-  const [backingUpServerId, setBackingUpServerId] = createSignal<string | null>(null);
-
-  // track which server's backups to show in modal
-  const [backupsModalServerId, setBackupsModalServerId] = createSignal<string | null>(null);
-  const [backupsList, setBackupsList] = createSignal<BackupInfo[]>([]);
-  const [backupsLoading, setBackupsLoading] = createSignal<boolean>(false);
-
-  // track when an ssh operation is happening to stop other ssh operations from occuring
-  const [sshOperationInProgress, setSshOperationInProgress] = createSignal<boolean>(false);
-
-  // track locked servers (shared, stored server-side)
-  const [lockedServers, setLockedServers] = createSignal<Set<string>>(new Set());
-  createResource(async () => {
-    const token = await getToken();
-    const locks = await fetchLockedServersApi(token);
-    setLockedServers(new Set(locks));
-  });
-  const toggleLock = async (serverId: string) => {
-    const token = await getToken();
-    const isLocked = lockedServers().has(serverId);
-    setLockedServers(prev => {
-      const next = new Set(prev);
-      isLocked ? next.delete(serverId) : next.add(serverId);
-      return next;
-    });
-    isLocked ? await unlockServerApi(serverId, token) : await lockServerApi(serverId, token);
-  };
-
   // fetch volume usage for all unique volumes across servers
   const [volumeUsages, { refetch: refetchVolumeUsages }] = createResource(
     servers,
@@ -187,6 +116,43 @@ function App() {
     return getUsersApi(token);
   });
 
+  // track setting snapshot
+  const [snappingVolume, setSnappingVolume] = createSignal<boolean>(false);
+
+  // track docker pull modal
+  const [dockerPullModalOpen, setDockerPullModalOpen] = createSignal<boolean>(false);
+
+  // track create server modal
+  const [createServerModalOpen, setCreateServerModalOpen] = createSignal<boolean>(false);
+
+  // track create category modal
+  const [createCategoryModalOpen, setCreateCategoryModalOpen] = createSignal<boolean>(false);
+
+  // track which servers I have multi selected
+  const [multiSelectMode, setMultiSelectMode] = createSignal(false);
+  const [multiSelectedServerIds, setMultiSelectedServerIds] = createSignal<string[] | null>([]);
+
+  // track when an ssh operation is happening to stop other ssh operations from occuring
+  const [sshOperationInProgress, setSshOperationInProgress] = createSignal<boolean>(false);
+
+  // track locked servers (shared with header's "Select all" button)
+  const [lockedServers, setLockedServers] = createSignal<Set<string>>(new Set());
+  createResource(async () => {
+    const token = await getToken();
+    const locks = await fetchLockedServersApi(token) as string[];
+    setLockedServers(new Set(locks));
+  });
+  const toggleLock = async (serverId: string) => {
+    const isLocked = lockedServers().has(serverId);
+    setLockedServers(prev => {
+      const next = new Set(prev);
+      isLocked ? next.delete(serverId) : next.add(serverId);
+      return next;
+    });
+    const token = await getToken();
+    isLocked ? await unlockServerApi(serverId, token) : await lockServerApi(serverId, token);
+  };
+
   // Track active view
   const [activeView, setActiveView] = createSignal<ViewType>("servers");
 
@@ -200,122 +166,6 @@ function App() {
 
   const { user: currentUser } = useUser();
   const isAdmin = () => currentUser()?.publicMetadata?.isAdmin === true;
-
-  const activeInstances = () => (servers() || []).filter(s => {
-    const log = statuses()?.[s.id]?.lastUserLog;
-    return log && Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000;
-  });
-
-  // server list filters
-  const [searchQuery, setSearchQuery] = createSignal('');
-  const [statusFilter, setStatusFilter] = createSignal<'all' | 'online' | 'offline'>('all');
-  const [versionFilter, setVersionFilter] = createSignal('all');
-  const [lockedFilter, setLockedFilter] = createSignal<'all' | 'locked' | 'unlocked'>('all');
-
-  const availableVersions = () => [...new Set((servers() || []).map(s => s.serverVersion))].sort();
-
-  const filteredServers = () => {
-    const query = searchQuery().toLowerCase();
-    return (servers() || []).filter(s => {
-      if (query && !s.label.toLowerCase().includes(query) && !s.id.toLowerCase().includes(query)) return false;
-      if (statusFilter() === 'online' && !statuses()?.[s.id]?.running) return false;
-      if (statusFilter() === 'offline' && statuses()?.[s.id]?.running) return false;
-      if (versionFilter() !== 'all' && s.serverVersion !== versionFilter()) return false;
-      if (lockedFilter() === 'locked' && !lockedServers().has(s.id)) return false;
-      if (lockedFilter() === 'unlocked' && lockedServers().has(s.id)) return false;
-      return true;
-    });
-  };
-
-  // toggle card
-  const toggleCard = (id: string) => {
-    setExpandedId(expandedId() === id ? null : id)
-  }
-
-  // open logs modal
-  const openLogsModal = async (serverId: string) => {
-    setLogsModalServerId(serverId);
-    setLogsLoading(true);
-
-    const token = await getToken();
-    const result = await fetchServerLogs(serverId, token);
-
-    if (result?.success) {
-      setModalLogs(result.logs);
-    } else {
-      setModalLogs(`Error: ${result?.error || 'Failed to fetch logs'}`);
-    }
-
-    setLogsLoading(false);
-  };
-
-  // close logs modal
-  const closeLogsModal = () => {
-    setLogsModalServerId(null);
-    setModalLogs('');
-  };
-
-  // open backups modal
-  const openBackupsModal = async (serverId: string) => {
-    setBackupsModalServerId(serverId);
-    setBackupsLoading(true);
-
-    const token = await getToken();
-    const backups = await fetchServerBackups(serverId, token);
-    setBackupsList(backups);
-    setBackupsLoading(false);
-  };
-
-  // close backups modal
-  const closeBackupsModal = () => {
-    setBackupsModalServerId(null);
-    setBackupsList([]);
-  };
-
-  // handle backup file download
-  const handleDownloadFile = async (serverId: string, folder: string, file: string) => {
-    const token = await getToken();
-    await downloadBackupFile(serverId, folder, file, token);
-  };
-
-  // handle entire backup download
-  const handleDownloadAll = async (serverId: string, folder: string) => {
-    const token = await getToken();
-    await downloadEntireBackup(serverId, folder, token);
-  };
-
-  // poll server logs until startup message is found
-  const pollServerLogsForStartup = async (serverId: string) => {
-    const maxAttempts = 400;
-    let attempts = 0;
-
-    const checkLogs = async (): Promise<boolean> => {
-      attempts++;
-      try {
-        const token = await getToken();
-        const result = await fetchServerLogs(serverId, token);
-
-        if (result?.success && result.logs.includes('Listening on http://0.0.0.0:8000/')) {
-          return true;
-        }
-
-        if (attempts >= maxAttempts) {
-          console.error(`Server ${serverId} did not start after ${maxAttempts} attempts`);
-          return false;
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        return await checkLogs();
-      } catch (error) {
-        console.error(`Error checking logs for ${serverId}:`, error);
-        if (attempts >= maxAttempts) return false;
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        return await checkLogs();
-      }
-    };
-
-    return await checkLogs();
-  };
 
   // delete snapshot of volume
   const deleteVolumeSnapshot = async (snapshotId: string) => {
@@ -351,250 +201,6 @@ function App() {
       addToast(`Error creating snapshot: ${error}`, "error");
     } finally {
       setSnappingVolume(false);
-    }
-  };
-
-  // Internal restart function (assumes SSH lock is already held)
-  const restartServerInternal = async (serverId: string) => {
-    setRestartingServerId(serverId);
-    setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'pending' }));
-
-    try {
-      const token = await getToken();
-      const result = await restartServerApi(serverId, token);
-      if (result.success) {
-        const isOnline = await pollServerLogsForStartup(serverId);
-        if (isOnline) {
-          setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'online' }));
-          addToast(`Server ${serverId} restarted successfully and is now online.`, "success");
-          refetchStatuses();
-        } else {
-          setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'idle' }));
-          addToast(`Server ${serverId} restart command sent, but failed to detect online status.`, "error");
-        }
-      } else {
-        setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'idle' }));
-        addToast(`Failed to restart server ${serverId}: ${result.error}`, "error");
-      }
-    } catch (error) {
-      setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'idle' }));
-      addToast(`Error restarting server ${serverId}: ${error}`, "error");
-    } finally {
-      setRestartingServerId(null);
-    }
-  };
-
-  const bulkRestartServerInternal = async (serverIds: string[]) => {
-    serverIds.forEach(id => {
-      setServerRestartStatuses(prev => ({ ...prev, [id]: 'pending' }));
-    });
-
-    try {
-      const token = await getToken();
-      const result = await bulkRestartServerVersionApi(serverIds, token);
-      if (result.success) {
-        const results = await Promise.all(serverIds.map(id => pollServerLogsForStartup(id)));
-        serverIds.forEach((id, i) => {
-          if (results[i]) {
-            setServerRestartStatuses(prev => ({ ...prev, [id]: 'online' }));
-            addToast(`Server ${id} restarted successfully and is now online.`, "success");
-          } else {
-            setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
-            addToast(`Server ${id} restart command sent, but failed to detect online status.`, "error");
-          }
-        });
-        refetchStatuses();
-      } else {
-        serverIds.forEach(id => {
-          setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
-        });
-        addToast(`Failed to bulk restart servers: ${result.error}`, "error");
-      }
-    } catch (error) {
-      serverIds.forEach(id => {
-        setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
-      });
-      addToast(`Error restarting servers: ${error}`, "error");
-    }
-  };
-
-  // update server version
-  const updateServerVersion = async (serverId: string, version: string) => {
-    if (sshOperationInProgress()) {
-      addToast('Another SSH operation is in progress. Please wait.', "info");
-      return;
-    }
-
-    setSshOperationInProgress(true);
-    setUpdatingServerId(serverId);
-
-    try {
-      const token = await getToken();
-      const result = await updateServerVersionApi(serverId, version, token);
-
-      if (result.success) {
-        addToast(`${serverId} Server updated successfully to version ${version}.`, "success");
-
-        const currentServers = servers();
-        if (currentServers) {
-          const updatedServers = currentServers.map((server) =>
-            server.id === serverId
-              ? { ...server, serverVersion: version }
-              : server
-          );
-          mutate(updatedServers);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setUpdatingServerId(null);
-        await restartServerInternal(serverId);
-      } else {
-        addToast(`Error: ${result.error}`, "error");
-      }
-    } catch (error) {
-      addToast(`Failed to update server: ${error}`, "error");
-    } finally {
-      setUpdatingServerId(null);
-      setSshOperationInProgress(false);
-    }
-  };
-
-  // bulk update server versions
-  const bulkUpdateServerVersion = async (serverIds: string[], version: string) => {
-    if (sshOperationInProgress()) {
-      addToast('Another SSH operation is in progress. Please wait.', "info");
-      return;
-    }
-
-    setSshOperationInProgress(true);
-
-    try {
-      const token = await getToken();
-      const result = await bulkUpdateServerVersionApi(serverIds, version, token);
-
-      if (result.success) {
-        addToast(`Servers updated successfully to version ${version}`, "success");
-
-        const currentServers = servers();
-        if (currentServers) {
-          const updatedServers = currentServers.map((server) =>
-            serverIds.includes(server.id)
-              ? { ...server, serverVersion: version }
-              : server
-          );
-          mutate(updatedServers);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 1000)); // waits one second in between ssh calls so it doesn't overload the server
-        await bulkRestartServerInternal(serverIds);
-      } else {
-        addToast(`Error: ${result.error}`, "error");
-      } 
-    } catch (error) {
-      addToast(`Failed to update server: ${error}`, "error");
-    } finally {
-      setSshOperationInProgress(false);
-    }
-  };
-
-  // bulk restart servers (user-initiated)
-  const bulkRestartServer = async (serverIds: string[]) => {
-    if (sshOperationInProgress()) {
-      addToast('Another SSH operation is in progress. Please wait.', "info");
-      return;
-    }
-
-    setSshOperationInProgress(true);
-    try {
-      await bulkRestartServerInternal(serverIds);
-    } finally {
-      setSshOperationInProgress(false);
-    }
-  };
-
-  // bulk stop servers
-  const bulkStopServer = async (serverIds: string[]) => {
-    if (sshOperationInProgress()) {
-      addToast('Another SSH operation is in progress. Please wait.', "info");
-      return;
-    }
-
-    setSshOperationInProgress(true);
-    try {
-      const token = await getToken();
-      const result = await bulkStopServerApi(serverIds, token);
-      if (result.success) {
-        addToast(`${serverIds.length} servers stopped successfully.`, "success");
-        refetchStatuses();
-      } else {
-        addToast(`Failed to stop servers: ${result.error}`, "error");
-      }
-    } catch (error) {
-      addToast(`Error stopping servers: ${error}`, "error");
-    } finally {
-      setSshOperationInProgress(false);
-    }
-  };
-
-  // restart server (user-initiated)
-  const restartServer = async (serverId: string) => {
-    if (sshOperationInProgress()) {
-      addToast('Another SSH operation is in progress. Please wait.', "info");
-      return;
-    }
-
-    setSshOperationInProgress(true);
-    try {
-      await restartServerInternal(serverId);
-    } finally {
-      setSshOperationInProgress(false);
-    }
-  };
-
-
-  // stop server
-  const stopServer = async (serverId: string) => {
-    if (sshOperationInProgress()) {
-      addToast('Another SSH operation is in progress. Please wait.', "info");
-      return;
-    }
-
-    setSshOperationInProgress(true);
-    setStoppingServerId(serverId);
-    try {
-      const token = await getToken();
-      const result = await stopServerApi(serverId, token);
-      if (result.success) {
-        addToast(`Server ${serverId} stopped successfully.`, "success");
-        refetchStatuses();
-      } else {
-        addToast(`Failed to stop server ${serverId}: ${result.error}`, "error");
-      }
-    } catch (error) {
-      addToast(`Error stopping server ${serverId}: ${error}`, "error");
-    } finally {
-      setStoppingServerId(null);
-      setSshOperationInProgress(false);
-    }
-  };
-
-  // backup server
-  const backupServer = async (serverId: string) => {
-    setBackingUpServerId(serverId);
-
-    try {
-      const token = await getToken();
-      const result = await backupServerApi(serverId, token);
-
-      if (result.success) {
-        addToast(`Backup created successfully for ${serverId}`, "success");
-      } else {
-        addToast(`Failed to backup ${serverId}: ${result.error}`, "error");
-      }
-    } catch (error) {
-      addToast(`Error backing up server ${serverId}: ${error}`, "error");
-    } finally {
-      setBackingUpServerId(null);
     }
   };
 
@@ -643,72 +249,12 @@ function App() {
       addToast('Please wait for the current operation to complete', "info");
       return;
     }
-
     setSshOperationInProgress(true);
     try {
       const token = await getToken();
       await dockerPull(version, token);
       await new Promise(resolve => setTimeout(resolve, 1000));
       await refetchServerVersions();
-    } finally {
-      setSshOperationInProgress(false);
-    }
-  };
-
-  const handleSaveConfig = async (
-    serverId: string,
-    changes: { french?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string; category?: string },
-  ) => {
-    if (sshOperationInProgress()) {
-      addToast('Another SSH operation is in progress. Please wait.', 'info');
-      return;
-    }
-    setSshOperationInProgress(true);
-    try {
-      const token = await getToken();
-      if (changes.french !== undefined) {
-        const r = await updateServerLanguageApi(serverId, changes.french, token);
-        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
-      }
-      if (changes.ethiopian !== undefined) {
-        const r = await updateServerCalendarApi(serverId, changes.ethiopian, token);
-        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
-      }
-      if (changes.openAccess !== undefined) {
-        const r = await updateServerOpenAccessApi(serverId, changes.openAccess, token);
-        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
-      }
-      if (changes.label !== undefined) {
-        const r = await updateServerLabelApi(serverId, changes.label, token);
-        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
-      }
-      if (changes.category !== undefined) {
-        const r = await assignServerCategoryApi(serverId, changes.category, token);
-        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
-        refetchDynamicCategories();
-      }
-      mutate(prev => prev?.map(s => s.id === serverId ? { ...s, ...changes } : s));
-      addToast('Configuration saved', 'success');
-      setConfigModalServerId(null);
-    } catch (error) {
-      addToast(`Error: ${error}`, 'error');
-    } finally {
-      setSshOperationInProgress(false);
-    }
-  };
-
-  const handleMoveVolume = async (serverId: string, newVolume: string) => {
-    setSshOperationInProgress(true);
-    try {
-      const token = await getToken();
-      const result = await moveServerVolumeApi(serverId, newVolume, token);
-      if (!result.success) { addToast(`Move failed: ${result.error}`, 'error'); return; }
-      await refetchServers();
-      await refetchVolumeUsages();
-      addToast(`${serverId} moved to /mnt/${newVolume}`, 'success');
-      setMoveVolumeModalId(null);
-    } catch (error) {
-      addToast(`Move failed: ${error}`, 'error');
     } finally {
       setSshOperationInProgress(false);
     }
@@ -857,136 +403,30 @@ function App() {
           }
         >
           <Show when={activeView() === "servers"}>
-            {(servers.loading || categories.loading) && <h2 class="loading-text">Loading...</h2>}
-            {servers.error && <p>Error: {servers.error.message}</p>}
-            {servers() && categories() && (
-              <div class="servers-container">
-                <ActiveInstancesBar instances={activeInstances()} statuses={statuses()} loading={statuses.loading} />
-                <div class="server-filter-bar">
-                  <input
-                    class="server-filter-input"
-                    type="text"
-                    placeholder="Search by name or ID..."
-                    value={searchQuery()}
-                    onInput={(e) => setSearchQuery(e.currentTarget.value)}
-                  />
-                  <select class="server-filter-select" value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value as 'all' | 'online' | 'offline')}>
-                    <option value="all">All Statuses</option>
-                    <option value="online">Online</option>
-                    <option value="offline">Offline</option>
-                  </select>
-                  <select class="server-filter-select" value={versionFilter()} onChange={(e) => setVersionFilter(e.currentTarget.value)}>
-                    <option value="all">All Versions</option>
-                    <For each={availableVersions()}>{(v) => <option value={v}>{v}</option>}</For>
-                  </select>
-                  <select class="server-filter-select" value={lockedFilter()} onChange={(e) => setLockedFilter(e.currentTarget.value as 'all' | 'locked' | 'unlocked')}>
-                    <option value="all">All Lock States</option>
-                    <option value="locked">Locked</option>
-                    <option value="unlocked">Unlocked</option>
-                  </select>
-                </div>
-                <For each={(() => {
-                  const cats = categories() || [];
-                  const allIds = new Set(cats.flatMap(cat => cat.servers));
-                  return [...cats, { name: "Misc", servers: (servers() || []).filter(s => !allIds.has(s.id)).map(s => s.id) }];
-                })()}>
-                  {(category) => {
-                    const categoryServers = () => filteredServers().filter(s =>
-                      category.servers.includes(s.id)
-                    );
-
-                    return (
-                      <Show when={categoryServers().length > 0}>
-                        <div class="category-section">
-                          <h2 class="category-header">{category.name}</h2>
-                          <div class="servers-grid">
-                            <For each={categoryServers()}>
-                              {(server) => (
-                                <ServerCard
-                                  server={server}
-                                  isExpanded={expandedId() === server.id}
-                                  onToggle={() => toggleCard(server.id)}
-                                  status={statuses()?.[server.id] ?? null}
-                                  isLoading={statuses.loading && statuses() === undefined}
-                                  restartStatus={serverRestartStatuses()[server.id] ?? 'idle'}
-                                  versions={serverVersions() || []}
-                                  updatingServerId={updatingServerId()}
-                                  restartingServerId={restartingServerId()}
-                                  backingUpServerId={backingUpServerId()}
-                                  sshOperationInProgress={sshOperationInProgress()}
-                                  onUpdate={updateServerVersion}
-                                  onRestart={restartServer}
-                                  onStop={stopServer}
-                                  stoppingServerId={stoppingServerId()}
-                                  onBackup={backupServer}
-                                  onViewBackups={openBackupsModal}
-                                  onViewLogs={openLogsModal}
-                                  isLocked={lockedServers().has(server.id)}
-                                  onToggleLock={toggleLock}
-                                  multiSelectMode={multiSelectMode()}
-                                  isSelected={multiSelectedServerIds()!.includes(server.id)}
-                                  onToggleSelect={(id) => setMultiSelectedServerIds(prev =>
-                                    prev!.includes(id) ? prev!.filter(x => x !== id) : [...prev!, id]
-                                  )}
-                                  onDelete={(id) => setDeleteServerModalId(id)}
-                                  onConfig={(id) => setConfigModalServerId(id)}
-                                  onMoveVolume={(id) => setMoveVolumeModalId(id)}
-                                  onActivityDotClick={(id) => setActivityModalServerId(id)}
-                                />
-                              )}
-                            </For>
-                          </div>
-                        </div>
-                      </Show>
-                    );
-                  }}
-                </For>
-
-                {/* Backups Modal */}
-                {backupsModalServerId() && (
-                  <BackupsModal
-                    serverId={backupsModalServerId()!}
-                    backups={backupsList()}
-                    loading={backupsLoading()}
-                    onClose={closeBackupsModal}
-                    onDownloadFile={handleDownloadFile}
-                    onDownloadAll={handleDownloadAll}
-                  />
-                )}
-
-                {/* Activity Modal */}
-                {activityModalServerId() && (
-                  <ServerActivityModal
-                    serverId={activityModalServerId()!}
-                    serverLabel={servers()?.find(s => s.id === activityModalServerId())?.label ?? activityModalServerId()!}
-                    userLogs={allServerUserLogs()?.[activityModalServerId()!] ?? []}
-                    onClose={() => setActivityModalServerId(null)}
-                  />
-                )}
-
-                {/* Logs Modal */}
-                {logsModalServerId() && (
-                  <LogsModal
-                    serverId={logsModalServerId()!}
-                    logs={modalLogs()}
-                    loading={logsLoading()}
-                    onClose={closeLogsModal}
-                  />
-                )}
-
-                {/* bulk select modal */}
-                {(multiSelectedServerIds()?.length ?? 0) > 0 && (
-                  <ServerMultiSelectModal
-                    serverIds={multiSelectedServerIds()!}
-                    versions={serverVersions() || []}
-                    sshOperationInProgress={sshOperationInProgress()}
-                    onUpdate={bulkUpdateServerVersion}
-                    onRestart={bulkRestartServer}
-                    onStop={bulkStopServer}
-                  />
-                )}
-              </div>
-            )}
+            <ServersView
+              servers={servers}
+              serversLoading={servers.loading}
+              serversError={servers.error}
+              mutate={mutate}
+              refetchServers={refetchServers}
+              categories={categories}
+              categoriesLoading={categories.loading}
+              refetchDynamicCategories={refetchDynamicCategories}
+              statuses={statuses}
+              statusesLoading={statuses.loading}
+              refetchStatuses={refetchStatuses}
+              allServerUserLogs={allServerUserLogs}
+              serverVersions={serverVersions}
+              volumes={volumes}
+              lockedServers={lockedServers}
+              onToggleLock={toggleLock}
+              sshOperationInProgress={sshOperationInProgress}
+              setSshOperationInProgress={setSshOperationInProgress}
+              multiSelectMode={multiSelectMode}
+              multiSelectedServerIds={multiSelectedServerIds}
+              setMultiSelectedServerIds={setMultiSelectedServerIds}
+              getToken={getToken}
+            />
           </Show>
 
           <Show when={activeView() === "snapshots"}>
@@ -1074,39 +514,6 @@ function App() {
             onUpdated={() => refetchDynamicCategories()}
             getToken={getToken}
             categories={categories() || []}
-          />
-        )}
-
-        {/* Config Modal */}
-        {configModalServerId() && (
-          <ConfigModal
-            server={servers()!.find(s => s.id === configModalServerId())!}
-            sshOperationInProgress={sshOperationInProgress()}
-            categories={categories() || []}
-            currentCategory={(categories() || []).find(c => c.servers.includes(configModalServerId()!))?.name ?? ''}
-            onClose={() => setConfigModalServerId(null)}
-            onSave={handleSaveConfig}
-          />
-        )}
-
-        {/* Move Volume Modal */}
-        {moveVolumeModalId() && (
-          <MoveVolumeModal
-            server={servers()!.find(s => s.id === moveVolumeModalId())!}
-            volumes={volumes() ?? []}
-            inProgress={sshOperationInProgress()}
-            onClose={() => setMoveVolumeModalId(null)}
-            onConfirm={handleMoveVolume}
-          />
-        )}
-
-        {/* Delete Server Modal */}
-        {deleteServerModalId() && (
-          <DeleteServerModal
-            serverId={deleteServerModalId()!}
-            onClose={() => setDeleteServerModalId(null)}
-            onDeleted={() => { setDeleteServerModalId(null); refetchServers(); }}
-            getToken={getToken}
           />
         )}
       </SignedIn>
