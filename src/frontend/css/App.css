@@ -4614,6 +4614,17 @@ h1 {
   justify-content: space-between;
 }
 
+.ai-usage-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-usage-filter-sep {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+}
+
 .ai-usage-title {
   color: #e2e8f0;
   font-size: 1rem;

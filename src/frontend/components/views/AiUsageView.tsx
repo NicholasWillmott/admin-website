@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from 'solid-js';
+import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { Server, AiUsageLog, ServerAiUsageLogs, ModelPricing } from '../../types.ts';
 
 interface AiUsageViewProps {
@@ -32,13 +32,23 @@ function formatTokens(n: number): string {
 }
 
 export function AiUsageView(props: AiUsageViewProps) {
+  const [dateFrom, setDateFrom] = createSignal('');
+  const [dateTo, setDateTo] = createSignal('');
+
   const rows = createMemo(() => {
     const servers = props.servers ?? [];
     const logs = props.aiUsageLogs ?? {};
     const pricing = props.pricing ?? {};
+    const from = dateFrom() ? new Date(dateFrom()).getTime() : null;
+    const to = dateTo() ? new Date(dateTo() + 'T23:59:59').getTime() : null;
 
     return servers.map(server => {
-      const serverLogs = logs[server.id] ?? [];
+      const serverLogs = (logs[server.id] ?? []).filter(log => {
+        const t = new Date(log.timestamp).getTime();
+        if (from !== null && t < from) return false;
+        if (to !== null && t > to) return false;
+        return true;
+      });
       const totals = serverLogs.reduce(
         (acc, log) => ({
           requests: acc.requests + 1,
@@ -73,7 +83,12 @@ export function AiUsageView(props: AiUsageViewProps) {
       <div class="ai-usage-content">
         <div class="ai-usage-header">
           <h2 class="ai-usage-title">AI Usage</h2>
-          <button class="system-btn" onClick={() => props.onRefetch()}>Refresh</button>
+          <div class="ai-usage-filters">
+            <input type="date" class="server-filter-input" value={dateFrom()} onChange={(e) => setDateFrom(e.currentTarget.value)} />
+            <span class="ai-usage-filter-sep">to</span>
+            <input type="date" class="server-filter-input" value={dateTo()} onChange={(e) => setDateTo(e.currentTarget.value)} />
+            <button class="system-btn" onClick={() => props.onRefetch()}>Refresh</button>
+          </div>
         </div>
 
         <Show when={props.loading}>
