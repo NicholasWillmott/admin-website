@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+START_TIME=$SECONDS
+
 DROPLET="root@137.184.155.181"
 REMOTE_DIR="/var/www/admin-website"
 
@@ -26,4 +28,24 @@ rsync -az src/backend/.env "$DROPLET:$REMOTE_DIR/src/backend/.env"
 echo "==> Pulling and restarting backend on droplet..."
 ssh "$DROPLET" "cd $REMOTE_DIR && git pull && systemctl restart admin-backend"
 
-echo "==> Done."
+DURATION=$((SECONDS - START_TIME))
+DURATION_MIN=$((DURATION / 60))
+DURATION_SEC=$((DURATION % 60))
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════════════════╗"
+echo "║                                                                      ║"
+echo "║                      DEPLOYMENT SUCCESSFUL!                         ║"
+echo "║                                                                      ║"
+echo "╠══════════════════════════════════════════════════════════════════════╣"
+echo "║  Operations Completed:                                               ║"
+echo "║    - Frontend built successfully                                     ║"
+echo "║    - Frontend deployed to droplet                                    ║"
+echo "║    - Changes committed to Git                                        ║"
+echo "║    - Changes pushed to remote repository                             ║"
+echo "║    - .env synced to droplet                                          ║"
+echo "║    - Backend pulled and restarted on droplet                         ║"
+echo "║                                                                      ║"
+printf "║  Duration: %d minutes %d seconds%-30s║\n" "$DURATION_MIN" "$DURATION_SEC" ""
+echo "╚══════════════════════════════════════════════════════════════════════╝"
+echo ""

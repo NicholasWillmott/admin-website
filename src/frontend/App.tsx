@@ -1,52 +1,26 @@
-import { createResource, createSignal, For, Show, createEffect, onCleanup } from 'solid-js'
+import { createResource, createSignal, Show, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 import { ModuleEditorContent } from './components/views/ModuleDefinitions/ModuleEditorContent.tsx';
-import { ServerCard } from './components/views/ServerCard.tsx';
-import { ActiveInstancesBar } from './components/views/ActiveInstancesBar.tsx';
-import { LogsModal } from './components/modals/LogsModal.tsx';
-import { ServerActivityModal } from './components/modals/ServerActivityModal.tsx';
-import { BackupsModal } from './components/modals/BackupsModal.tsx';
+import { ServersView } from './components/views/Servers/ServersView.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { AiUsageView } from './components/views/AiUsageView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
 import { ConfigureCategoriesModal } from './components/modals/CreateCategoryModal.tsx';
-import { DeleteServerModal } from './components/modals/DeleteServerModal.tsx';
-import { ConfigModal } from './components/modals/ConfigModal.tsx';
-import { MoveVolumeModal } from './components/modals/MoveVolumeModal.tsx';
-import { ServerMultiSelectModal } from './components/modals/ServerMultiSelectModal.tsx'
-import type { ServerRestartStatus, BackupInfo, ViewType } from './types.ts';
+import type { ViewType } from './types.ts';
 import {
   fetchServerCardData,
-  fetchServerLogs,
-  fetchServerBackups,
   fetchServerStatus,
   fetchAllServerStatuses,
   fetchServerVersions,
   fetchVolumeSnapshots,
   dockerPull,
-  downloadBackupFile,
-  downloadEntireBackup,
   deleteVolumeSnapshotApi,
   createVolumeSnapshotApi,
-  updateServerVersionApi,
-  restartServerApi,
-  stopServerApi,
-  backupServerApi,
   getUsersApi,
   getUserSessionsApi,
-  fetchLockedServersApi,
-  lockServerApi,
-  unlockServerApi,
-  bulkUpdateServerVersionApi,
-  bulkRestartServerVersionApi,
-  bulkStopServerApi,
-  updateServerLanguageApi,
-  updateServerCalendarApi,
-  updateServerOpenAccessApi,
-  updateServerLabelApi,
   fetchAllServerUserLogs,
   fetchAllServerAiUsage,
   fetchModelPricing,
@@ -55,8 +29,6 @@ import {
   fetchVolumesApi,
   sendWeeklySuperAdminReportApi,
   sendInstanceAdminReportsApi,
-  moveServerVolumeApi,
-  assignServerCategoryApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
