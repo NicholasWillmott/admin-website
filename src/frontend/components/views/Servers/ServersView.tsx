@@ -111,7 +111,15 @@ export function ServersView(props: ServersViewProps) {
   const [versionFilter, setVersionFilter] = createSignal('all');
   const [lockedFilter, setLockedFilter] = createSignal<'all' | 'locked' | 'unlocked'>('all');
 
-  const availableVersions = () => [...new Set((props.servers() || []).map(s => s.serverVersion))].sort();
+  const availableVersions = () => [...new Set((props.servers() || []).map(s => s.serverVersion))].sort((a, b) => {
+    const pa = a.split('.').map(Number);
+    const pb = b.split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const diff = (pb[i] ?? 0) - (pa[i] ?? 0);
+      if (diff !== 0) return diff;
+    }
+    return 0;
+  });
 
   const filteredServers = () => {
     const query = searchQuery().toLowerCase();
