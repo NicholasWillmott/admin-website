@@ -1312,9 +1312,8 @@ h1 {
 }
 
 .server-versions-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
 }
 
 .server-version-row {
@@ -1322,9 +1321,11 @@ h1 {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.server-version-row:last-child {
+  border-bottom: none;
 }
 
 .server-version-label {
