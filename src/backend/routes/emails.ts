@@ -138,24 +138,34 @@ function parseAutoChangelogSince(changelog: string, audience: "user" | "admin" |
     });
     if (filtered.length === 0) return { html: "", text: "" };
     const items = filtered.map(line => {
-        const m = line.match(/^\[[^\]]+\] \[[^\]]+\] \[([^\]]+)\] - (.+)$/);
-        const type = m?.[1] ?? "";
-        const desc = m?.[2] ?? line;
-        return { type, desc };
+        const m = line.match(/^\[([^\]]+)\] \[[^\]]+\] \[([^\]]+)\] - (.+)$/);
+        const version = m?.[1] ?? "";
+        const type = m?.[2] ?? "";
+        const desc = m?.[3] ?? line;
+        return { version, type, desc };
     });
-    const byType = new Map<string, string[]>();
-    for (const { type, desc } of items) {
+    // Group by version (newest first), then by type within each version
+    const byVersion = new Map<string, Map<string, string[]>>();
+    for (const { version, type, desc } of items) {
+        if (!byVersion.has(version)) byVersion.set(version, new Map());
+        const byType = byVersion.get(version)!;
         if (!byType.has(type)) byType.set(type, []);
         byType.get(type)!.push(desc);
     }
+    const sortedVersions = [...byVersion.keys()].sort((a, b) => compareVersions(b, a));
     let html = "";
-    for (const [type, descs] of byType) {
-        html += `<strong>${type.charAt(0).toUpperCase() + type.slice(1)}</strong><ul>`;
-        html += descs.map(d => `<li>${d}</li>`).join("");
-        html += `</ul>`;
+    for (const version of sortedVersions) {
+        const byType = byVersion.get(version)!;
+        html += `<div class="changelog-entry"><h3>v${version}</h3>`;
+        for (const [type, descs] of byType) {
+            html += `<strong>${type.charAt(0).toUpperCase() + type.slice(1)}</strong><ul>`;
+            html += descs.map(d => `<li>${d}</li>`).join("");
+            html += `</ul>`;
+        }
+        html += `</div>`;
     }
     const text = filtered.map(l => l.replace(/^\[[^\]]+\] \[[^\]]+\] /, "")).join("\n");
-    return { html: `<div class="changelog-entry">${html}</div>`, text };
+    return { html: `<div class="changelog">${html}</div>`, text };
 }
 
 async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
@@ -327,7 +337,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
       <thead><tr><th>Name</th><th>Email</th><th>Joined</th></tr></thead>
       <tbody>${signupRows}</tbody>
     </table>
-    ${changelogHtml ? `<h2>What's New</h2><div class="changelog">${changelogHtml}</div>` : ""}
+    ${changelogHtml ? `<h2>What's New</h2>${changelogHtml}` : ""}
   </div>
   <div class="ftr"><p>Fastr Analytics Admin · Automated weekly report</p></div>
 </div>
@@ -499,7 +509,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     </table>
     <h2>Active Users — Last 7 Days</h2>
     <img src="${chartUrl}" width="576" alt="Active users per day" style="display:block;border-radius:4px;border:1px solid #cacaca;margin-bottom:32px" />
-    ${changelogHtml ? `<h2>What's New</h2><div class="changelog">${changelogHtml}</div>` : ""}
+    ${changelogHtml ? `<h2>What's New</h2>${changelogHtml}` : ""}
   </div>
   <div class="ftr"><p>Fastr Analytics · Automated weekly report for ${instanceLabel}</p></div>
 </div>
