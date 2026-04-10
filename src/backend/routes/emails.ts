@@ -1,6 +1,6 @@
 /// <reference lib="deno.ns" />
 import { Hono } from "hono";
-import { requireAdmin } from "../lib/auth.ts";
+import { requireAdminOrInternal } from "../lib/auth.ts";
 import { H_USERS } from "../../frontend/h_users.ts";
 import type { AiUsageLog, ModelPricing } from "../../frontend/types.ts";
 
@@ -598,7 +598,7 @@ async function sendEmail(toEmails: string[], subject: string, html: string): Pro
 }
 
 router.post("/superadmin-email", async (c) => {
-    const authError = await requireAdmin(c);
+    const authError = await requireAdminOrInternal(c);
     if (authError) return authError;
 
     try {
@@ -717,7 +717,7 @@ router.post("/superadmin-email", async (c) => {
 });
 
 router.post("/instance-admin-emails", async (c) => {
-    const authError = await requireAdmin(c);
+    const authError = await requireAdminOrInternal(c);
     if (authError) return authError;
 
     try {

@@ -1,6 +1,14 @@
 /// <reference lib="deno.ns" />
 import { getAuth } from "@hono/clerk-auth";
 
+export async function requireAdminOrInternal(c: any) {
+  const internalKey = Deno.env.get("STATUS_API_KEY");
+  if (internalKey && c.req.header("X-Internal-Key") === internalKey) {
+    return null;
+  }
+  return requireAdmin(c);
+}
+
 export async function requireAdmin(c: any) {
   const auth = getAuth(c);
 
