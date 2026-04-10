@@ -615,7 +615,7 @@ router.post("/superadmin-email", async (c) => {
             fetchServers(),
         ]);
 
-        const adminEmails = requestedEmails ?? ["nicholaswillmottvball@gmail.com"];
+        const adminEmails = requestedEmails ?? [...H_USERS];
 
         const recentSignups = allUsers
             .filter(u => u.created_at >= weekAgoMs && !H_USERS.has(getPrimaryEmail(u)))
