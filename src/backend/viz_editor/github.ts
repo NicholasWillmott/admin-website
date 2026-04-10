@@ -6,7 +6,7 @@ const REPO_NAME = "modules";
 let _octokit: Octokit | null = null;
 function getOctokit(): Octokit {
     if (!_octokit) {
-        _octokit = new Octokit({ auth: Deno.env.get("GITHUB_TOKEN") });
+        _octokit = new Octokit({ auth: Deno.env.get("GITHUB_PAT_MODULES") });
     }
     return _octokit;
 }
