@@ -689,7 +689,7 @@ router.post("/superadmin-email", async (c) => {
                 .filter(v => !!v)
                 .sort((a, b) => compareVersions(b, a))[0] ?? "";
             const adminChangelog = await fetchChangelogAuto();
-            ({ html: changelogHtml, text: changelogText } = parseAutoChangelogSince(adminChangelog, ["user", "admin"], sinceVersion));
+            ({ html: changelogHtml, text: changelogText } = parseAutoChangelogSince(adminChangelog, "admin", sinceVersion));
         }
 
         const aiSummary = await generateAiSummary({
