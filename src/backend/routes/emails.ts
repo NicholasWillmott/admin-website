@@ -34,10 +34,19 @@ function getPrimaryEmail(user: ClerkUser): string {
 
 async function fetchAllUsers(): Promise<ClerkUser[]> {
     const clerkSecretKey = Deno.env.get("CLERK_SECRET_KEY");
-    const response = await fetch("https://api.clerk.com/v1/users?limit=500", {
-        headers: { Authorization: `Bearer ${clerkSecretKey}` },
-    });
-    return response.json();
+    const all: ClerkUser[] = [];
+    const limit = 500;
+    let offset = 0;
+    while (true) {
+        const response = await fetch(`https://api.clerk.com/v1/users?limit=${limit}&offset=${offset}`, {
+            headers: { Authorization: `Bearer ${clerkSecretKey}` },
+        });
+        const page: ClerkUser[] = await response.json();
+        all.push(...page);
+        if (page.length < limit) break;
+        offset += limit;
+    }
+    return all;
 }
 
 async function fetchServers(): Promise<Server[]> {
