@@ -10,12 +10,28 @@ router.get("/", async (c) => {
     if (authError) return authError;
 
     const clerkSecretKey = Deno.env.get("CLERK_SECRET_KEY");
-    const response = await fetch("https://api.clerk.com/v1/users?limit=500", {
-        headers: { Authorization: `Bearer ${clerkSecretKey}` },
-    });
+    const limit = 500;
+    const allUsers = [];
+    let offset = 0;
 
-    const users = await response.json();
-    return c.json(users);
+    while (true) {
+        const response = await fetch(
+            `https://api.clerk.com/v1/users?limit=${limit}&offset=${offset}`,
+            { headers: { Authorization: `Bearer ${clerkSecretKey}` } }
+        );
+
+        if (!response.ok) {
+            return c.json({ error: "Failed to fetch users" }, 502);
+        }
+
+        const page = await response.json();
+        allUsers.push(...page);
+
+        if (page.length < limit) break;
+        offset += limit;
+    }
+
+    return c.json(allUsers);
 });
 
 // Get all sessions for a specific user (paginated)
