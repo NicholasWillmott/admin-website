@@ -23,7 +23,6 @@ import {
   lockServerApi,
   unlockServerApi,
   bulkUpdateServerVersionApi,
-  bulkRestartServerVersionApi,
   bulkStopServerApi,
   updateServerLanguageApi,
   updateServerCalendarApi,
@@ -252,25 +251,23 @@ export function ServersView(props: ServersViewProps) {
       setServerRestartStatuses(prev => ({ ...prev, [id]: 'pending' }));
     });
     try {
-      const token = await getToken();
-      const result = await bulkRestartServerVersionApi(serverIds, token);
-      if (result.success) {
-        const results = await Promise.all(serverIds.map(id => pollServerLogsForStartup(id)));
-        serverIds.forEach((id, i) => {
-          if (results[i]) {
+      for (const id of serverIds) {
+        const token = await getToken();
+        const result = await restartServerApi(id, token);
+        if (result.success) {
+          const isOnline = await pollServerLogsForStartup(id);
+          if (isOnline) {
             setServerRestartStatuses(prev => ({ ...prev, [id]: 'online' }));
             addToast(`Server ${id} restarted successfully and is now online.`, "success");
           } else {
             setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
             addToast(`Server ${id} restart command sent, but failed to detect online status.`, "error");
           }
-        });
-        props.refetchStatuses();
-      } else {
-        serverIds.forEach(id => {
+        } else {
           setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
-        });
-        addToast(`Failed to bulk restart servers: ${result.error}`, "error");
+          addToast(`Failed to restart server ${id}: ${result.error}`, "error");
+        }
+        props.refetchStatuses();
       }
     } catch (error) {
       serverIds.forEach(id => {
