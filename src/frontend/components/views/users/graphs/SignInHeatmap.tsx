@@ -26,7 +26,7 @@ function buildGridFromLogs(logs: UserLog[], emailSet: Set<string>): number[][] {
     const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     for (const log of logs) {
         if (!emailSet.has(log.user_email)) continue;
-        if (log.endpoint !== 'getInstanceDetail') continue;
+        if (log.endpoint !== 'getCurrentUser') continue;
         const ts = new Date(log.timestamp).getTime();
         if (ts < oneWeekAgo) continue;
         const d = new Date(log.timestamp);

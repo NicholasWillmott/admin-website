@@ -44,7 +44,7 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
         const emails = new Set<string>();
         for (const id of selectedInstances()) {
             for (const log of p.userLogs[id] ?? []) {
-                if (log.endpoint !== 'getInstanceDetail') continue;
+                if (log.endpoint !== 'getCurrentUser') continue;
                 const ts = new Date(log.timestamp).getTime();
                 if (ts >= from && ts <= to) emails.add(log.user_email);
             }
@@ -79,7 +79,7 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
         for (const id of instances) {
             const emails = new Set<string>();
             for (const log of p.userLogs?.[id] ?? []) {
-                if (log.endpoint !== 'getInstanceDetail') continue;
+                if (log.endpoint !== 'getCurrentUser') continue;
                 const ts = new Date(log.timestamp).getTime();
                 if (ts >= from && ts <= to) emails.add(log.user_email);
             }

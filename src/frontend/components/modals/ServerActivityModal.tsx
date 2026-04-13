@@ -13,7 +13,7 @@ export function ServerActivityModal(props: ServerActivityModalProps) {
   const recentUsers = () => {
     const map = new Map<string, string>(); // email -> latest timestamp
     for (const log of props.userLogs) {
-      if (log.endpoint === 'getInstanceDetail') {
+      if (log.endpoint === 'getCurrentUser') {
         const existing = map.get(log.user_email);
         if (!existing || log.timestamp > existing) {
           map.set(log.user_email, log.timestamp);

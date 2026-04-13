@@ -26,7 +26,7 @@ function getRelevantLogs(userLogs: ServerUserLogs | undefined, selectedInstance:
     const result = [];
     for (const id of serverIds) {
         for (const log of userLogs[id] ?? []) {
-            if (log.endpoint === 'getInstanceDetail' && emailSet.has(log.user_email)) {
+            if (log.endpoint === 'getCurrentUser' && emailSet.has(log.user_email)) {
                 result.push(log);
             }
         }

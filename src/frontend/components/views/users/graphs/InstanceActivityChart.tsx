@@ -35,7 +35,7 @@ export function InstanceActivityChart(p: InstanceActivityChartProps) {
         const logs = p.userLogs![server.id] ?? [];
         const uniqueUsers = new Set(
           logs
-            .filter(l => l.endpoint === 'getInstanceDetail')
+            .filter(l => l.endpoint === 'getCurrentUser')
             .filter(l => cutoff === null || new Date(l.timestamp).getTime() >= cutoff)
             .map(l => l.user_email)
         );

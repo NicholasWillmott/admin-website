@@ -241,7 +241,7 @@ function App() {
     const activeDays = new Set<string>();
     for (const id of serverIds) {
       for (const log of logs[id] ?? []) {
-        if (log.user_email === email && log.endpoint === 'getInstanceDetail') activeDays.add(log.timestamp.slice(0, 10));
+        if (log.user_email === email && log.endpoint === 'getCurrentUser') activeDays.add(log.timestamp.slice(0, 10));
       }
     }
     return [...activeDays].sort();
