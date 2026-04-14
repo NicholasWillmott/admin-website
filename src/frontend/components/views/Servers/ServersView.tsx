@@ -138,6 +138,12 @@ export function ServersView(props: ServersViewProps) {
     props.setSelectableServerIds(filteredServers().filter(s => !props.lockedServers().has(s.id)).map(s => s.id));
   });
 
+  createEffect(() => {
+    // touch all filter signals so this effect re-runs when any of them change
+    searchQuery(); statusFilter(); versionFilter(); lockedFilter();
+    props.setMultiSelectedServerIds([]);
+  });
+
   const activeInstances = () => (props.servers() || []).filter(s => {
     const log = props.statuses()?.[s.id]?.lastUserLog;
     return log && Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000;
