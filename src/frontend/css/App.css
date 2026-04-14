@@ -4802,12 +4802,6 @@ h1 {
   color: #e2e8f0;
 }
 
-.changelog-filter-btn[data-selected="true"] {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.3);
-  color: #e2e8f0;
-}
-
 .changelog-filter-btn.user[data-selected="true"] {
   background: rgba(13, 148, 136, 0.2);
   border-color: rgba(13, 148, 136, 0.4);
@@ -4856,8 +4850,8 @@ h1 {
 
 .changelog-items {
   margin: 0;
-  padding-left: 0;
-  list-style: none;
+  padding-left: 20px;
+  list-style: disc;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -4867,9 +4861,10 @@ h1 {
   font-size: 14px;
   color: #cbd5e1;
   line-height: 1.5;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+}
+
+.changelog-item::marker {
+  color: #0d9488;
 }
 
 .changelog-audience-badge {

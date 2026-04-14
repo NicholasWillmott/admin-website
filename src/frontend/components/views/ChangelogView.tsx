@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from 'solid-js';
 import type { ChangelogVersion } from '../../types.ts';
 
-type AudienceFilter = 'all' | 'user' | 'admin';
+type AudienceFilter = 'user' | 'admin';
 
 interface ChangelogViewProps {
   changelog: { versions: ChangelogVersion[] } | undefined;
@@ -10,11 +10,10 @@ interface ChangelogViewProps {
 }
 
 export function ChangelogView(props: ChangelogViewProps) {
-  const [filter, setFilter] = createSignal<AudienceFilter>('all');
+  const [filter, setFilter] = createSignal<AudienceFilter>('admin');
 
   const filteredVersions = () => {
     const versions = props.changelog?.versions ?? [];
-    if (filter() === 'all') return versions;
     return versions
       .map(v => ({
         ...v,
@@ -41,14 +40,6 @@ export function ChangelogView(props: ChangelogViewProps) {
         </Show>
         <Show when={!props.loading && !props.error}>
           <div class="changelog-filter-bar">
-            <button
-              type="button"
-              class="changelog-filter-btn"
-              data-selected={filter() === 'all'}
-              onClick={() => setFilter('all')}
-            >
-              All
-            </button>
             <button
               type="button"
               class="changelog-filter-btn user"
@@ -84,9 +75,6 @@ export function ChangelogView(props: ChangelogViewProps) {
                           <For each={typeGroup.items}>
                             {(item) => (
                               <li class="changelog-item">
-                                <Show when={filter() === 'all'}>
-                                  <span class={`changelog-audience-badge ${item.audience}`}>{item.audience}</span>
-                                </Show>
                                 {item.desc}
                               </li>
                             )}
