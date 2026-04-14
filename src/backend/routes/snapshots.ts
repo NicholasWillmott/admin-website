@@ -1,6 +1,6 @@
 /// <reference lib="deno.ns" />
 import { Hono } from "hono";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
+
 import { requireAdmin } from "../lib/auth.ts";
 
 const router = new Hono();
@@ -82,42 +82,52 @@ router.post("/server/snapshot", async (c) => {
     }
 });
 
-// List all snapshots for the volume
+// List all snapshots for one or more named volumes
 router.get("/servers/snapshots", async (c) => {
     const authError = await requireAdmin(c);
     if (authError) return authError;
 
     const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
-    const volumeId = Deno.env.get("VOLUME_ID");
+    const volumeNamesRaw: string = Deno.env.get("VOLUME_NAMES") ?? "";
+    const volumeNames: string[] = volumeNamesRaw.split(",").map((n: string) => n.trim()).filter(Boolean);
 
-    if (!doToken || !volumeId) {
-        return c.json({ success: false, error: 'Missing DigitalOcean credentials' }, 500);
+    if (!doToken || volumeNames.length === 0) {
+        return c.json({ success: false, error: 'Missing DigitalOcean credentials or VOLUME_NAMES' }, 500);
     }
 
     try {
-        const response = await fetch(
-            `https://api.digitalocean.com/v2/volumes/${volumeId}/snapshots`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${doToken}`,
-                    'Content-Type': 'application/json',
-                },
-            }
+        // Resolve each volume name to its ID
+        const volumeIds = await Promise.all(
+            volumeNames.map(async (name) => {
+                const response = await fetch(
+                    `https://api.digitalocean.com/v2/volumes?name=${encodeURIComponent(name)}`,
+                    { headers: { 'Authorization': `Bearer ${doToken}` } }
+                );
+                if (!response.ok) throw new Error(`Failed to look up volume "${name}"`);
+                const data = await response.json();
+                const volume = data.volumes?.[0];
+                if (!volume) throw new Error(`Volume "${name}" not found`);
+                return volume.id as string;
+            })
         );
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            return c.json(
-                { success: false, error: `DigitalOcean API error: ${errorText}` },
-                response.status as ContentfulStatusCode
-            );
-        }
+        // Fetch snapshots for each resolved volume ID
+        const results = await Promise.all(
+            volumeIds.map(async (volumeId) => {
+                const response = await fetch(
+                    `https://api.digitalocean.com/v2/volumes/${volumeId}/snapshots?per_page=200`,
+                    { headers: { 'Authorization': `Bearer ${doToken}` } }
+                );
+                if (!response.ok) throw new Error(`Failed to fetch snapshots for volume ID ${volumeId}`);
+                const data = await response.json();
+                return data.snapshots || [];
+            })
+        );
 
-        const data = await response.json();
-        return c.json({ success: true, snapshots: data.snapshots || [] });
+        return c.json({ success: true, snapshots: results.flat() });
     } catch (error) {
         console.error('Error fetching volume snapshots:', error);
-        return c.json({ success: false, error: 'Failed to fetch snapshots' }, 500);
+        return c.json({ success: false, error: String(error) }, 500);
     }
 });
 
