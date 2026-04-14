@@ -143,6 +143,7 @@ function App() {
   // track which servers I have multi selected
   const [multiSelectMode, setMultiSelectMode] = createSignal(false);
   const [multiSelectedServerIds, setMultiSelectedServerIds] = createSignal<string[] | null>([]);
+  const [selectableServerIds, setSelectableServerIds] = createSignal<string[]>([]);
 
   // track when an ssh operation is happening to stop other ssh operations from occuring
   const [sshOperationInProgress, setSshOperationInProgress] = createSignal<boolean>(false);
@@ -299,9 +300,7 @@ function App() {
                         type="button"
                         class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
                         style="margin-left: 8px"
-                        onClick={() => setMultiSelectedServerIds(
-                          (servers()?.filter(s => !lockedServers().has(s.id)).map(s => s.id)) ?? []
-                        )}
+                        onClick={() => setMultiSelectedServerIds(selectableServerIds())}
                       >
                         Select all
                       </button>
@@ -450,6 +449,7 @@ function App() {
               multiSelectMode={multiSelectMode}
               multiSelectedServerIds={multiSelectedServerIds}
               setMultiSelectedServerIds={setMultiSelectedServerIds}
+              setSelectableServerIds={setSelectableServerIds}
               getToken={getToken}
             />
           </Show>

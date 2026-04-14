@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, createEffect, For, Show } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import { ServerCard } from './ServerCard.tsx';
 import { ActiveInstancesBar } from './ActiveInstancesBar.tsx';
@@ -55,6 +55,7 @@ interface ServersViewProps {
   multiSelectMode: Accessor<boolean>;
   multiSelectedServerIds: Accessor<string[] | null>;
   setMultiSelectedServerIds: Setter<string[] | null>;
+  setSelectableServerIds: Setter<string[]>;
   getToken: () => Promise<string | null>;
 }
 
@@ -132,6 +133,10 @@ export function ServersView(props: ServersViewProps) {
       return true;
     });
   };
+
+  createEffect(() => {
+    props.setSelectableServerIds(filteredServers().filter(s => !props.lockedServers().has(s.id)).map(s => s.id));
+  });
 
   const activeInstances = () => (props.servers() || []).filter(s => {
     const log = props.statuses()?.[s.id]?.lastUserLog;
