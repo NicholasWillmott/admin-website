@@ -6,6 +6,7 @@ import { ServersView } from './components/views/Servers/ServersView.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { AiUsageView } from './components/views/AiUsageView.tsx';
+import { ChangelogView } from './components/views/ChangelogView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { ServerVersionsModal } from './components/modals/ServerVersionsModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
@@ -33,6 +34,7 @@ import {
   fetchVolumesApi,
   sendWeeklySuperAdminReportApi,
   sendInstanceAdminReportsApi,
+  fetchChangelogViewApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -115,6 +117,12 @@ function App() {
   const [clerkUsers] = createResource(async () => {
     const token = await getToken();
     return getUsersApi(token);
+  });
+
+  // get changelog
+  const [changelog] = createResource(async () => {
+    const token = await getToken();
+    return fetchChangelogViewApi(token);
   });
 
   // track setting snapshot
@@ -360,6 +368,13 @@ function App() {
                 </button>
                 <button
                   type="button"
+                  data-selected={activeView() === "changelog"}
+                  onClick={() => setActiveView("changelog")}
+                >
+                  Changelog
+                </button>
+                <button
+                  type="button"
                   onClick={() => setDockerPullModalOpen(true)}
                 >
                   Docker Pull
@@ -473,6 +488,14 @@ function App() {
 
           <Show when={activeView() === "moduleEditor"}>
             <ModuleEditorContent/>
+          </Show>
+
+          <Show when={activeView() === "changelog"}>
+            <ChangelogView
+              changelog={changelog()}
+              loading={changelog.loading}
+              error={changelog.error}
+            />
           </Show>
 
           <Show when={activeView() === "users"}>

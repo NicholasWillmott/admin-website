@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -625,6 +625,14 @@ export async function sendInstanceAdminReportsApi(token: string | null, serverId
     body: serverIds ? JSON.stringify({ serverIds }) : undefined,
   });
   return await response.json();
+}
+
+export async function fetchChangelogViewApi(token: string | null): Promise<{ versions: ChangelogVersion[] }> {
+  const response = await fetch(`${API_BASE}/api/changelog/parsed`, {
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) return { versions: [] };
+  return response.json();
 }
 
 export async function fetchServerAiUsage(serverId: string, token: string | null): Promise<AiUsageLog[]> {

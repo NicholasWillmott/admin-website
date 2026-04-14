@@ -147,4 +147,19 @@ export interface ModelPricing {
   cache_read_input_token_cost?: number;
 }
 
-export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage";
+export interface ChangelogItem {
+  desc: string;
+  audience: string;
+}
+
+export interface ChangelogTypeGroup {
+  type: string;
+  items: ChangelogItem[];
+}
+
+export interface ChangelogVersion {
+  version: string;
+  types: ChangelogTypeGroup[];
+}
+
+export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "changelog";
