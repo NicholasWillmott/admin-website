@@ -23,6 +23,7 @@ import {
   lockServerApi,
   unlockServerApi,
   bulkUpdateServerVersionApi,
+  bulkRestartServerVersionApi,
   bulkStopServerApi,
   updateServerLanguageApi,
   updateServerCalendarApi,
@@ -262,24 +263,25 @@ export function ServersView(props: ServersViewProps) {
       setServerRestartStatuses(prev => ({ ...prev, [id]: 'pending' }));
     });
     try {
-      for (const id of serverIds) {
-        const token = await getToken();
-        const result = await restartServerApi(id, token);
-        if (result.success) {
-          const isOnline = await pollServerLogsForStartup(id);
-          if (isOnline) {
-            setServerRestartStatuses(prev => ({ ...prev, [id]: 'online' }));
-            addToast(`Server ${id} restarted successfully and is now online.`, "success");
-          } else {
-            setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
-            addToast(`Server ${id} restart command sent, but failed to detect online status.`, "error");
-          }
+      const token = await getToken();
+      const result = await bulkRestartServerVersionApi(serverIds, token);
+      if (!result.success) {
+        serverIds.forEach(id => setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' })));
+        addToast(`Failed to restart servers: ${result.error}`, "error");
+        return;
+      }
+      // Poll all servers in parallel
+      await Promise.all(serverIds.map(async (id) => {
+        const isOnline = await pollServerLogsForStartup(id);
+        if (isOnline) {
+          setServerRestartStatuses(prev => ({ ...prev, [id]: 'online' }));
+          addToast(`Server ${id} restarted successfully and is now online.`, "success");
         } else {
           setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
-          addToast(`Failed to restart server ${id}: ${result.error}`, "error");
+          addToast(`Server ${id} restart command sent, but failed to detect online status.`, "error");
         }
-        props.refetchStatuses();
-      }
+      }));
+      props.refetchStatuses();
     } catch (error) {
       serverIds.forEach(id => {
         setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
