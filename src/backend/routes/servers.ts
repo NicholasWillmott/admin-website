@@ -74,16 +74,14 @@ router.post("/bulk-restart", async (c) => {
         return c.json({ error: "Command not allowed" }, 403);
     }
 
-    try {
-        const result = await executeCommand(getDropletIp(), command);
-        return c.json({
-            success: result.success,
-            message: result.stdout,
-            error: result.stderr,
-        });
-    } catch (error) {
-        return c.json({ error: String(error) }, 500);
-    }
+    // Don't await — wb restart runs servers sequentially and can take a long time.
+    // Awaiting it causes the HTTP connection to drop ("TypeError: Failed to fetch")
+    // before the command finishes. The frontend polls docker logs to detect when
+    // each server comes back online, so we don't need to wait for the result here.
+    executeCommand(getDropletIp(), command)
+        .then(result => { if (!result.success) console.error(`Bulk restart failed: ${result.stderr}`); })
+        .catch(err => console.error(`Bulk restart error: ${err}`));
+    return c.json({ success: true });
 });
 
 // Get server AI usage logs
