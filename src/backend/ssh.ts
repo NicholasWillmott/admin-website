@@ -43,8 +43,8 @@ export async function executeCommand(
             "-o", "ControlMaster=auto",
             "-o", `ControlPath=${controlPath}`,
             "-o", "ControlPersist=10m",
-            "-o", "ServerAliveInterval=60",
-            "-o", "ServerAliveCountMax=3",
+            "-o", "ServerAliveInterval=30",
+            "-o", "ServerAliveCountMax=120",
             `root@${host}`,
             command
         ],
