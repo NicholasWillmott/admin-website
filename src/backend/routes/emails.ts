@@ -189,6 +189,17 @@ async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
     }
 }
 
+async function fetchServerProjectActivity(serverId: string): Promise<{ project_id: string; count: number }[]> {
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/project_activity`);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return (data.projectActivity ?? []).map((r: { project_id: string; count: string }) => ({ project_id: r.project_id, count: parseInt(r.count, 10) }));
+    } catch {
+        return [];
+    }
+}
+
 async function fetchServerAiUsageLogs(serverId: string): Promise<AiUsageLog[]> {
     try {
         const response = await fetch(`https://${serverId}.fastr-analytics.org/ai_usage`);
@@ -780,6 +791,7 @@ router.post("/instance-admin-emails", async (c) => {
                 projects: await fetchServerProjects(server.id),
                 health: await fetchServerHealth(server.id),
                 aiUsage: await fetchServerAiUsageLogs(server.id),
+                projectActivity: await fetchServerProjectActivity(server.id),
             }))),
             fetchModelPricing(),
         ]);
@@ -793,7 +805,7 @@ router.post("/instance-admin-emails", async (c) => {
         const newKnownUserCounts: Record<string, number> = {};
         const newKnownVersions: Record<string, string> = {};
 
-        for (const { server, logs, projects, health, aiUsage } of results) {
+        for (const { server, logs, projects, health, aiUsage, projectActivity } of results) {
             const version = server.serverVersion || health.version;
             newKnownProjects[server.id] = projects.map(p => p.label);
             newKnownUserCounts[server.id] = health.userCount;
@@ -815,14 +827,9 @@ router.post("/instance-admin-emails", async (c) => {
             const previouslyKnown = new Set(knownProjects[server.id] ?? []);
             const newProjectLabels = projects.filter(p => !previouslyKnown.has(p.label)).map(p => p.label);
 
-            const projectActivityCounts = new Map<string, number>();
-            for (const log of recentLogs) {
-                if (log.project_id) {
-                    projectActivityCounts.set(log.project_id, (projectActivityCounts.get(log.project_id) ?? 0) + 1);
-                }
-            }
+            const projectActivityMap = new Map(projectActivity.map(r => [r.project_id, r.count]));
             const projectsSortedByActivity = projects
-                .map(p => ({ name: p.label, requests: projectActivityCounts.get(p.id) ?? 0, isNew: !previouslyKnown.has(p.label) }))
+                .map(p => ({ name: p.label, requests: projectActivityMap.get(p.id) ?? 0, isNew: !previouslyKnown.has(p.label) }))
                 .sort((a, b) => b.requests - a.requests);
 
             const lastKnownVersion = knownVersions[server.id] ?? "";
