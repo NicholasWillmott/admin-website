@@ -811,6 +811,9 @@ router.post("/instance-admin-emails", async (c) => {
             }
             const topUsers = [...userRequestCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
 
+            const previouslyKnown = new Set(knownProjects[server.id] ?? []);
+            const newProjects = projects.filter(p => !previouslyKnown.has(p));
+
             const projectActivityCounts = new Map<string, number>();
             for (const log of recentLogs) {
                 if (log.project_id) {
@@ -820,8 +823,6 @@ router.post("/instance-admin-emails", async (c) => {
             const projectsSortedByActivity = projects
                 .map(p => ({ name: p, requests: projectActivityCounts.get(p) ?? 0, isNew: !previouslyKnown.has(p) }))
                 .sort((a, b) => b.requests - a.requests);
-            const previouslyKnown = new Set(knownProjects[server.id] ?? []);
-            const newProjects = projects.filter(p => !previouslyKnown.has(p));
 
             const lastKnownVersion = knownVersions[server.id] ?? "";
             let changelogHtml = "";
