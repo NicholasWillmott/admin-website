@@ -535,11 +535,11 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     <h2>Active Users — Last 7 Days</h2>
     <img src="${chartUrl}" width="576" alt="Active users per day" style="display:block;border-radius:4px;border:1px solid #cacaca;margin-bottom:32px" />
     <h2>Top Active Users</h2>
+    <p style="font-size:12px;color:#a1a1a1;margin:-4px 0 12px">These are the users who have used the platform the most in the last 7 days.</p>
     <table>
       <thead><tr><th>User</th></tr></thead>
       <tbody>${topUserRows}</tbody>
     </table>
-    <p style="font-size:12px;color:#a1a1a1;margin:-20px 0 32px">These are the users who have used the platform the most in the last 7 days.</p>
     ${changelogHtml ? `<h2>What's New</h2>${changelogHtml}` : ""}
   </div>
   <div class="ftr"><p>Fastr Analytics · Automated weekly report for ${instanceLabel}</p></div>
