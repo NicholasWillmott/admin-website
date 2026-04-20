@@ -10,6 +10,7 @@ interface UserLog {
     user_email: string;
     endpoint: string;
     timestamp: string;
+    project_id: string | null;
 }
 
 interface Server {
@@ -364,6 +365,7 @@ async function generateInstanceAiSummary(data: {
     activeUsers: number;
     newProjects: string[];
     changelogText: string;
+    aiCostUsd: number;
 }): Promise<string> {
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!anthropicKey) return "";
@@ -376,6 +378,7 @@ Here is the data for the week of ${data.weekStart} to ${data.weekEnd}:
 - Active users (last 7 days): ${data.activeUsers}
 - New projects this week: ${data.newProjects.length > 0 ? data.newProjects.join(", ") : "none"}
 - Platform version: ${data.version || "unknown"}
+- AI cost this week: ${formatAiCost(data.aiCostUsd)}
 ${data.changelogText ? `\nNew platform changes deployed to this instance:\n${data.changelogText}` : ""}
 Write the summary now:`;
 
@@ -411,17 +414,18 @@ function buildInstanceAdminEmailHtml(
     userCount: number,
     userCountDiff: number,
     activeUsers: number,
-    projects: string[],
-    newProjects: string[],
+    projectsSortedByActivity: { name: string; requests: number; isNew: boolean }[],
     recentLogs: UserLog[],
     changelogHtml: string,
-    aiSummary: string
+    aiSummary: string,
+    aiCostUsd: number,
+    topUsers: [string, number][]
 ): string {
-    const projectRows = projects.map(p => {
-        const isNew = newProjects.includes(p);
-        const newBadge = isNew ? `<span class="badge">New</span>` : "";
-        return `<tr><td>${p}${newBadge}</td></tr>`;
-    }).join("") || `<tr><td class="empty">No projects</td></tr>`;
+    const projectRows = projectsSortedByActivity.map(p => {
+        const newBadge = p.isNew ? `<span class="badge">New</span>` : "";
+        const reqCell = p.requests > 0 ? `<td class="c">${p.requests}</td>` : `<td class="c" style="color:#a1a1a1">—</td>`;
+        return `<tr><td>${p.name}${newBadge}</td>${reqCell}</tr>`;
+    }).join("") || `<tr><td colspan="2" class="empty">No projects</td></tr>`;
 
     const chartDays: string[] = [];
     const chartCounts: number[] = [];
@@ -454,6 +458,14 @@ function buildInstanceAdminEmailHtml(
         : userCountDiff < 0
             ? `<span class="sdiff-dn">${userCountDiff}</span>`
             : "";
+
+    const topUserRows = topUsers.length > 0
+        ? topUsers.map(([email, count]) => {
+            const [local, domain] = email.split("@");
+            const broken = domain ? `${local}<span></span>@${domain.replace(/\./g, "<span></span>.")}` : email;
+            return `<tr><td><span style="color:#1a73e8">${broken}</span></td><td class="c">${count}</td></tr>`;
+        }).join("")
+        : `<tr><td colspan="2" class="empty">No activity this week</td></tr>`;
 
     return `<!DOCTYPE html>
 <html>
@@ -511,13 +523,22 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
       <div class="stat-lbl">Active Users (7 days)</div>
       <div class="stat-val">${activeUsers}</div>
     </div>
-    <h2>Projects (${projects.length})</h2>
+    <div class="stat">
+      <div class="stat-lbl">AI Cost (7 days)</div>
+      <div class="stat-val">${formatAiCost(aiCostUsd)}</div>
+    </div>
+    <h2>Projects (${projectsSortedByActivity.length})</h2>
     <table>
-      <thead><tr><th>Project</th></tr></thead>
+      <thead><tr><th>Project</th><th class="c">Requests (7 days)</th></tr></thead>
       <tbody>${projectRows}</tbody>
     </table>
     <h2>Active Users — Last 7 Days</h2>
     <img src="${chartUrl}" width="576" alt="Active users per day" style="display:block;border-radius:4px;border:1px solid #cacaca;margin-bottom:32px" />
+    <h2>Top Active Users</h2>
+    <table>
+      <thead><tr><th>User</th><th class="c">Requests</th></tr></thead>
+      <tbody>${topUserRows}</tbody>
+    </table>
     ${changelogHtml ? `<h2>What's New</h2>${changelogHtml}` : ""}
   </div>
   <div class="ftr"><p>Fastr Analytics · Automated weekly report for ${instanceLabel}</p></div>
@@ -751,12 +772,16 @@ router.post("/instance-admin-emails", async (c) => {
         const knownProjects = state?.knownProjects ?? {};
         const knownVersions = state?.knownVersions ?? {};
 
-        const results = await Promise.all(servers.map(async (server: Server) => ({
-            server,
-            logs: await fetchServerUserLogs(server.id),
-            projects: await fetchServerProjects(server.id),
-            health: await fetchServerHealth(server.id),
-        })));
+        const [results, pricing] = await Promise.all([
+            Promise.all(servers.map(async (server: Server) => ({
+                server,
+                logs: await fetchServerUserLogs(server.id),
+                projects: await fetchServerProjects(server.id),
+                health: await fetchServerHealth(server.id),
+                aiUsage: await fetchServerAiUsageLogs(server.id),
+            }))),
+            fetchModelPricing(),
+        ]);
 
         let emailsSent = 0;
         const subject = (label: string) => `${label} Weekly Report · ${weekStart} – ${weekEnd}`;
@@ -767,7 +792,7 @@ router.post("/instance-admin-emails", async (c) => {
         const newKnownUserCounts: Record<string, number> = {};
         const newKnownVersions: Record<string, string> = {};
 
-        for (const { server, logs, projects, health } of results) {
+        for (const { server, logs, projects, health, aiUsage } of results) {
             const version = server.serverVersion || health.version;
             newKnownProjects[server.id] = projects;
             newKnownUserCounts[server.id] = health.userCount;
@@ -778,6 +803,23 @@ router.post("/instance-admin-emails", async (c) => {
             const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
             const activeUsers = new Set(recentLogs.map((l: UserLog) => l.user_email)).size;
             const userCountDiff = (server.id in knownUserCounts) ? health.userCount - knownUserCounts[server.id] : 0;
+            const aiCostUsd = computeAiCost(aiUsage, pricing);
+
+            const userRequestCounts = new Map<string, number>();
+            for (const log of recentLogs) {
+                userRequestCounts.set(log.user_email, (userRequestCounts.get(log.user_email) ?? 0) + 1);
+            }
+            const topUsers = [...userRequestCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+            const projectActivityCounts = new Map<string, number>();
+            for (const log of recentLogs) {
+                if (log.project_id) {
+                    projectActivityCounts.set(log.project_id, (projectActivityCounts.get(log.project_id) ?? 0) + 1);
+                }
+            }
+            const projectsSortedByActivity = projects
+                .map(p => ({ name: p, requests: projectActivityCounts.get(p) ?? 0, isNew: !previouslyKnown.has(p) }))
+                .sort((a, b) => b.requests - a.requests);
             const previouslyKnown = new Set(knownProjects[server.id] ?? []);
             const newProjects = projects.filter(p => !previouslyKnown.has(p));
 
@@ -798,14 +840,15 @@ router.post("/instance-admin-emails", async (c) => {
                 activeUsers,
                 newProjects,
                 changelogText,
+                aiCostUsd,
             });
 
             const html = buildInstanceAdminEmailHtml(
                 weekStart, weekEnd,
                 server.label, server.id,
                 version, health.userCount, userCountDiff,
-                activeUsers, projects, newProjects, recentLogs,
-                changelogHtml, aiSummary
+                activeUsers, projectsSortedByActivity, recentLogs,
+                changelogHtml, aiSummary, aiCostUsd, topUsers
             );
 
             await sendEmail([testOverrideEmail], subject(server.label), html);
