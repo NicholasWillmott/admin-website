@@ -200,9 +200,12 @@ async function fetchServerProjectActivity(serverId: string): Promise<{ project_i
     }
 }
 
-async function fetchServerAiUsageLogs(serverId: string): Promise<AiUsageLog[]> {
+async function fetchServerAiUsageLogs(serverId: string, since?: string): Promise<AiUsageLog[]> {
     try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/ai_usage`);
+        const url = since
+            ? `https://${serverId}.fastr-analytics.org/ai_usage?since=${encodeURIComponent(since)}`
+            : `https://${serverId}.fastr-analytics.org/ai_usage`;
+        const response = await fetch(url);
         if (!response.ok) return [];
         const data = await response.json();
         return data.logs ?? [];
@@ -674,7 +677,7 @@ router.post("/superadmin-email", async (c) => {
                 logs: await fetchServerUserLogs(server.id),
                 projects: await fetchServerProjects(server.id),
                 health: await fetchServerHealth(server.id),
-                aiUsage: await fetchServerAiUsageLogs(server.id),
+                aiUsage: await fetchServerAiUsageLogs(server.id, new Date(weekAgoMs).toISOString()),
             }))),
             readEmailState(),
             fetchModelPricing(),
@@ -790,7 +793,7 @@ router.post("/instance-admin-emails", async (c) => {
                 logs: await fetchServerUserLogs(server.id),
                 projects: await fetchServerProjects(server.id),
                 health: await fetchServerHealth(server.id),
-                aiUsage: await fetchServerAiUsageLogs(server.id),
+                aiUsage: await fetchServerAiUsageLogs(server.id, new Date(weekAgoMs).toISOString()),
                 projectActivity: await fetchServerProjectActivity(server.id),
             }))),
             fetchModelPricing(),
