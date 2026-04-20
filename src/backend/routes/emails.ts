@@ -99,7 +99,7 @@ async function writeEmailState(state: SuperAdminEmailState): Promise<void> {
     await Deno.writeTextFile(STATE_FILE, JSON.stringify(state));
 }
 
-async function fetchServerProjects(serverId: string): Promise<string[]> {
+async function fetchServerProjects(serverId: string): Promise<{ id: string; label: string }[]> {
     try {
         const response = await fetch(`https://${serverId}.fastr-analytics.org/projects`);
         if (!response.ok) return [];
@@ -694,13 +694,13 @@ router.post("/superadmin-email", async (c) => {
         const currentVersions: Record<string, string> = {};
         const currentUserCounts: Record<string, number> = {};
         for (const { server, projects, health } of logResults) {
-            currentProjects[server.id] = projects;
+            currentProjects[server.id] = projects.map(p => p.label);
             currentVersions[server.id] = server.serverVersion || health.version;
             currentUserCounts[server.id] = health.userCount;
             const previouslyKnown = new Set(knownProjects[server.id] ?? []);
             for (const project of projects) {
-                if (!previouslyKnown.has(project)) {
-                    newProjects.push({ instanceLabel: server.label, project });
+                if (!previouslyKnown.has(project.label)) {
+                    newProjects.push({ instanceLabel: server.label, project: project.label });
                 }
             }
         }
@@ -795,7 +795,7 @@ router.post("/instance-admin-emails", async (c) => {
 
         for (const { server, logs, projects, health, aiUsage } of results) {
             const version = server.serverVersion || health.version;
-            newKnownProjects[server.id] = projects;
+            newKnownProjects[server.id] = projects.map(p => p.label);
             newKnownUserCounts[server.id] = health.userCount;
             newKnownVersions[server.id] = version;
 
@@ -813,7 +813,7 @@ router.post("/instance-admin-emails", async (c) => {
             const topUsers = [...userRequestCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
 
             const previouslyKnown = new Set(knownProjects[server.id] ?? []);
-            const newProjects = projects.filter(p => !previouslyKnown.has(p));
+            const newProjectLabels = projects.filter(p => !previouslyKnown.has(p.label)).map(p => p.label);
 
             const projectActivityCounts = new Map<string, number>();
             for (const log of recentLogs) {
@@ -822,7 +822,7 @@ router.post("/instance-admin-emails", async (c) => {
                 }
             }
             const projectsSortedByActivity = projects
-                .map(p => ({ name: p, requests: projectActivityCounts.get(p) ?? 0, isNew: !previouslyKnown.has(p) }))
+                .map(p => ({ name: p.label, requests: projectActivityCounts.get(p.id) ?? 0, isNew: !previouslyKnown.has(p.label) }))
                 .sort((a, b) => b.requests - a.requests);
 
             const lastKnownVersion = knownVersions[server.id] ?? "";
@@ -840,7 +840,7 @@ router.post("/instance-admin-emails", async (c) => {
                 userCount: health.userCount,
                 userCountDiff,
                 activeUsers,
-                newProjects,
+                newProjects: newProjectLabels,
                 changelogText,
                 aiCostUsd,
             });
