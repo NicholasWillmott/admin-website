@@ -801,7 +801,7 @@ router.post("/instance-admin-emails", async (c) => {
 
             if (!health.online || health.adminUsers.length === 0) continue;
 
-            const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs);
+            const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs && !H_USERS.has(l.user_email));
             const activeUsers = new Set(recentLogs.map((l: UserLog) => l.user_email)).size;
             const userCountDiff = (server.id in knownUserCounts) ? health.userCount - knownUserCounts[server.id] : 0;
             const aiCostUsd = computeAiCost(aiUsage, pricing);
