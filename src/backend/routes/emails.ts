@@ -460,12 +460,12 @@ function buildInstanceAdminEmailHtml(
             : "";
 
     const topUserRows = topUsers.length > 0
-        ? topUsers.map(([email, count]) => {
+        ? topUsers.map(([email]) => {
             const [local, domain] = email.split("@");
             const broken = domain ? `${local}<span></span>@${domain.replace(/\./g, "<span></span>.")}` : email;
-            return `<tr><td><span style="color:#1a73e8">${broken}</span></td><td class="c">${count}</td></tr>`;
+            return `<tr><td><span style="color:#1a73e8">${broken}</span></td></tr>`;
         }).join("")
-        : `<tr><td colspan="2" class="empty">No activity this week</td></tr>`;
+        : `<tr><td class="empty">No activity this week</td></tr>`;
 
     return `<!DOCTYPE html>
 <html>
@@ -529,16 +529,17 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     </div>
     <h2>Projects (${projectsSortedByActivity.length})</h2>
     <table>
-      <thead><tr><th>Project</th><th class="c">Requests (7 days)</th></tr></thead>
+      <thead><tr><th>Project</th><th class="c">Actions (7 days)</th></tr></thead>
       <tbody>${projectRows}</tbody>
     </table>
     <h2>Active Users — Last 7 Days</h2>
     <img src="${chartUrl}" width="576" alt="Active users per day" style="display:block;border-radius:4px;border:1px solid #cacaca;margin-bottom:32px" />
     <h2>Top Active Users</h2>
     <table>
-      <thead><tr><th>User</th><th class="c">Requests</th></tr></thead>
+      <thead><tr><th>User</th></tr></thead>
       <tbody>${topUserRows}</tbody>
     </table>
+    <p style="font-size:12px;color:#a1a1a1;margin:-20px 0 32px">These are the users who have used the platform the most in the last 7 days.</p>
     ${changelogHtml ? `<h2>What's New</h2>${changelogHtml}` : ""}
   </div>
   <div class="ftr"><p>Fastr Analytics · Automated weekly report for ${instanceLabel}</p></div>
