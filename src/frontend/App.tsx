@@ -384,7 +384,7 @@ function App() {
                   data-selected={activeView() === "changelog"}
                   onClick={() => setActiveView("changelog")}
                 >
-                  Changelog
+                  History
                 </button>
                 <button
                   type="button"
