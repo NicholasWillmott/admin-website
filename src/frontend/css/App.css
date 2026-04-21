@@ -4895,6 +4895,40 @@ h1 {
   color: #5eead4;
 }
 
+.email-history-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.email-history-date-input {
+  width: 150px;
+}
+
+.email-history-filter-sep {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.email-history-clear-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.email-history-clear-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
 .email-history-list {
   display: flex;
   flex-direction: column;

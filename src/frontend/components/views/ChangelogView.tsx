@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from 'solid-js';
+import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { ChangelogVersion, SentEmailSummary } from '../../types.ts';
 import { SentEmailViewModal } from '../modals/SentEmailViewModal.tsx';
 
@@ -18,6 +18,9 @@ export function ChangelogView(props: ChangelogViewProps) {
   const [filter, setFilter] = createSignal<AudienceFilter>('admin');
   const [viewingHtml, setViewingHtml] = createSignal<string | null>(null);
   const [loadingEmail, setLoadingEmail] = createSignal(false);
+  const [dateFrom, setDateFrom] = createSignal('');
+  const [dateTo, setDateTo] = createSignal('');
+  const [instanceFilter, setInstanceFilter] = createSignal('');
 
   const filteredVersions = () => {
     const versions = props.changelog?.versions ?? [];
@@ -30,6 +33,43 @@ export function ChangelogView(props: ChangelogViewProps) {
       }))
       .filter(v => v.types.length > 0);
   };
+
+  const instanceOptions = createMemo(() => {
+    const history = props.emailHistory ?? [];
+    const instances = new Map<string, string>(); // value → label
+    instances.set('superadmin', 'Super Admin');
+    for (const e of history) {
+      if (e.type === 'instance-admin' && e.instanceId && e.instanceLabel) {
+        instances.set(e.instanceId, e.instanceLabel);
+      }
+    }
+    return [...instances.entries()];
+  });
+
+  const filteredEmailHistory = createMemo(() => {
+    let history = props.emailHistory ?? [];
+
+    const from = dateFrom();
+    const to = dateTo();
+    const inst = instanceFilter();
+
+    if (from) {
+      const fromMs = new Date(from).getTime();
+      history = history.filter(e => e.sentAt >= fromMs);
+    }
+    if (to) {
+      // include the whole end day
+      const toMs = new Date(to).getTime() + 86400000;
+      history = history.filter(e => e.sentAt < toMs);
+    }
+    if (inst) {
+      history = history.filter(e =>
+        inst === 'superadmin' ? e.type === 'superadmin' : e.instanceId === inst
+      );
+    }
+
+    return history;
+  });
 
   const handleOpenEmail = async (entry: SentEmailSummary) => {
     setLoadingEmail(true);
@@ -84,6 +124,45 @@ export function ChangelogView(props: ChangelogViewProps) {
             </button>
           </div>
 
+          <Show when={filter() === 'emails'}>
+            <div class="email-history-filters">
+              <input
+                type="date"
+                class="server-filter-input email-history-date-input"
+                value={dateFrom()}
+                onChange={(e) => setDateFrom(e.currentTarget.value)}
+                title="From date"
+              />
+              <span class="email-history-filter-sep">to</span>
+              <input
+                type="date"
+                class="server-filter-input email-history-date-input"
+                value={dateTo()}
+                onChange={(e) => setDateTo(e.currentTarget.value)}
+                title="To date"
+              />
+              <select
+                class="server-filter-select"
+                value={instanceFilter()}
+                onChange={(e) => setInstanceFilter(e.currentTarget.value)}
+              >
+                <option value="">All instances</option>
+                <For each={instanceOptions()}>
+                  {([value, label]) => <option value={value}>{label}</option>}
+                </For>
+              </select>
+              <Show when={dateFrom() || dateTo() || instanceFilter()}>
+                <button
+                  type="button"
+                  class="email-history-clear-btn"
+                  onClick={() => { setDateFrom(''); setDateTo(''); setInstanceFilter(''); }}
+                >
+                  Clear
+                </button>
+              </Show>
+            </div>
+          </Show>
+
           <Show when={filter() !== 'emails'}>
             <Show
               when={filteredVersions().length > 0}
@@ -119,11 +198,11 @@ export function ChangelogView(props: ChangelogViewProps) {
 
           <Show when={filter() === 'emails'}>
             <Show
-              when={(props.emailHistory?.length ?? 0) > 0}
-              fallback={<div class="changelog-view-empty"><p>No emails have been sent yet</p></div>}
+              when={filteredEmailHistory().length > 0}
+              fallback={<div class="changelog-view-empty"><p>No emails match the current filters</p></div>}
             >
               <div class="email-history-list">
-                <For each={props.emailHistory ?? []}>
+                <For each={filteredEmailHistory()}>
                   {(entry) => (
                     <button
                       type="button"
