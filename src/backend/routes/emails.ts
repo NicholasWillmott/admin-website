@@ -867,7 +867,11 @@ router.post("/instance-admin-emails", async (c) => {
             emailsSent += 1;
         }
 
-        await writeInstanceAdminEmailState({ knownProjects: newKnownProjects, knownUserCounts: newKnownUserCounts, knownVersions: newKnownVersions });
+        await writeInstanceAdminEmailState({
+            knownProjects: { ...state?.knownProjects, ...newKnownProjects },
+            knownUserCounts: { ...state?.knownUserCounts, ...newKnownUserCounts },
+            knownVersions: { ...state?.knownVersions, ...newKnownVersions },
+        });
 
         return c.json({ success: true, emailsSent });
     } catch (error) {
