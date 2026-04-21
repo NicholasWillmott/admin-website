@@ -99,6 +99,47 @@ async function writeEmailState(state: SuperAdminEmailState): Promise<void> {
     await Deno.writeTextFile(STATE_FILE, JSON.stringify(state));
 }
 
+interface SentEmailRecord {
+    id: string;
+    type: "superadmin" | "instance-admin";
+    sentAt: number;
+    subject: string;
+    recipients: string[];
+    html: string;
+    instanceLabel?: string;
+    instanceId?: string;
+}
+
+const EMAIL_HISTORY_DIR = "/mnt/fastr-config/email-history";
+
+function emailHistoryPath(key: string): string {
+    return `${EMAIL_HISTORY_DIR}/${key}.json`;
+}
+
+async function readEmailHistoryFor(key: string): Promise<SentEmailRecord[]> {
+    try { return JSON.parse(await Deno.readTextFile(emailHistoryPath(key))); }
+    catch { return []; }
+}
+
+const EMAIL_HISTORY_KEYS_FILE = `${EMAIL_HISTORY_DIR}/keys.json`;
+
+async function readEmailHistoryKeys(): Promise<string[]> {
+    try { return JSON.parse(await Deno.readTextFile(EMAIL_HISTORY_KEYS_FILE)); }
+    catch { return []; }
+}
+
+async function appendEmailHistoryFor(key: string, record: SentEmailRecord): Promise<void> {
+    const history = await readEmailHistoryFor(key);
+    history.push(record);
+    await Deno.mkdir(EMAIL_HISTORY_DIR, { recursive: true });
+    await Deno.writeTextFile(emailHistoryPath(key), JSON.stringify(history));
+    const keys = await readEmailHistoryKeys();
+    if (!keys.includes(key)) {
+        keys.push(key);
+        await Deno.writeTextFile(EMAIL_HISTORY_KEYS_FILE, JSON.stringify(keys));
+    }
+}
+
 async function fetchServerProjects(serverId: string): Promise<{ id: string; label: string }[]> {
     try {
         const response = await fetch(`https://${serverId}.fastr-analytics.org/projects`);
@@ -752,6 +793,14 @@ router.post("/superadmin-email", async (c) => {
         const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects, aiSummary, changelogHtml);
 
         await sendEmail(adminEmails, subject, html);
+        await appendEmailHistoryFor("superadmin", {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            type: "superadmin",
+            sentAt: Date.now(),
+            subject,
+            recipients: adminEmails,
+            html,
+        });
         await writeEmailState({ lastSentAt: Date.now(), knownInstanceIds: servers.map(s => s.id), knownProjects: currentProjects, knownVersions: currentVersions, knownUserCounts: currentUserCounts, knownTotalUsers: totalUsers });
 
         return c.json({ success: true, sentTo: adminEmails.length });
@@ -864,6 +913,16 @@ router.post("/instance-admin-emails", async (c) => {
             );
 
             await sendEmail([testOverrideEmail], subject(server.label), html);
+            await appendEmailHistoryFor(server.id, {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                type: "instance-admin",
+                sentAt: Date.now(),
+                subject: subject(server.label),
+                recipients: [testOverrideEmail],
+                html,
+                instanceLabel: server.label,
+                instanceId: server.id,
+            });
             emailsSent += 1;
         }
 
@@ -878,6 +937,38 @@ router.post("/instance-admin-emails", async (c) => {
         console.error("Failed to send instance admin emails:", error);
         return c.json({ error: String(error) }, 500);
     }
+});
+
+router.get("/history", async (c) => {
+    const authError = await requireAdminOrInternal(c);
+    if (authError) return authError;
+    const key = c.req.query("key");
+    if (key) {
+        const history = await readEmailHistoryFor(key);
+        return c.json(history.map(({ html: _html, ...rest }) => rest).reverse());
+    }
+    let all: SentEmailRecord[] = [];
+    try {
+        for await (const entry of Deno.readDir(EMAIL_HISTORY_DIR)) {
+            if (entry.isFile && entry.name.endsWith(".json")) {
+                const records = await readEmailHistoryFor(entry.name.replace(".json", ""));
+                all = all.concat(records);
+            }
+        }
+    } catch { /* dir doesn't exist yet */ }
+    all.sort((a, b) => b.sentAt - a.sentAt);
+    return c.json(all.map(({ html: _html, ...rest }) => rest));
+});
+
+router.get("/history/:id", async (c) => {
+    const authError = await requireAdminOrInternal(c);
+    if (authError) return authError;
+    const id = c.req.param("id");
+    const key = c.req.query("key") ?? "superadmin";
+    const history = await readEmailHistoryFor(key);
+    const record = history.find(r => r.id === id);
+    if (!record) return c.json({ error: "Not found" }, 404);
+    return c.json(record);
 });
 
 export default router;

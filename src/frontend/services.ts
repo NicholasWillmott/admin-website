@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -625,6 +625,22 @@ export async function sendInstanceAdminReportsApi(token: string | null, serverId
     body: serverIds ? JSON.stringify({ serverIds }) : undefined,
   });
   return await response.json();
+}
+
+export async function fetchEmailHistoryApi(token: string | null): Promise<SentEmailSummary[]> {
+  const response = await fetch(`${API_BASE}/api/emails/history`, {
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) return [];
+  return response.json();
+}
+
+export async function fetchEmailDetailApi(token: string | null, id: string, key: string): Promise<{ html: string } | null> {
+  const response = await fetch(`${API_BASE}/api/emails/history/${id}?key=${encodeURIComponent(key)}`, {
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) return null;
+  return response.json();
 }
 
 export async function fetchChangelogViewApi(token: string | null): Promise<{ versions: ChangelogVersion[] }> {

@@ -163,3 +163,13 @@ export interface ChangelogVersion {
 }
 
 export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "changelog";
+
+export interface SentEmailSummary {
+  id: string;
+  type: "superadmin" | "instance-admin";
+  sentAt: number;
+  subject: string;
+  recipients: string[];
+  instanceLabel?: string;
+  instanceId?: string;
+}

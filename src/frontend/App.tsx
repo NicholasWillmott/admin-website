@@ -35,6 +35,8 @@ import {
   sendWeeklySuperAdminReportApi,
   sendInstanceAdminReportsApi,
   fetchChangelogViewApi,
+  fetchEmailHistoryApi,
+  fetchEmailDetailApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -124,6 +126,18 @@ function App() {
     const token = await getToken();
     return fetchChangelogViewApi(token);
   });
+
+  // get sent email history
+  const [emailHistory, { refetch: refetchEmailHistory }] = createResource(async () => {
+    const token = await getToken();
+    return fetchEmailHistoryApi(token);
+  });
+
+  const handleViewEmail = async (id: string, key: string): Promise<string | null> => {
+    const token = await getToken();
+    const record = await fetchEmailDetailApi(token, id, key);
+    return record?.html ?? null;
+  };
 
   // track setting snapshot
   const [snappingVolume, setSnappingVolume] = createSignal<boolean>(false);
@@ -495,6 +509,10 @@ function App() {
               changelog={changelog()}
               loading={changelog.loading}
               error={changelog.error}
+              emailHistory={emailHistory()}
+              emailHistoryLoading={emailHistory.loading}
+              onRefetchEmails={refetchEmailHistory}
+              onViewEmail={handleViewEmail}
             />
           </Show>
 
