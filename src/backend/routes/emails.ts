@@ -474,7 +474,8 @@ function buildInstanceAdminEmailHtml(
     changelogHtml: string,
     aiSummary: string,
     aiCostUsd: number,
-    topUsers: [string, number][]
+    topUsers: [string, number][],
+    versionIsNew: boolean
 ): string {
     const projectRows = projectsSortedByActivity.map(p => {
         const newBadge = p.isNew ? `<span class="badge">New</span>` : "";
@@ -563,11 +564,12 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 <body>
 <div class="wrap">
   <div class="hdr">
-    <h1>${instanceLabel} — Weekly Report</h1>
-    <p>${weekStart} – ${weekEnd}</p>
+    <h1>${versionIsNew ? `${instanceLabel} has been updated!` : `${instanceLabel} — Weekly Report`}</h1>
+    <p>${versionIsNew ? `Version ${version} · ` : ""}${weekStart} – ${weekEnd}</p>
   </div>
   <div class="bdy">
     <p class="meta">This is an automated weekly report sent to all admins of the <strong>${instanceLabel}</strong> FASTR Analytics Platform.</p>
+    ${versionIsNew && changelogHtml ? `<h2>What's New in v${version}</h2>${changelogHtml}<hr style="border:none;border-top:1px solid #cacaca;margin:0 0 28px">` : ""}
     ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">AI Summary</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}
     <p class="meta">Instance ID: ${instanceId} &nbsp;·&nbsp; Version: ${version || "—"}</p>
     <div class="stat">
@@ -595,7 +597,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
       <thead><tr><th>User</th></tr></thead>
       <tbody>${topUserRows}</tbody>
     </table>
-    ${changelogHtml ? `<h2>What's New</h2>${changelogHtml}` : ""}
+    ${!versionIsNew && changelogHtml ? `<h2>What's New</h2>${changelogHtml}` : ""}
   </div>
   <div class="ftr"><p>Fastr Analytics · Automated weekly report for ${instanceLabel}</p></div>
 </div>
@@ -849,7 +851,6 @@ router.post("/instance-admin-emails", async (c) => {
         ]);
 
         let emailsSent = 0;
-        const subject = (label: string) => `${label} Weekly Report · ${weekStart} – ${weekEnd}`;
 
         const testOverrideEmail = "nicholaswillmottvball@gmail.com";
 
@@ -904,20 +905,25 @@ router.post("/instance-admin-emails", async (c) => {
                 aiCostUsd,
             });
 
+            const versionIsNew = changelogHtml !== "";
+            const emailSubject = versionIsNew
+                ? `${server.label} instance has been updated to v${version}! · Weekly Report · ${weekStart} – ${weekEnd}`
+                : `${server.label} Weekly Report · ${weekStart} – ${weekEnd}`;
+
             const html = buildInstanceAdminEmailHtml(
                 weekStart, weekEnd,
                 server.label, server.id,
                 version, health.userCount, userCountDiff,
                 activeUsers, projectsSortedByActivity, recentLogs,
-                changelogHtml, aiSummary, aiCostUsd, topUsers
+                changelogHtml, aiSummary, aiCostUsd, topUsers, versionIsNew
             );
 
-            await sendEmail([testOverrideEmail], subject(server.label), html);
+            await sendEmail([testOverrideEmail], emailSubject, html);
             await appendEmailHistoryFor(server.id, {
                 id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
                 type: "instance-admin",
                 sentAt: Date.now(),
-                subject: subject(server.label),
+                subject: emailSubject,
                 recipients: [testOverrideEmail],
                 html,
                 instanceLabel: server.label,
