@@ -397,7 +397,7 @@ function App() {
                     <button
                       type="button"
                       class="multi-select-toggle active"
-                      onClick={() => setMultiSelectedServerIds(selectableServerIds())}
+                      onClick={() => setMultiSelectedServerIds(selectableServerIds().filter(id => !lockedServers().has(id)))}
                     >
                       Select all
                     </button>
