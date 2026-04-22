@@ -12,11 +12,32 @@ interface multiSelectProps {
   onStop: (serverIds: string[]) => Promise<void>;
 }
 
+const DISPLAY_LIMIT = 5;
+
+function ServerListLabel(props: { ids: string[] }) {
+  const extra = () => Math.max(0, props.ids.length - DISPLAY_LIMIT);
+  const displayed = () => props.ids.slice(0, DISPLAY_LIMIT).join(', ');
+  const fullList = () => props.ids.join('\n');
+
+  return (
+    <div class="server-list-wrapper">
+      <span class="server-list-text">
+        {displayed()}
+        <Show when={extra() > 0}>
+          <span class="server-list-overflow"> +{extra()} more</span>
+        </Show>
+      </span>
+      <Show when={extra() > 0}>
+        <div class="server-list-tooltip">{fullList()}</div>
+      </Show>
+    </div>
+  );
+}
+
 export function ServerMultiSelectModal(props: multiSelectProps) {
   const [selectedVersion, setSelectedVersion] = createSignal(props.versions[0] ?? '');
   const [confirmAction, setConfirmAction] = createSignal<ConfirmAction>(null);
 
-  const serverList = () => props.serverIds.join(', ');
   const count = () => props.serverIds.length;
 
   return (
@@ -25,7 +46,7 @@ export function ServerMultiSelectModal(props: multiSelectProps) {
         <Show when={confirmAction() !== null} fallback={
           <>
             <h3>Bulk Actions ({count()} servers)</h3>
-            <p>{serverList()}</p>
+            <ServerListLabel ids={props.serverIds} />
             <label>
               <strong>Version:</strong>
               <select
@@ -64,7 +85,7 @@ export function ServerMultiSelectModal(props: multiSelectProps) {
           <Show when={confirmAction() === 'update'}>
             <h3>Confirm Bulk Update</h3>
             <p>Update <strong>{count()} servers</strong> to version <strong>{selectedVersion()}</strong>?</p>
-            <p class="multi-select-server-list">{serverList()}</p>
+            <ServerListLabel ids={props.serverIds} />
             <div class="multi-select-confirm-actions">
               <button
                 class="update-btn"
@@ -81,7 +102,7 @@ export function ServerMultiSelectModal(props: multiSelectProps) {
           <Show when={confirmAction() === 'restart'}>
             <h3>Confirm Bulk Restart</h3>
             <p>Restart <strong>{count()} servers</strong>?</p>
-            <p class="multi-select-server-list">{serverList()}</p>
+            <ServerListLabel ids={props.serverIds} />
             <div class="multi-select-confirm-actions">
               <button
                 class="action-btn restart"
@@ -98,7 +119,7 @@ export function ServerMultiSelectModal(props: multiSelectProps) {
           <Show when={confirmAction() === 'stop'}>
             <h3>Confirm Bulk Stop</h3>
             <p>Stop <strong>{count()} servers</strong>?</p>
-            <p class="multi-select-server-list">{serverList()}</p>
+            <ServerListLabel ids={props.serverIds} />
             <div class="multi-select-confirm-actions">
               <button
                 class="action-btn stop"
