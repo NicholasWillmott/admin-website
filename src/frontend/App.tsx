@@ -1,4 +1,4 @@
-import { createResource, createSignal, Show, createEffect, onCleanup } from 'solid-js'
+import { createResource, createSignal, Show, createEffect, onCleanup, onMount } from 'solid-js'
 import './css/App.css'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 import { ModuleEditorContent } from './components/views/ModuleDefinitions/ModuleEditorContent.tsx';
@@ -159,6 +159,9 @@ function App() {
   const [multiSelectedServerIds, setMultiSelectedServerIds] = createSignal<string[] | null>([]);
   const [selectableServerIds, setSelectableServerIds] = createSignal<string[]>([]);
 
+  const [navDropdownOpen, setNavDropdownOpen] = createSignal(false);
+  const [moreDropdownOpen, setMoreDropdownOpen] = createSignal(false);
+
   // track when an ssh operation is happening to stop other ssh operations from occuring
   const [sshOperationInProgress, setSshOperationInProgress] = createSignal<boolean>(false);
 
@@ -287,6 +290,27 @@ function App() {
     }
   };
 
+  onMount(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.nav-dropdown')) {
+        setNavDropdownOpen(false);
+        setMoreDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    onCleanup(() => document.removeEventListener('mousedown', handler));
+  });
+
+  const viewLabel = (view: string) => {
+    const labels: Record<string, string> = {
+      servers: 'Servers', snapshots: 'Snapshots', users: 'Users',
+      volumeUsage: 'Volume Usage', aiUsage: 'AI Usage',
+      moduleEditor: 'Module Definitions', changelog: 'History',
+    };
+    return labels[view] ?? view;
+  };
+
   return (
     <>
       <ToastContainer />
@@ -337,67 +361,66 @@ function App() {
                 )}
               </div>
               <div class="nav-buttons">
-                <button
-                  type="button"
-                  data-selected={activeView() === "servers"}
-                  onClick={() => setActiveView("servers")}
-                >
-                  Servers
-                </button>
-                <button
-                  type="button"
-                  data-selected={activeView() === "snapshots"}
-                  onClick={() => setActiveView("snapshots")}
-                >
-                  Snapshots
-                </button>
-                <button
-                  type="button"
-                  data-selected={activeView() === "users"}
-                  onClick={() => setActiveView("users")}
-                >
-                  Users
-                </button>
-                <button
-                  type="button"
-                  data-selected={activeView() === "volumeUsage"}
-                  onClick={() => setActiveView("volumeUsage")}
-                >
-                  Volume Usage
-                </button>
-                <button
-                  type="button"
-                  data-selected={activeView() === "aiUsage"}
-                  onClick={() => setActiveView("aiUsage")}
-                >
-                  AI Usage
-                </button>
-                <button
-                  type="button"
-                  data-selected={activeView() === "moduleEditor"}
-                  onClick={() => setActiveView("moduleEditor")}
-                >
-                  Module Definitions
-                </button>
-                <button
-                  type="button"
-                  data-selected={activeView() === "changelog"}
-                  onClick={() => setActiveView("changelog")}
-                >
-                  History
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDockerPullModalOpen(true)}
-                >
-                  Docker Pull
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setServerVersionsModalOpen(true)}
-                >
-                  Server Versions
-                </button>
+                <div class="nav-dropdown">
+                  <button
+                    type="button"
+                    class={`nav-dropdown-trigger ${["servers","snapshots","users","volumeUsage","aiUsage","moduleEditor","changelog"].includes(activeView()) ? "active" : ""}`}
+                    onClick={() => { setNavDropdownOpen(o => !o); setMoreDropdownOpen(false); }}
+                  >
+                    {viewLabel(activeView())} <span class="nav-dropdown-chevron">▾</span>
+                  </button>
+                  <Show when={navDropdownOpen()}>
+                    <div class="nav-dropdown-menu">
+                      {(
+                        [
+                          ["servers", "Servers"],
+                          ["snapshots", "Snapshots"],
+                          ["users", "Users"],
+                          ["volumeUsage", "Volume Usage"],
+                          ["aiUsage", "AI Usage"],
+                          ["moduleEditor", "Module Definitions"],
+                          ["changelog", "History"],
+                        ] as [string, string][]
+                      ).map(([view, label]) => (
+                        <button
+                          type="button"
+                          class="nav-dropdown-item"
+                          data-selected={activeView() === view}
+                          onClick={() => { setActiveView(view as ViewType); setNavDropdownOpen(false); }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </Show>
+                </div>
+                <div class="nav-dropdown">
+                  <button
+                    type="button"
+                    class="nav-dropdown-trigger"
+                    onClick={() => { setMoreDropdownOpen(o => !o); setNavDropdownOpen(false); }}
+                  >
+                    More <span class="nav-dropdown-chevron">▾</span>
+                  </button>
+                  <Show when={moreDropdownOpen()}>
+                    <div class="nav-dropdown-menu">
+                      <button
+                        type="button"
+                        class="nav-dropdown-item"
+                        onClick={() => { setDockerPullModalOpen(true); setMoreDropdownOpen(false); }}
+                      >
+                        Docker Pull
+                      </button>
+                      <button
+                        type="button"
+                        class="nav-dropdown-item"
+                        onClick={() => { setServerVersionsModalOpen(true); setMoreDropdownOpen(false); }}
+                      >
+                        Server Versions
+                      </button>
+                    </div>
+                  </Show>
+                </div>
               </div>
               <div class="nav-right" />
             </div>
