@@ -320,51 +320,10 @@ function App() {
           <Show when={isAdmin()}>
             <div class="button-container">
               <div class="nav-left">
-                {activeView() === "servers" && (
-                  <div>
-                    <button
-                      type="button"
-                      class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
-                      style="margin-left: 8px"
-                      onClick={() => {
-                        if (multiSelectMode()) setMultiSelectedServerIds([]);
-                        setMultiSelectMode(m => !m);
-                      }}
-                    >
-                      {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
-                    </button>
-                    <Show when={multiSelectMode()}>
-                      <button
-                        type="button"
-                        class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
-                        style="margin-left: 8px"
-                        onClick={() => setMultiSelectedServerIds(selectableServerIds())}
-                      >
-                        Select all
-                      </button>
-                    </Show>
-                    <button
-                      type="button"
-                      style="margin-left: 8px"
-                      onClick={() => setCreateCategoryModalOpen(true)}
-                    >
-                      Configure Categories
-                    </button>
-                    <button
-                      type="button"
-                      style="margin-left: 8px"
-                      onClick={() => setCreateServerModalOpen(true)}
-                    >
-                      Create Server
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div class="nav-buttons">
                 <div class="nav-dropdown">
                   <button
                     type="button"
-                    class={`nav-dropdown-trigger ${["servers","snapshots","users","volumeUsage","aiUsage","moduleEditor","changelog"].includes(activeView()) ? "active" : ""}`}
+                    class="nav-dropdown-trigger active"
                     onClick={() => { setNavDropdownOpen(o => !o); setMoreDropdownOpen(false); }}
                   >
                     {viewLabel(activeView())} <span class="nav-dropdown-chevron">▾</span>
@@ -421,6 +380,42 @@ function App() {
                     </div>
                   </Show>
                 </div>
+              </div>
+              <div class="nav-toolbar">
+                <Show when={activeView() === "servers"}>
+                  <button
+                    type="button"
+                    class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
+                    onClick={() => {
+                      if (multiSelectMode()) setMultiSelectedServerIds([]);
+                      setMultiSelectMode(m => !m);
+                    }}
+                  >
+                    {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
+                  </button>
+                  <Show when={multiSelectMode()}>
+                    <button
+                      type="button"
+                      class="multi-select-toggle active"
+                      onClick={() => setMultiSelectedServerIds(selectableServerIds())}
+                    >
+                      Select all
+                    </button>
+                  </Show>
+                  <button
+                    type="button"
+                    onClick={() => setCreateCategoryModalOpen(true)}
+                  >
+                    Configure Categories
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreateServerModalOpen(true)}
+                  >
+                    Create Server
+                  </button>
+                </Show>
+                {/* Add toolbar buttons for other views here using <Show when={activeView() === "viewName"}> */}
               </div>
               <div class="nav-right" />
             </div>
