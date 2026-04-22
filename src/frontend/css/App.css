@@ -796,21 +796,19 @@ button:disabled {
   z-index: 1000;
   background: #0d1f20;
   border-bottom: 1px solid rgba(13, 148, 136, 0.35);
-  padding: 0.6rem 0;
+  padding: 0.5rem 1.75rem;
   margin: 0;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 0.35rem;
 }
 
 .sticky-header .button-container {
   display: flex;
   align-items: center;
-  width: 100%;
-  margin-top: 0;
-  padding: 0 1rem;
+  flex: 1;
+  margin-left: 1rem;
 }
 
 .sticky-header .nav-left {
