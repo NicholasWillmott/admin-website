@@ -167,7 +167,7 @@ function App() {
 
   // track locked servers (shared with header's "Select all" button)
   const [lockedServers, setLockedServers] = createSignal<Set<string>>(new Set());
-  createResource(async () => {
+  const [lockedServersResource] = createResource(async () => {
     const token = await getToken();
     const locks = await fetchLockedServersApi(token) as string[];
     setLockedServers(new Set(locks));
@@ -397,9 +397,10 @@ function App() {
                     <button
                       type="button"
                       class="multi-select-toggle active"
+                      disabled={lockedServersResource.loading}
                       onClick={() => setMultiSelectedServerIds(selectableServerIds().filter(id => !lockedServers().has(id)))}
                     >
-                      Select all
+                      {lockedServersResource.loading ? 'Loading...' : 'Select all'}
                     </button>
                   </Show>
                   <button
