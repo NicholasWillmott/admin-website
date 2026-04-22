@@ -798,17 +798,22 @@ button:disabled {
   border-bottom: 1px solid rgba(13, 148, 136, 0.35);
   padding: 0.5rem 1.75rem;
   margin: 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: row;
   align-items: center;
+}
+
+.sticky-header h1 {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .sticky-header .button-container {
   display: flex;
   align-items: center;
   flex: 1;
-  margin-left: 1rem;
 }
 
 .sticky-header .nav-left {
