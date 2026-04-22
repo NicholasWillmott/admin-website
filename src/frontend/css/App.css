@@ -1,6 +1,6 @@
 /* General Styles */
 html {
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 
 :root {
