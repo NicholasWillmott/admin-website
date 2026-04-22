@@ -146,7 +146,9 @@ export function ServersView(props: ServersViewProps) {
   });
 
   const activeInstances = () => (props.servers() || []).filter(s => {
-    const log = props.statuses()?.[s.id]?.lastUserLog;
+    const status = props.statuses()?.[s.id];
+    if (status?.hasRunningModules) return true;
+    const log = status?.lastUserLog;
     return log && Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000;
   });
 

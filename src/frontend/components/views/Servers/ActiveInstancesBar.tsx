@@ -15,9 +15,15 @@ export function ActiveInstancesBar(props: ActiveInstancesBarProps) {
         <Show when={props.instances.length === 0} fallback={
           <For each={props.instances}>
             {(server) => {
-              const log = props.statuses?.[server.id]?.lastUserLog!;
+              const status = props.statuses?.[server.id];
+              const log = status?.lastUserLog;
+              const title = status?.hasRunningModules
+                ? "Module processing in progress"
+                : log
+                  ? `${log.userEmail} — ${new Date(log.timestamp).toLocaleTimeString()}`
+                  : "";
               return (
-                <span class="active-instance-chip" title={`${log.userEmail} — ${new Date(log.timestamp).toLocaleTimeString()}`}>
+                <span class="active-instance-chip" title={title}>
                   {server.label}
                 </span>
               );
