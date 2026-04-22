@@ -4,7 +4,7 @@ html {
 }
 
 :root {
-  --header-height: 68px;
+  --header-height: 48px;
 }
 
 #root {
@@ -14,7 +14,7 @@ html {
 }
 
 body {
-  background: #070f10;
+  background: #243d2e;
   min-height: 100vh;
   margin: 0;
   padding: 0;
@@ -4309,12 +4309,6 @@ h1 {
   }
 }
 
-/* Nav buttons start wrapping to 2 rows around this width, making the header taller */
-@media (max-width: 540px) {
-  :root {
-    --header-height: 110px;
-  }
-}
 
 @media (max-width: 700px) {
   .servers-grid {
@@ -4356,10 +4350,6 @@ h1 {
 }
 
 @media (max-width: 480px) {
-  /* Smaller h1 + smaller buttons = shorter header even with 2 rows */
-  :root {
-    --header-height: 100px;
-  }
 
   #root {
     padding: 0.5rem;
