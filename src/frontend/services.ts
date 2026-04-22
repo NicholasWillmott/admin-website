@@ -677,6 +677,18 @@ export async function fetchAllServerAiUsage(servers: Server[], token: string | n
 
 const LITELLM_PRICING_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
 
+export async function fetchHUsers(token: string | null): Promise<string[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/users/h-users`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchModelPricing(): Promise<Record<string, ModelPricing>> {
   try {
     const response = await fetch(LITELLM_PRICING_URL);

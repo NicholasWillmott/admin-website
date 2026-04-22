@@ -1,7 +1,6 @@
 import { For, createSignal } from 'solid-js';
 import type { ClerkUser, ClerkSession, Server, HealthCheckResponse, ServerUserLogs } from '../../../types.ts';
 import { formatDate } from '../../../utils.ts';
-import { H_USERS } from '../../../h_users.ts';
 import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
 import { ActiveUsersExportModal } from '../../modals/ActiveUsersExportModal.tsx';
 import { SuperAdminEmailModal } from '../../modals/SuperAdminEmailModal.tsx';
@@ -25,6 +24,7 @@ interface UsersProps {
     userLogs: ServerUserLogs | undefined;
     onSendWeeklyReport: (emails: string[]) => Promise<void>;
     onSendInstanceAdminReports: (serverIds: string[]) => Promise<void>;
+    hUsers: string[];
 }
 
 function getPrimaryEmail(user: ClerkUser): string {
@@ -215,7 +215,7 @@ export function Users(p: UsersProps) {
         setExporting(false);
     }
 
-    const graphUsers = () => filteredUsers().filter(u => !H_USERS.has(getPrimaryEmail(u)));
+    const graphUsers = () => filteredUsers().filter(u => !new Set(p.hUsers).has(getPrimaryEmail(u)));
 
     const filteredUsers = () => {
         if (!p.users) return [];
@@ -438,7 +438,7 @@ export function Users(p: UsersProps) {
             )}
             {superAdminEmailOpen() && (
                 <SuperAdminEmailModal
-                    emails={[...H_USERS]}
+                    emails={[...new Set(p.hUsers)]}
                     sending={sendingReport()}
                     onSend={sendWeeklyReport}
                     onClose={() => setSuperAdminEmailOpen(false)}

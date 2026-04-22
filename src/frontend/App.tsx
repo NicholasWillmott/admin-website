@@ -37,6 +37,7 @@ import {
   fetchChangelogViewApi,
   fetchEmailHistoryApi,
   fetchEmailDetailApi,
+  fetchHUsers,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -131,6 +132,12 @@ function App() {
   const [emailHistory, { refetch: refetchEmailHistory }] = createResource(async () => {
     const token = await getToken();
     return fetchEmailHistoryApi(token);
+  });
+
+  // get internal H users list (kept backend-only to avoid exposing emails in the JS bundle)
+  const [hUsers] = createResource(async () => {
+    const token = await getToken();
+    return fetchHUsers(token);
   });
 
   const handleViewEmail = async (id: string, key: string): Promise<string | null> => {
@@ -545,6 +552,7 @@ function App() {
               onSendInstanceAdminReports={handleSendInstanceAdminReports}
               servers={servers()}
               userLogs={allServerUserLogs()}
+              hUsers={hUsers() ?? []}
               onFetchInstanceStatus={async (serverId) => {
                 const token = await getToken();
                 return fetchServerStatus(serverId, token);

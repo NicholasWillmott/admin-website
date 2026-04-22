@@ -1,6 +1,7 @@
 /// <reference lib="deno.ns" />
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
+import { H_USERS } from "../h_users.ts";
 
 const router = new Hono();
 
@@ -77,6 +78,14 @@ router.get("/:userId/sessions", async (c) => {
     } catch (error) {
         return c.json({ error: String(error) }, 500);
     }
+});
+
+// Get the list of internal H users (admin-only — keeps emails off the frontend bundle)
+router.get("/h-users", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    return c.json([...H_USERS]);
 });
 
 export default router;

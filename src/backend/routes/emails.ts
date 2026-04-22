@@ -1,7 +1,7 @@
 /// <reference lib="deno.ns" />
 import { Hono } from "hono";
 import { requireAdminOrInternal } from "../lib/auth.ts";
-import { H_USERS } from "../../frontend/h_users.ts";
+import { H_USERS } from "../h_users.ts";
 import type { AiUsageLog, ModelPricing } from "../../frontend/types.ts";
 
 const router = new Hono();
