@@ -381,7 +381,7 @@ function App() {
                   </Show>
                 </div>
               </div>
-              <div class="nav-toolbar">
+              <div class="nav-right">
                 <Show when={activeView() === "servers"}>
                   <button
                     type="button"
@@ -417,7 +417,6 @@ function App() {
                 </Show>
                 {/* Add toolbar buttons for other views here using <Show when={activeView() === "viewName"}> */}
               </div>
-              <div class="nav-right" />
             </div>
           </Show>
         </SignedIn>
