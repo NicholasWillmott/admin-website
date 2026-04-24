@@ -57,12 +57,16 @@ export function ServerCard(props: ServerCardProps) {
           </a>
           {(() => {
             const log = props.status?.lastUserLog;
-            const isActive = log
+            const recentUser = log
               ? Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000
               : false;
-            const title = log
-              ? `Last activity: ${log.userEmail} — ${timeAgo(log.timestamp)}`
-              : 'No activity recorded';
+            const modulesRunning = !!props.status?.hasRunningModules;
+            const isActive = recentUser || modulesRunning;
+            const title = modulesRunning
+              ? `Module processing in progress${log ? ` — last user: ${log.userEmail} (${timeAgo(log.timestamp)})` : ''}`
+              : log
+                ? `Last activity: ${log.userEmail} — ${timeAgo(log.timestamp)}`
+                : 'No activity recorded';
             return <div class={`activity-dot ${isActive ? 'active' : 'inactive'}`} title={title} onClick={(e) => { e.stopPropagation(); props.onActivityDotClick(props.server.id); }} style="cursor: pointer" />;
           })()}
           <span
