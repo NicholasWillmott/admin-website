@@ -1,4 +1,4 @@
-import { For } from 'solid-js';
+import { createSignal, For, Show, createEffect } from 'solid-js';
 import { formatDate } from '../../utils.ts';
 
 interface Snapshot {
@@ -10,14 +10,31 @@ interface Snapshot {
 
 interface SnapshotsViewProps {
   snapshots: Snapshot[] | undefined;
+  volumes: string[];
   loading: boolean;
   error: Error | undefined;
   snappingVolume: boolean;
-  onCreateSnapshot: () => void;
+  onCreateSnapshot: (volume: string) => void;
   onDeleteSnapshot: (snapshotId: string) => void;
 }
 
 export function SnapshotsView(props: SnapshotsViewProps) {
+  const [pickerOpen, setPickerOpen] = createSignal(false);
+  const [selectedVolume, setSelectedVolume] = createSignal('');
+
+  createEffect(() => {
+    if (pickerOpen() && !selectedVolume() && props.volumes.length > 0) {
+      setSelectedVolume(props.volumes[0]);
+    }
+  });
+
+  // Close the modal once the snapshot operation finishes
+  let wasSnapping = false;
+  createEffect(() => {
+    if (wasSnapping && !props.snappingVolume) setPickerOpen(false);
+    wasSnapping = props.snappingVolume;
+  });
+
   const sortedSnapshots = () => {
     const snapshots = props.snapshots;
     if (!snapshots) return [];
@@ -30,13 +47,17 @@ export function SnapshotsView(props: SnapshotsViewProps) {
     <div class="snapshots-container">
       <div class="snapshots-content">
         <div class="snapshots-header">
-          <button class="system-btn snapshot" onClick={() => props.onCreateSnapshot()} disabled={props.snappingVolume}>
+          <button
+            class="system-btn snapshot"
+            onClick={() => setPickerOpen(true)}
+            disabled={props.snappingVolume || props.volumes.length === 0}
+          >
             {props.snappingVolume ? (
               <>
                 <span class="button-spinner"></span>
                 Creating Volume Snapshot...
               </>
-            ): (
+            ) : (
               'Create Volume Snapshot'
             )}
           </button>
@@ -90,6 +111,54 @@ export function SnapshotsView(props: SnapshotsViewProps) {
           </div>
         )}
       </div>
+
+      <Show when={pickerOpen()}>
+        <div class="modal-overlay" onClick={() => !props.snappingVolume && setPickerOpen(false)}>
+          <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 420px">
+            <div class="modal-header">
+              <h2>Create Volume Snapshot</h2>
+              <button
+                class="modal-close"
+                onClick={() => setPickerOpen(false)}
+                disabled={props.snappingVolume}
+              >
+                ✕
+              </button>
+            </div>
+            <div class="modal-body">
+              <div class="docker-pull-form">
+                <label for="snapshot-volume">Volume</label>
+                <select
+                  id="snapshot-volume"
+                  class="version-input"
+                  value={selectedVolume()}
+                  onChange={(e) => setSelectedVolume(e.currentTarget.value)}
+                  disabled={props.snappingVolume}
+                >
+                  <For each={props.volumes}>
+                    {(vol) => <option value={vol}>/mnt/{vol}</option>}
+                  </For>
+                </select>
+                <button
+                  type="button"
+                  class="action-btn docker-pull"
+                  onClick={() => props.onCreateSnapshot(selectedVolume())}
+                  disabled={!selectedVolume() || props.snappingVolume}
+                >
+                  {props.snappingVolume ? (
+                    <>
+                      <span class="button-spinner"></span>
+                      Creating Snapshot...
+                    </>
+                  ) : (
+                    'Create Snapshot'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Show>
     </div>
   );
 }

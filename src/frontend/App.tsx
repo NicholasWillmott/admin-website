@@ -224,13 +224,14 @@ function App() {
   };
 
   // create snapshot of volume
-  const createVolumeSnapshot = async () => {
+  const createVolumeSnapshot = async (volume: string) => {
     setSnappingVolume(true);
     try {
       const token = await getToken();
-      const result = await createVolumeSnapshotApi(token);
+      const result = await createVolumeSnapshotApi(volume, token);
       if (result.success) {
         addToast(`Volume snapshot created successfully!`, "success");
+        refetchSnapshots();
       } else {
         addToast(`Failed to create snapshot: ${result.error}`, "error");
       }
@@ -496,6 +497,7 @@ function App() {
           <Show when={activeView() === "snapshots"}>
             <SnapshotsView
               snapshots={volumeSnapshots()}
+              volumes={volumes() ?? []}
               loading={volumeSnapshots.loading}
               error={volumeSnapshots.error}
               snappingVolume={snappingVolume()}

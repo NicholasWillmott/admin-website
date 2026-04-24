@@ -38,21 +38,44 @@ router.delete("/server/snapshot/:id", async (c) => {
     }
 });
 
-// Take a snapshot of the main droplet volume
+// Take a snapshot of a named droplet volume
 router.post("/server/snapshot", async (c) => {
     const authError = await requireAdmin(c);
     if (authError) return authError;
 
     const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
-    const volumeId = Deno.env.get("VOLUME_ID");
+    if (!doToken) {
+        return c.json({ success: false, error: "Digital Ocean API token not found" });
+    }
 
-    if (!doToken || !volumeId) {
-        return c.json({ success: false, error: "Digital Ocean API token or Volume ID not found" });
+    let volumeName: string | undefined;
+    try {
+        const body = await c.req.json();
+        volumeName = typeof body?.volume === "string" ? body.volume.trim() : undefined;
+    } catch {
+        // no body
+    }
+
+    if (!volumeName) {
+        return c.json({ success: false, error: "Volume name is required" }, 400);
     }
 
     try {
+        const lookup = await fetch(
+            `https://api.digitalocean.com/v2/volumes?name=${encodeURIComponent(volumeName)}`,
+            { headers: { "Authorization": `Bearer ${doToken}` } },
+        );
+        if (!lookup.ok) {
+            return c.json({ success: false, error: `Failed to look up volume "${volumeName}"` });
+        }
+        const lookupData = await lookup.json();
+        const volumeId = lookupData.volumes?.[0]?.id as string | undefined;
+        if (!volumeId) {
+            return c.json({ success: false, error: `Volume "${volumeName}" not found` }, 404);
+        }
+
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        const snapshotName = `${volumeId}-snapshot-${timestamp}`;
+        const snapshotName = `${volumeName}-snapshot-${timestamp}`;
 
         const response = await fetch(`https://api.digitalocean.com/v2/volumes/${volumeId}/snapshots`, {
             method: "POST",
@@ -62,7 +85,7 @@ router.post("/server/snapshot", async (c) => {
             },
             body: JSON.stringify({
                 name: snapshotName,
-                description: `Snapshot for ${volumeId} created via admin dashboard`,
+                description: `Snapshot for ${volumeName} created via admin dashboard`,
             }),
         });
 
