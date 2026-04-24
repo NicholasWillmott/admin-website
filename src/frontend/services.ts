@@ -185,14 +185,14 @@ export async function deleteVolumeSnapshotApi(snapshotId: string, token: string 
   return await response.json();
 }
 
-export async function createVolumeSnapshotApi(volume: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+export async function createVolumeSnapshotApi(volume: string, name: string, token: string | null): Promise<{ success: boolean; error?: string }> {
   const response = await fetch(`${API_BASE}/api/server/snapshot`, {
     method: 'POST',
     headers: {
       ...getAuthHeaders(token),
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ volume }),
+    body: JSON.stringify({ volume, name }),
   });
   return await response.json();
 }

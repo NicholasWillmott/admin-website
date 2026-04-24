@@ -49,15 +49,29 @@ router.post("/server/snapshot", async (c) => {
     }
 
     let volumeName: string | undefined;
+    let customName: string | undefined;
     try {
         const body = await c.req.json();
         volumeName = typeof body?.volume === "string" ? body.volume.trim() : undefined;
+        customName = typeof body?.name === "string" ? body.name.trim() : undefined;
     } catch {
         // no body
     }
 
     if (!volumeName) {
         return c.json({ success: false, error: "Volume name is required" }, 400);
+    }
+
+    // Names containing these substrings are matched by the cleanup-snapshots.sh
+    // rotation job's retention filter and would be auto-deleted within days.
+    if (customName) {
+        const reserved = ["-daily-", "-weekly-", "-monthly-"].find(t => customName!.includes(t));
+        if (reserved) {
+            return c.json({
+                success: false,
+                error: `Snapshot name cannot contain "${reserved}" — that pattern is reserved for the automated rotation job.`,
+            }, 400);
+        }
     }
 
     try {
@@ -75,7 +89,7 @@ router.post("/server/snapshot", async (c) => {
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        const snapshotName = `${volumeName}-snapshot-${timestamp}`;
+        const snapshotName = customName || `${volumeName}-snapshot-${timestamp}`;
 
         const response = await fetch(`https://api.digitalocean.com/v2/volumes/${volumeId}/snapshots`, {
             method: "POST",

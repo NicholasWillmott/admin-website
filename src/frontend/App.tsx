@@ -224,11 +224,11 @@ function App() {
   };
 
   // create snapshot of volume
-  const createVolumeSnapshot = async (volume: string) => {
+  const createVolumeSnapshot = async (volume: string, name: string) => {
     setSnappingVolume(true);
     try {
       const token = await getToken();
-      const result = await createVolumeSnapshotApi(volume, token);
+      const result = await createVolumeSnapshotApi(volume, name, token);
       if (result.success) {
         addToast(`Volume snapshot created successfully!`, "success");
         refetchSnapshots();

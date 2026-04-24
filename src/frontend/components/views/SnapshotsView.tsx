@@ -14,17 +14,43 @@ interface SnapshotsViewProps {
   loading: boolean;
   error: Error | undefined;
   snappingVolume: boolean;
-  onCreateSnapshot: (volume: string) => void;
+  onCreateSnapshot: (volume: string, name: string) => void;
   onDeleteSnapshot: (snapshotId: string) => void;
 }
 
 export function SnapshotsView(props: SnapshotsViewProps) {
   const [pickerOpen, setPickerOpen] = createSignal(false);
   const [selectedVolume, setSelectedVolume] = createSignal('');
+  const [snapshotName, setSnapshotName] = createSignal('');
+
+  const defaultName = () => {
+    const vol = selectedVolume();
+    if (!vol) return '';
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    return `${vol}-snapshot-${ts}`;
+  };
+
+  // Reserved by the cleanup-snapshots.sh rotation job — names containing these
+  // substrings get matched by its retention policy and deleted within days.
+  const reservedSubstring = () => {
+    const name = snapshotName();
+    for (const tag of ['-daily-', '-weekly-', '-monthly-']) {
+      if (name.includes(tag)) return tag;
+    }
+    return null;
+  };
 
   createEffect(() => {
     if (pickerOpen() && !selectedVolume() && props.volumes.length > 0) {
       setSelectedVolume(props.volumes[0]);
+    }
+  });
+
+  // Reset the name to a fresh default each time the modal opens or the volume changes
+  createEffect(() => {
+    if (pickerOpen()) {
+      selectedVolume();
+      setSnapshotName(defaultName());
     }
   });
 
@@ -139,11 +165,28 @@ export function SnapshotsView(props: SnapshotsViewProps) {
                     {(vol) => <option value={vol}>/mnt/{vol}</option>}
                   </For>
                 </select>
+                <label for="snapshot-name">Snapshot Name</label>
+                <input
+                  id="snapshot-name"
+                  type="text"
+                  class="version-input"
+                  value={snapshotName()}
+                  onInput={(e) => setSnapshotName(e.currentTarget.value)}
+                  placeholder={defaultName()}
+                  disabled={props.snappingVolume}
+                />
+                <Show when={reservedSubstring()}>
+                  {(tag) => (
+                    <div style="margin-top: -4px; padding: 8px 12px; background: rgba(239, 68, 68, 0.08); border-left: 4px solid rgba(239, 68, 68, 0.3); border-radius: 4px; font-size: 13px; color: #f87171;">
+                      Name cannot contain <strong>{tag()}</strong> — that pattern is reserved for the automated rotation job and would cause this snapshot to be deleted.
+                    </div>
+                  )}
+                </Show>
                 <button
                   type="button"
                   class="action-btn docker-pull"
-                  onClick={() => props.onCreateSnapshot(selectedVolume())}
-                  disabled={!selectedVolume() || props.snappingVolume}
+                  onClick={() => props.onCreateSnapshot(selectedVolume(), snapshotName().trim())}
+                  disabled={!selectedVolume() || !snapshotName().trim() || !!reservedSubstring() || props.snappingVolume}
                 >
                   {props.snappingVolume ? (
                     <>
