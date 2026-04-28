@@ -163,7 +163,38 @@ export interface ChangelogVersion {
   types: ChangelogTypeGroup[];
 }
 
-export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "changelog";
+export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog";
+
+export interface PgStatStatement {
+  datname: string | null;
+  usename: string | null;
+  queryid: string;
+  calls: string;
+  total_exec_time_ms: number;
+  mean_exec_time_ms: number;
+  max_exec_time_ms: number;
+  min_exec_time_ms: number;
+  stddev_exec_time_ms: number;
+  rows: string;
+  query: string;
+}
+
+export interface PgStatStatementsResponse {
+  instanceName: string;
+  serverTime: string;
+  orderBy: string;
+  limit: number;
+  minMeanMs: number;
+  statements: PgStatStatement[];
+}
+
+export type PgStatStatementsOrderBy = "total" | "mean" | "max" | "calls";
+
+export interface PgStatStatementsParams {
+  orderBy?: PgStatStatementsOrderBy;
+  limit?: number;
+  minMeanMs?: number;
+}
 
 export interface SentEmailSummary {
   id: string;

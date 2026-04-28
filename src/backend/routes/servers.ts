@@ -84,6 +84,34 @@ router.post("/bulk-restart", async (c) => {
     return c.json({ success: true });
 });
 
+// Get pg_stat_statements snapshot for a server
+router.get("/:id/pg_stat_statements", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+
+    if (!isSafeParam(serverId)) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
+    const allowed = ["orderBy", "limit", "minMeanMs"];
+    const qs = new URLSearchParams();
+    for (const k of allowed) {
+        const v = c.req.query(k);
+        if (v != null && v !== "") qs.set(k, v);
+    }
+    const tail = qs.toString() ? `?${qs.toString()}` : "";
+
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/pg_stat_statements${tail}`);
+        const data = await response.json();
+        return c.json(data);
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // Get server AI usage logs
 router.get("/:id/ai_usage", async (c) => {
     const authError = await requireAdmin(c);

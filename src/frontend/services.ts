@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -677,6 +677,25 @@ export async function fetchAllServerAiUsage(servers: Server[], token: string | n
     acc[id] = logs;
     return acc;
   }, {} as ServerAiUsageLogs);
+}
+
+export async function fetchServerPgStatStatements(
+  serverId: string,
+  token: string | null,
+  params?: PgStatStatementsParams,
+): Promise<PgStatStatementsResponse | null> {
+  try {
+    const url = new URL(`${API_BASE}/api/servers/${serverId}/pg_stat_statements`);
+    if (params?.orderBy) url.searchParams.set("orderBy", params.orderBy);
+    if (params?.limit != null) url.searchParams.set("limit", String(params.limit));
+    if (params?.minMeanMs != null) url.searchParams.set("minMeanMs", String(params.minMeanMs));
+    const response = await fetch(url.toString(), { headers: getAuthHeaders(token) });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error(`Failed to fetch pg_stat_statements for ${serverId}:`, error);
+    return null;
+  }
 }
 
 const LITELLM_PRICING_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";

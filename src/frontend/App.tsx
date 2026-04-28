@@ -6,6 +6,7 @@ import { ServersView } from './components/views/Servers/ServersView.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { AiUsageView } from './components/views/AiUsageView.tsx';
+import { PgStatStatementsView } from './components/views/PgStatStatementsView.tsx';
 import { ChangelogView } from './components/views/ChangelogView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { ServerVersionsModal } from './components/modals/ServerVersionsModal.tsx';
@@ -314,6 +315,7 @@ function App() {
     const labels: Record<string, string> = {
       servers: 'Servers', snapshots: 'Snapshots', users: 'Users',
       volumeUsage: 'Volume Usage', aiUsage: 'AI Usage',
+      pgStatements: 'Postgres Statements',
       moduleEditor: 'Module Definitions', changelog: 'History',
     };
     return labels[view] ?? view;
@@ -345,6 +347,7 @@ function App() {
                           ["users", "Users"],
                           ["volumeUsage", "Volume Usage"],
                           ["aiUsage", "AI Usage"],
+                          ["pgStatements", "Postgres Statements"],
                           ["moduleEditor", "Module Definitions"],
                           ["changelog", "History"],
                         ] as [string, string][]
@@ -524,6 +527,13 @@ function App() {
               loading={allServerAiUsage.loading || modelPricing.loading}
               error={allServerAiUsage.error}
               onRefetch={refetchAiUsage}
+            />
+          </Show>
+
+          <Show when={activeView() === "pgStatements"}>
+            <PgStatStatementsView
+              servers={servers()}
+              getToken={getToken}
             />
           </Show>
 

@@ -4842,6 +4842,190 @@ h1 {
   color: #e2e8f0;
 }
 
+/* Postgres Statements View */
+.pgss-container {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  background: #243d2e;
+}
+
+.pgss-content {
+  width: 100%;
+  max-width: 1400px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pgss-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pgss-title {
+  color: #e2e8f0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.pgss-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pgss-meta {
+  display: flex;
+  gap: 24px;
+  color: #94a3b8;
+  font-size: 0.8125rem;
+  flex-wrap: wrap;
+}
+
+.pgss-meta strong {
+  color: #5eead4;
+  font-weight: 600;
+}
+
+.pgss-loading,
+.pgss-error,
+.pgss-empty,
+.pgss-warning {
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0;
+}
+
+.pgss-warning {
+  color: #f59e0b;
+}
+
+.pgss-warning code {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: #5eead4;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.pgss-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #1a2e22;
+  border-radius: 8px;
+  overflow: hidden;
+  table-layout: fixed;
+}
+
+.pgss-table thead {
+  background: #152318;
+}
+
+.pgss-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.pgss-table th:nth-child(2),
+.pgss-table th:nth-child(3),
+.pgss-table th:nth-child(4),
+.pgss-table th:nth-child(5),
+.pgss-table th:nth-child(6) {
+  text-align: right;
+  width: 90px;
+}
+
+.pgss-table th:first-child {
+  width: 140px;
+}
+
+.pgss-table th.pgss-query-col {
+  text-align: left;
+  width: auto;
+}
+
+.pgss-table tbody tr {
+  border-top: 1px solid #243d2e;
+}
+
+.pgss-row {
+  cursor: pointer;
+}
+
+.pgss-row:hover {
+  background: #1e3528;
+}
+
+.pgss-table td {
+  padding: 12px 16px;
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  vertical-align: top;
+}
+
+.pgss-db {
+  color: #5eead4;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.8125rem;
+}
+
+.pgss-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.pgss-total {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.pgss-query {
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.8125rem;
+  color: #cbd5e1;
+}
+
+.pgss-query-clipped {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: inherit;
+}
+
+.pgss-query-full {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+}
+
 /* Changelog View */
 .changelog-view-container {
   position: fixed;
