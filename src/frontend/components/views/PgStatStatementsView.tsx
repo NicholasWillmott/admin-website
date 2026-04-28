@@ -61,7 +61,7 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
           <h2 class="pgss-title">Postgres Statements</h2>
           <div class="pgss-filters">
             <select
-              class="server-filter-input"
+              class="server-filter-select"
               value={serverId()}
               onChange={(e) => setServerId(e.currentTarget.value)}
             >
@@ -71,7 +71,7 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
               </For>
             </select>
             <select
-              class="server-filter-input"
+              class="server-filter-select"
               value={orderBy()}
               onChange={(e) => setOrderBy(e.currentTarget.value as PgStatStatementsOrderBy)}
             >
