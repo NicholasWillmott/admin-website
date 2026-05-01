@@ -10,6 +10,24 @@ interface AiUsageViewProps {
   onRefetch: () => void;
 }
 
+interface UsageTotals {
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  cost: number;
+}
+
+const emptyTotals = (): UsageTotals => ({
+  requests: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
+  cost: 0,
+});
+
 function computeCost(log: AiUsageLog, pricing: Record<string, ModelPricing>): number {
   const p = pricing[log.model];
   if (!p) return 0;
@@ -17,6 +35,17 @@ function computeCost(log: AiUsageLog, pricing: Record<string, ModelPricing>): nu
     + (log.output_tokens * (p.output_cost_per_token ?? 0))
     + (log.cache_creation_input_tokens * (p.cache_creation_input_token_cost ?? 0))
     + (log.cache_read_input_tokens * (p.cache_read_input_token_cost ?? 0));
+}
+
+function addLog(totals: UsageTotals, log: AiUsageLog, pricing: Record<string, ModelPricing>): UsageTotals {
+  return {
+    requests: totals.requests + 1,
+    inputTokens: totals.inputTokens + log.input_tokens,
+    outputTokens: totals.outputTokens + log.output_tokens,
+    cacheReadTokens: totals.cacheReadTokens + log.cache_read_input_tokens,
+    cacheCreationTokens: totals.cacheCreationTokens + log.cache_creation_input_tokens,
+    cost: totals.cost + computeCost(log, pricing),
+  };
 }
 
 function formatCost(cost: number): string {
@@ -34,6 +63,16 @@ function formatTokens(n: number): string {
 export function AiUsageView(props: AiUsageViewProps) {
   const [dateFrom, setDateFrom] = createSignal('');
   const [dateTo, setDateTo] = createSignal('');
+  const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
+
+  const toggleExpanded = (serverId: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(serverId)) next.delete(serverId);
+      else next.add(serverId);
+      return next;
+    });
+  };
 
   const rows = createMemo(() => {
     const servers = props.servers ?? [];
@@ -49,18 +88,20 @@ export function AiUsageView(props: AiUsageViewProps) {
         if (to !== null && t > to) return false;
         return true;
       });
-      const totals = serverLogs.reduce(
-        (acc, log) => ({
-          requests: acc.requests + 1,
-          inputTokens: acc.inputTokens + log.input_tokens,
-          outputTokens: acc.outputTokens + log.output_tokens,
-          cacheReadTokens: acc.cacheReadTokens + log.cache_read_input_tokens,
-          cacheCreationTokens: acc.cacheCreationTokens + log.cache_creation_input_tokens,
-          cost: acc.cost + computeCost(log, pricing),
-        }),
-        { requests: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, cost: 0 },
-      );
-      return { server, ...totals };
+
+      const userMap = new Map<string, UsageTotals>();
+      let totals = emptyTotals();
+      for (const log of serverLogs) {
+        totals = addLog(totals, log, pricing);
+        const key = log.user_email || '(unknown)';
+        userMap.set(key, addLog(userMap.get(key) ?? emptyTotals(), log, pricing));
+      }
+
+      const users = Array.from(userMap.entries())
+        .map(([email, t]) => ({ email, ...t }))
+        .sort((a, b) => b.cost - a.cost || b.requests - a.requests);
+
+      return { server, users, ...totals };
     }).sort((a, b) => b.cost - a.cost);
   });
 
@@ -74,7 +115,7 @@ export function AiUsageView(props: AiUsageViewProps) {
         cacheCreationTokens: acc.cacheCreationTokens + row.cacheCreationTokens,
         cost: acc.cost + row.cost,
       }),
-      { requests: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, cost: 0 },
+      emptyTotals(),
     )
   );
 
@@ -119,17 +160,53 @@ export function AiUsageView(props: AiUsageViewProps) {
             </thead>
             <tbody>
               <For each={rows()}>
-                {(row) => (
-                  <tr class={row.requests === 0 ? 'ai-usage-row-empty' : ''}>
-                    <td class="ai-usage-instance">{row.server.label}</td>
-                    <td class="ai-usage-num">{row.requests.toLocaleString()}</td>
-                    <td class="ai-usage-num">{formatTokens(row.inputTokens)}</td>
-                    <td class="ai-usage-num">{formatTokens(row.outputTokens)}</td>
-                    <td class="ai-usage-num">{formatTokens(row.cacheReadTokens)}</td>
-                    <td class="ai-usage-num">{formatTokens(row.cacheCreationTokens)}</td>
-                    <td class="ai-usage-cost">{formatCost(row.cost)}</td>
-                  </tr>
-                )}
+                {(row) => {
+                  const isOpen = () => expanded().has(row.server.id);
+                  const canExpand = () => row.users.length > 0;
+                  return (
+                    <>
+                      <tr
+                        class={`ai-usage-instance-row ${row.requests === 0 ? 'ai-usage-row-empty' : ''} ${canExpand() ? 'ai-usage-row-clickable' : ''}`}
+                        onClick={() => canExpand() && toggleExpanded(row.server.id)}
+                      >
+                        <td class="ai-usage-instance">
+                          <span class={`ai-usage-chevron ${isOpen() ? 'open' : ''} ${canExpand() ? '' : 'hidden'}`}>▶</span>
+                          {row.server.label}
+                        </td>
+                        <td class="ai-usage-num">{row.requests.toLocaleString()}</td>
+                        <td class="ai-usage-num">{formatTokens(row.inputTokens)}</td>
+                        <td class="ai-usage-num">{formatTokens(row.outputTokens)}</td>
+                        <td class="ai-usage-num">{formatTokens(row.cacheReadTokens)}</td>
+                        <td class="ai-usage-num">{formatTokens(row.cacheCreationTokens)}</td>
+                        <td class="ai-usage-cost">{formatCost(row.cost)}</td>
+                      </tr>
+                      <Show when={isOpen() && canExpand()}>
+                        <tr class="ai-usage-user-header">
+                          <td>User</td>
+                          <td class="ai-usage-num">Requests</td>
+                          <td class="ai-usage-num">Input</td>
+                          <td class="ai-usage-num">Output</td>
+                          <td class="ai-usage-num">Cache Read</td>
+                          <td class="ai-usage-num">Cache Creation</td>
+                          <td class="ai-usage-num">Cost</td>
+                        </tr>
+                        <For each={row.users}>
+                          {(user) => (
+                            <tr class="ai-usage-user-row">
+                              <td class="ai-usage-user-email">{user.email}</td>
+                              <td class="ai-usage-num">{user.requests.toLocaleString()}</td>
+                              <td class="ai-usage-num">{formatTokens(user.inputTokens)}</td>
+                              <td class="ai-usage-num">{formatTokens(user.outputTokens)}</td>
+                              <td class="ai-usage-num">{formatTokens(user.cacheReadTokens)}</td>
+                              <td class="ai-usage-num">{formatTokens(user.cacheCreationTokens)}</td>
+                              <td class="ai-usage-cost">{formatCost(user.cost)}</td>
+                            </tr>
+                          )}
+                        </For>
+                      </Show>
+                    </>
+                  );
+                }}
               </For>
             </tbody>
             <tfoot>
