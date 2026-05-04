@@ -1127,9 +1127,12 @@ router.post("/instance-admin-emails", async (c) => {
         }
 
         let emailsSent = 0;
+        let testOverrideUsed = false;
 
         for (const [, instances] of adminToInstances) {
             const recipient = testOverrideEmail;
+            if (recipient === testOverrideEmail && testOverrideUsed) continue;
+            if (recipient === testOverrideEmail) testOverrideUsed = true;
 
             if (instances.length === 1) {
                 const inst = instances[0];
