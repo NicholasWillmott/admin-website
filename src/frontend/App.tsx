@@ -130,10 +130,13 @@ function App() {
   });
 
   // get sent email history
-  const [emailHistory, { refetch: refetchEmailHistory }] = createResource(async () => {
-    const token = await getToken();
-    return fetchEmailHistoryApi(token);
-  });
+  const [emailHistory, { refetch: refetchEmailHistory }] = createResource(
+    () => activeView() === "changelog" ? true : null,
+    async () => {
+      const token = await getToken();
+      return fetchEmailHistoryApi(token);
+    }
+  );
 
   // get internal H users list (kept backend-only to avoid exposing emails in the JS bundle)
   const [hUsers] = createResource(async () => {
