@@ -657,9 +657,22 @@ function buildMultiInstanceAdminEmailHtml(
     weekEnd: string,
     instances: InstanceEmailData[]
 ): string {
+    // Deduplicate changelogs by content — show once at the end instead of per section
+    const seenChangelogs = new Map<string, { html: string; version: string }>();
+    for (const inst of instances) {
+        if (inst.changelogHtml && !seenChangelogs.has(inst.changelogHtml)) {
+            seenChangelogs.set(inst.changelogHtml, { html: inst.changelogHtml, version: inst.version });
+        }
+    }
+    const sharedChangelogSection = seenChangelogs.size > 0
+        ? `<div style="border-top:2px solid #0e706c;margin:32px 0"></div>` +
+          `<h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 16px;text-transform:uppercase;letter-spacing:.06em">What's New</h2>` +
+          [...seenChangelogs.values()].map(c => c.html).join("")
+        : "";
+
     const sections = instances.map((inst) => {
         const { server, version, versionIsNew, userCount, userCountDiff, activeUsers,
-                projectsSortedByActivity, recentLogs, changelogHtml, aiSummary, topUsers } = inst;
+                projectsSortedByActivity, recentLogs, aiSummary, topUsers } = inst;
 
         const projectRows = projectsSortedByActivity.map(p => {
             const newBadge = p.isNew ? `<span class="badge">New</span>` : "";
@@ -712,10 +725,7 @@ function buildMultiInstanceAdminEmailHtml(
     <div class="instance-title">${server.label}${versionIsNew ? ` <span class="badge">Updated</span>` : ""}</div>
     <span class="meta">ID: ${server.id} &nbsp;·&nbsp; Version: ${version || "—"}</span>
   </div>
-  ${versionIsNew && changelogHtml ? `
-  ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">What's New</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}
-  <h3 class="section-h">What's New in v${version}</h3>${changelogHtml}<hr style="border:none;border-top:1px solid #cacaca;margin:0 0 20px">` : `
-  ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">AI Summary</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}`}
+  ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">${versionIsNew ? "What's New" : "AI Summary"}</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}
   <div style="display:flex;gap:12px;margin-bottom:20px">
     <div class="stat" style="flex:1"><div class="stat-lbl">Total Users</div><div class="stat-val-sm">${userCount}${diffFlair}</div></div>
     <div class="stat" style="flex:1"><div class="stat-lbl">Active Users (7 days)</div><div class="stat-val-sm">${activeUsers}</div></div>
@@ -732,7 +742,6 @@ function buildMultiInstanceAdminEmailHtml(
     <thead><tr><th>User</th></tr></thead>
     <tbody>${topUserRows}</tbody>
   </table>
-  ${!versionIsNew && changelogHtml ? `<h3 class="section-h" style="margin-top:20px">What's New</h3>${changelogHtml}` : ""}
 </div>`;
     }).join(`<div style="border-top:2px solid #0e706c;margin:32px 0"></div>`);
 
@@ -787,6 +796,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
   <div class="bdy">
     <p class="meta">This report covers ${instances.length} instances you administer on FASTR Analytics.</p>
     ${sections}
+    ${sharedChangelogSection}
   </div>
   <div class="ftr"><p>Fastr Analytics · Automated weekly report</p></div>
 </div>
@@ -1129,10 +1139,10 @@ router.post("/instance-admin-emails", async (c) => {
         let emailsSent = 0;
         let testOverrideUsed = false;
 
-        for (const [, instances] of adminToInstances) {
-            const recipient = testOverrideEmail;
-            if (recipient === testOverrideEmail && testOverrideUsed) continue;
-            if (recipient === testOverrideEmail) testOverrideUsed = true;
+        for (const [adminEmail, instances] of adminToInstances) {
+            if (testOverrideEmail && testOverrideUsed) continue;
+            const recipient = testOverrideEmail ?? adminEmail;
+            if (testOverrideEmail) testOverrideUsed = true;
 
             if (instances.length === 1) {
                 const inst = instances[0];
