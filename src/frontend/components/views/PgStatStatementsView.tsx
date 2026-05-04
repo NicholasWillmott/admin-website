@@ -1,6 +1,6 @@
 import { For, Show, createResource, createSignal } from 'solid-js';
 import type { Server, PgStatStatementsOrderBy, PgStatStatement } from '../../types.ts';
-import { fetchServerPgStatStatements } from '../../services.ts';
+import { fetchServerPgStatStatements, resetServerPgStatStatements } from '../../services.ts';
 
 interface PgStatStatementsViewProps {
   servers: Server[] | undefined;
@@ -32,6 +32,8 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
   const [limit, setLimit] = createSignal<number>(50);
   const [minMeanMs, setMinMeanMs] = createSignal<number>(0);
   const [expanded, setExpanded] = createSignal<string | null>(null);
+  const [search, setSearch] = createSignal<string>('');
+  const [resetting, setResetting] = createSignal(false);
 
   const [data, { refetch }] = createResource(
     () => {
@@ -53,6 +55,12 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
   const sortedServers = () => [...(props.servers ?? [])].sort((a, b) =>
     a.label.localeCompare(b.label)
   );
+
+  const filtered = () => {
+    const stmts = data()?.statements ?? [];
+    const q = search().toLowerCase();
+    return q ? stmts.filter((s) => s.query.toLowerCase().includes(q)) : stmts;
+  };
 
   return (
     <div class="pgss-container">
@@ -99,8 +107,32 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
               title="Min mean ms"
               placeholder="min mean ms"
             />
+            <input
+              type="search"
+              class="server-filter-input"
+              value={search()}
+              onInput={(e) => setSearch(e.currentTarget.value)}
+              placeholder="Search queries…"
+            />
             <button class="system-btn" disabled={!serverId() || data.loading} onClick={() => refetch()}>
               {data.loading ? 'Loading…' : 'Refresh'}
+            </button>
+            <button
+              class="system-btn system-btn--danger"
+              disabled={!serverId() || resetting()}
+              onClick={async () => {
+                if (!confirm('Reset pg_stat_statements for this server? This clears all accumulated query stats.')) return;
+                setResetting(true);
+                try {
+                  const token = await props.getToken();
+                  await resetServerPgStatStatements(serverId(), token);
+                  await refetch();
+                } finally {
+                  setResetting(false);
+                }
+              }}
+            >
+              {resetting() ? 'Resetting…' : 'Reset Stats'}
             </button>
           </div>
         </div>
@@ -140,7 +172,7 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
           <div class="pgss-meta">
             <span>Instance: <strong>{data()!.instanceName}</strong></span>
             <span>Server time: {new Date(data()!.serverTime).toLocaleString()}</span>
-            <span>Rows: {data()!.statements.length}</span>
+            <span>Rows: {filtered().length}{search() ? ` / ${data()!.statements.length}` : ''}</span>
           </div>
           <table class="pgss-table">
             <thead>
@@ -155,7 +187,7 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
               </tr>
             </thead>
             <tbody>
-              <For each={data()!.statements}>
+              <For each={filtered()}>
                 {(s: PgStatStatement) => {
                   const isExpanded = () => expanded() === s.queryid;
                   return (

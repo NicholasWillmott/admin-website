@@ -679,6 +679,15 @@ export async function fetchAllServerAiUsage(servers: Server[], token: string | n
   }, {} as ServerAiUsageLogs);
 }
 
+export async function resetServerPgStatStatements(serverId: string, token: string | null): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE}/api/servers/${serverId}/pg_stat_statements/reset`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) throw new Error(`Reset failed: ${response.status}`);
+  return response.json();
+}
+
 export async function fetchServerPgStatStatements(
   serverId: string,
   token: string | null,

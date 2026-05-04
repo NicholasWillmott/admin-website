@@ -84,6 +84,26 @@ router.post("/bulk-restart", async (c) => {
     return c.json({ success: true });
 });
 
+// Reset pg_stat_statements for a server
+router.post("/:id/pg_stat_statements/reset", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+
+    if (!isSafeParam(serverId)) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/pg_stat_statements/reset`, { method: "POST" });
+        const data = await response.json();
+        return c.json(data);
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // Get pg_stat_statements snapshot for a server
 router.get("/:id/pg_stat_statements", async (c) => {
     const authError = await requireAdmin(c);
