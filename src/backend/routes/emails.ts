@@ -272,13 +272,20 @@ async function fetchServerAiUsageLogs(serverId: string, since?: string): Promise
     }
 }
 
+let modelPricingCache: { data: Record<string, ModelPricing>; fetchedAt: number } | null = null;
+
 async function fetchModelPricing(): Promise<Record<string, ModelPricing>> {
+    if (modelPricingCache && Date.now() - modelPricingCache.fetchedAt < 60 * 60 * 1000) {
+        return modelPricingCache.data;
+    }
     try {
         const response = await fetch("https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json");
-        if (!response.ok) return {};
-        return await response.json();
+        if (!response.ok) return modelPricingCache?.data ?? {};
+        const data = await response.json();
+        modelPricingCache = { data, fetchedAt: Date.now() };
+        return data;
     } catch {
-        return {};
+        return modelPricingCache?.data ?? {};
     }
 }
 
@@ -956,17 +963,17 @@ router.post("/superadmin-email", async (c) => {
                 joinedDate: fmt(new Date(u.created_at)),
             }));
 
-        const [logResults, state, pricing] = await Promise.all([
-            Promise.all(servers.map(async (server: Server) => ({
-                server,
-                logs: await fetchServerUserLogs(server.id),
-                projects: await fetchServerProjects(server.id),
-                health: await fetchServerHealth(server.id),
-                aiUsage: await fetchServerAiUsageLogs(server.id, new Date(weekAgoMs).toISOString()),
-            }))),
-            readEmailState(),
-            fetchModelPricing(),
-        ]);
+        const [state, pricing] = await Promise.all([readEmailState(), fetchModelPricing()]);
+        const logResults: { server: Server; logs: UserLog[]; projects: { id: string; label: string }[]; health: { online: boolean; version: string; userCount: number; adminUsers: string[] }; aiUsage: AiUsageLog[] }[] = [];
+        for (const server of servers) {
+            const [logs, projects, health, aiUsage] = await Promise.all([
+                fetchServerUserLogs(server.id),
+                fetchServerProjects(server.id),
+                fetchServerHealth(server.id),
+                fetchServerAiUsageLogs(server.id, new Date(weekAgoMs).toISOString()),
+            ]);
+            logResults.push({ server, logs, projects, health, aiUsage });
+        }
 
         const knownIds = new Set(state?.knownInstanceIds ?? []);
         const newInstanceIds = new Set(servers.filter(s => !knownIds.has(s.id)).map(s => s.id));
@@ -1080,13 +1087,16 @@ router.post("/instance-admin-emails", async (c) => {
         const knownProjects = state?.knownProjects ?? {};
         const knownVersions = state?.knownVersions ?? {};
 
-        const results = await Promise.all(servers.map(async (server: Server) => ({
-            server,
-            logs: await fetchServerUserLogs(server.id),
-            projects: await fetchServerProjects(server.id),
-            health: await fetchServerHealth(server.id),
-            projectActivity: await fetchServerProjectActivity(server.id),
-        })));
+        const results: { server: Server; logs: UserLog[]; projects: { id: string; label: string }[]; health: { online: boolean; version: string; userCount: number; adminUsers: string[] }; projectActivity: { project_id: string; count: number }[] }[] = [];
+        for (const server of servers) {
+            const [logs, projects, health, projectActivity] = await Promise.all([
+                fetchServerUserLogs(server.id),
+                fetchServerProjects(server.id),
+                fetchServerHealth(server.id),
+                fetchServerProjectActivity(server.id),
+            ]);
+            results.push({ server, logs, projects, health, projectActivity });
+        }
 
         const testOverrideEmail = "nicholaswillmottvball@gmail.com";
 
