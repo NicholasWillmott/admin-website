@@ -129,15 +129,6 @@ function App() {
     return fetchChangelogViewApi(token);
   });
 
-  // get sent email history
-  const [emailHistory, { refetch: refetchEmailHistory }] = createResource(
-    () => activeView() === "changelog" ? true : null,
-    async () => {
-      const token = await getToken();
-      return fetchEmailHistoryApi(token);
-    }
-  );
-
   // get internal H users list (kept backend-only to avoid exposing emails in the JS bundle)
   const [hUsers] = createResource(async () => {
     const token = await getToken();
@@ -196,6 +187,15 @@ function App() {
 
   // Track active view
   const [activeView, setActiveView] = createSignal<ViewType>("servers");
+
+  // get sent email history — lazy: only fetches when changelog view is active
+  const [emailHistory, { refetch: refetchEmailHistory }] = createResource(
+    () => activeView() === "changelog" ? true : null,
+    async () => {
+      const token = await getToken();
+      return fetchEmailHistoryApi(token);
+    }
+  );
 
   // Auto-refresh statuses every 60 seconds
   createEffect(() => {
