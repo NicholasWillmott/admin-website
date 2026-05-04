@@ -1251,17 +1251,17 @@ router.get("/history", async (c) => {
         const history = await readEmailHistoryFor(key);
         return c.json(history.map(({ html: _html, ...rest }) => rest).reverse());
     }
-    let all: SentEmailRecord[] = [];
+    let all: Omit<SentEmailRecord, "html">[] = [];
     try {
         for await (const entry of Deno.readDir(EMAIL_HISTORY_DIR)) {
-            if (entry.isFile && entry.name.endsWith(".json")) {
+            if (entry.isFile && entry.name.endsWith(".json") && entry.name !== "keys.json") {
                 const records = await readEmailHistoryFor(entry.name.replace(".json", ""));
-                all = all.concat(records);
+                all = all.concat(records.map(({ html: _html, ...rest }) => rest));
             }
         }
     } catch { /* dir doesn't exist yet */ }
     all.sort((a, b) => b.sentAt - a.sentAt);
-    return c.json(all.map(({ html: _html, ...rest }) => rest));
+    return c.json(all);
 });
 
 router.get("/history/:id", async (c) => {
