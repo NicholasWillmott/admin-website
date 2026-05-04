@@ -420,7 +420,6 @@ async function generateInstanceAiSummary(data: {
     activeUsers: number;
     newProjects: string[];
     changelogText: string;
-    aiCostUsd: number;
 }): Promise<string> {
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!anthropicKey) return "";
@@ -433,7 +432,6 @@ Here is the data for the week of ${data.weekStart} to ${data.weekEnd}:
 - Active users (last 7 days): ${data.activeUsers}
 - New projects this week: ${data.newProjects.length > 0 ? data.newProjects.join(", ") : "none"}
 - Platform version: ${data.version || "unknown"}
-- AI cost this week: ${formatAiCost(data.aiCostUsd)}
 ${data.changelogText ? `\nNew platform changes deployed to this instance:\n${data.changelogText}` : ""}
 Write the summary now:`;
 
@@ -473,7 +471,6 @@ function buildInstanceAdminEmailHtml(
     recentLogs: UserLog[],
     changelogHtml: string,
     aiSummary: string,
-    aiCostUsd: number,
     topUsers: [string, number][],
     versionIsNew: boolean
 ): string {
@@ -579,10 +576,6 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     <div class="stat">
       <div class="stat-lbl">Active Users (7 days)</div>
       <div class="stat-val">${activeUsers}</div>
-    </div>
-    <div class="stat">
-      <div class="stat-lbl">AI Cost (7 days)</div>
-      <div class="stat-val">${formatAiCost(aiCostUsd)}</div>
     </div>
     <h2>Projects (${projectsSortedByActivity.length})</h2>
     <table>
@@ -838,17 +831,13 @@ router.post("/instance-admin-emails", async (c) => {
         const knownProjects = state?.knownProjects ?? {};
         const knownVersions = state?.knownVersions ?? {};
 
-        const [results, pricing] = await Promise.all([
-            Promise.all(servers.map(async (server: Server) => ({
-                server,
-                logs: await fetchServerUserLogs(server.id),
-                projects: await fetchServerProjects(server.id),
-                health: await fetchServerHealth(server.id),
-                aiUsage: await fetchServerAiUsageLogs(server.id, new Date(weekAgoMs).toISOString()),
-                projectActivity: await fetchServerProjectActivity(server.id),
-            }))),
-            fetchModelPricing(),
-        ]);
+        const results = await Promise.all(servers.map(async (server: Server) => ({
+            server,
+            logs: await fetchServerUserLogs(server.id),
+            projects: await fetchServerProjects(server.id),
+            health: await fetchServerHealth(server.id),
+            projectActivity: await fetchServerProjectActivity(server.id),
+        })));
 
         let emailsSent = 0;
 
@@ -858,7 +847,7 @@ router.post("/instance-admin-emails", async (c) => {
         const newKnownUserCounts: Record<string, number> = {};
         const newKnownVersions: Record<string, string> = {};
 
-        for (const { server, logs, projects, health, aiUsage, projectActivity } of results) {
+        for (const { server, logs, projects, health, projectActivity } of results) {
             const version = server.serverVersion || health.version;
             newKnownProjects[server.id] = projects.map(p => p.label);
             newKnownUserCounts[server.id] = health.userCount;
@@ -869,7 +858,6 @@ router.post("/instance-admin-emails", async (c) => {
             const recentLogs = logs.filter((l: UserLog) => new Date(l.timestamp).getTime() >= weekAgoMs && !H_USERS.has(l.user_email));
             const activeUsers = new Set(recentLogs.map((l: UserLog) => l.user_email)).size;
             const userCountDiff = (server.id in knownUserCounts) ? health.userCount - knownUserCounts[server.id] : 0;
-            const aiCostUsd = computeAiCost(aiUsage, pricing);
 
             const userRequestCounts = new Map<string, number>();
             for (const log of recentLogs) {
@@ -902,7 +890,6 @@ router.post("/instance-admin-emails", async (c) => {
                 activeUsers,
                 newProjects: newProjectLabels,
                 changelogText,
-                aiCostUsd,
             });
 
             const versionIsNew = changelogHtml !== "";
@@ -915,7 +902,7 @@ router.post("/instance-admin-emails", async (c) => {
                 server.label, server.id,
                 version, health.userCount, userCountDiff,
                 activeUsers, projectsSortedByActivity, recentLogs,
-                changelogHtml, aiSummary, aiCostUsd, topUsers, versionIsNew
+                changelogHtml, aiSummary, topUsers, versionIsNew
             );
 
             await sendEmail([testOverrideEmail], emailSubject, html);
