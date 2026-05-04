@@ -458,6 +458,41 @@ Write the summary now:`;
     }
 }
 
+async function generateChangelogAiSummary(instanceLabel: string, version: string, changelogText: string): Promise<string> {
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) return "";
+
+    const prompt = `You are writing a brief intro for a platform update notification sent to the admin of a FASTR Analytics instance called "${instanceLabel}". Summarise the changelog entries below in 2-4 plain-English sentences, highlighting the most impactful changes. No markdown, no bullet points, just flowing prose.
+
+Platform version: ${version}
+Changelog entries:
+${changelogText}
+
+Write the summary now:`;
+
+    try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+                "x-api-key": anthropicKey,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "claude-haiku-4-5-20251001",
+                max_tokens: 200,
+                messages: [{ role: "user", content: prompt }],
+            }),
+        });
+
+        if (!response.ok) return "";
+        const result = await response.json();
+        return result.content?.[0]?.text ?? "";
+    } catch {
+        return "";
+    }
+}
+
 function buildInstanceAdminEmailHtml(
     weekStart: string,
     weekEnd: string,
@@ -566,8 +601,10 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
   </div>
   <div class="bdy">
     <p class="meta">This is an automated weekly report sent to all admins of the <strong>${instanceLabel}</strong> FASTR Analytics Platform.</p>
-    ${versionIsNew && changelogHtml ? `<h2>What's New in v${version}</h2>${changelogHtml}<hr style="border:none;border-top:1px solid #cacaca;margin:0 0 28px">` : ""}
-    ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">AI Summary</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}
+    ${versionIsNew && changelogHtml ? `
+    ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">What's New</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}
+    <h2>What's New in v${version}</h2>${changelogHtml}<hr style="border:none;border-top:1px solid #cacaca;margin:0 0 28px">` : `
+    ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">AI Summary</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}`}
     <p class="meta">Instance ID: ${instanceId} &nbsp;·&nbsp; Version: ${version || "—"}</p>
     <div class="stat">
       <div class="stat-lbl">Total Users</div>
@@ -881,18 +918,20 @@ router.post("/instance-admin-emails", async (c) => {
                 ({ html: changelogHtml, text: changelogText } = parseAutoChangelogSince(changelog, "user", lastKnownVersion));
             }
 
-            const aiSummary = await generateInstanceAiSummary({
-                weekStart, weekEnd,
-                instanceLabel: server.label,
-                version,
-                userCount: health.userCount,
-                userCountDiff,
-                activeUsers,
-                newProjects: newProjectLabels,
-                changelogText,
-            });
-
             const versionIsNew = changelogHtml !== "";
+
+            const aiSummary = versionIsNew && changelogText
+                ? await generateChangelogAiSummary(server.label, version, changelogText)
+                : await generateInstanceAiSummary({
+                    weekStart, weekEnd,
+                    instanceLabel: server.label,
+                    version,
+                    userCount: health.userCount,
+                    userCountDiff,
+                    activeUsers,
+                    newProjects: newProjectLabels,
+                    changelogText,
+                });
             const emailSubject = versionIsNew
                 ? `${server.label} instance has been updated to v${version}! · Weekly Report · ${weekStart} – ${weekEnd}`
                 : `${server.label} Weekly Report · ${weekStart} – ${weekEnd}`;
