@@ -3,6 +3,19 @@ import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckRespons
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
+async function pMap<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let i = 0;
+  async function worker(): Promise<void> {
+    while (i < items.length) {
+      const idx = i++;
+      results[idx] = await fn(items[idx]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
 function getAuthHeaders(token: string | null): HeadersInit {
   const headers: HeadersInit = {};
   if (token) {
@@ -57,13 +70,10 @@ export async function fetchServerStatus(serverId: string, token: string | null):
 }
 
 export async function fetchAllServerStatuses(servers: Server[], token: string | null): Promise<ServerStatuses> {
-  const statusPromises = servers.map(async (server) => ({
+  const results = await pMap(servers, 10, async (server) => ({
     id: server.id,
     status: await fetchServerStatus(server.id, token),
   }));
-
-  const results = await Promise.all(statusPromises);
-
   return results.reduce((acc, { id, status }) => {
     acc[id] = status;
     return acc;
@@ -84,10 +94,10 @@ export async function fetchServerUserLogs(serverId: string, token: string | null
 }
 
 export async function fetchAllServerUserLogs(servers: Server[], token: string | null): Promise<ServerUserLogs> {
-  const results = await Promise.all(servers.map(async (server) => ({
+  const results = await pMap(servers, 10, async (server) => ({
     id: server.id,
     logs: await fetchServerUserLogs(server.id, token),
-  })));
+  }));
   return results.reduce((acc, { id, logs }) => {
     acc[id] = logs;
     return acc;
@@ -669,10 +679,10 @@ export async function fetchServerAiUsage(serverId: string, token: string | null)
 }
 
 export async function fetchAllServerAiUsage(servers: Server[], token: string | null): Promise<ServerAiUsageLogs> {
-  const results = await Promise.all(servers.map(async (server) => ({
+  const results = await pMap(servers, 10, async (server) => ({
     id: server.id,
     logs: await fetchServerAiUsage(server.id, token),
-  })));
+  }));
   return results.reduce((acc, { id, logs }) => {
     acc[id] = logs;
     return acc;
