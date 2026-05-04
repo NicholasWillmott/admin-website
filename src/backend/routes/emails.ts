@@ -713,6 +713,7 @@ async function sendEmail(toEmails: string[], subject: string, html: string): Pro
         const err = await response.text();
         throw new Error(`SendGrid error ${response.status}: ${err}`);
     }
+    console.log(`SendGrid accepted email to ${toEmails.join(", ")} (${response.status})`);
 }
 
 router.post("/superadmin-email", async (c) => {
