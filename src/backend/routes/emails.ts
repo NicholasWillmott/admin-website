@@ -655,24 +655,24 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 function buildMultiInstanceAdminEmailHtml(
     weekStart: string,
     weekEnd: string,
-    instances: InstanceEmailData[]
+    instances: InstanceEmailData[],
+    overallAiSummary: string
 ): string {
-    // Deduplicate changelogs by content — show once at the end instead of per section
-    const seenChangelogs = new Map<string, { html: string; version: string }>();
-    for (const inst of instances) {
-        if (inst.changelogHtml && !seenChangelogs.has(inst.changelogHtml)) {
-            seenChangelogs.set(inst.changelogHtml, { html: inst.changelogHtml, version: inst.version });
-        }
-    }
-    const sharedChangelogSection = seenChangelogs.size > 0
-        ? `<div style="border-top:2px solid #0e706c;margin:32px 0"></div>` +
-          `<h2 style="font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 16px;text-transform:uppercase;letter-spacing:.06em">What's New</h2>` +
-          [...seenChangelogs.values()].map(c => c.html).join("")
-        : "";
+    // Summary table row per instance
+    const instanceRows = instances.map(inst => {
+        const { server, version, versionIsNew, userCount, userCountDiff, activeUsers, projectsSortedByActivity } = inst;
+        const updatedBadge = versionIsNew ? ` <span class="badge">Updated</span>` : "";
+        const diffFlair = userCountDiff > 0
+            ? `<span class="diff-up">+${userCountDiff}</span>`
+            : userCountDiff < 0
+                ? `<span class="diff-dn">${userCountDiff}</span>`
+                : "";
+        return `<tr><td>${server.label}${updatedBadge}</td><td class="m">${version || "—"}</td><td class="c">${userCount}${diffFlair}</td><td class="c">${activeUsers}</td><td class="c">${projectsSortedByActivity.length}</td></tr>`;
+    }).join("");
 
-    const sections = instances.map((inst) => {
-        const { server, version, versionIsNew, userCount, userCountDiff, activeUsers,
-                projectsSortedByActivity, recentLogs, aiSummary, topUsers } = inst;
+    // Per-instance detail sections (projects, chart, top users)
+    const detailSections = instances.map(inst => {
+        const { server, version, versionIsNew, projectsSortedByActivity, recentLogs, topUsers } = inst;
 
         const projectRows = projectsSortedByActivity.map(p => {
             const newBadge = p.isNew ? `<span class="badge">New</span>` : "";
@@ -706,12 +706,6 @@ function buildMultiInstanceAdminEmailHtml(
         };
         const chartUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}&w=576&h=200&bkg=%23ffffff`;
 
-        const diffFlair = userCountDiff > 0
-            ? `<span class="sdiff-up">+${userCountDiff}</span>`
-            : userCountDiff < 0
-                ? `<span class="sdiff-dn">${userCountDiff}</span>`
-                : "";
-
         const topUserRows = topUsers.length > 0
             ? topUsers.map(([email]) => {
                 const [local, domain] = email.split("@");
@@ -720,15 +714,10 @@ function buildMultiInstanceAdminEmailHtml(
             }).join("")
             : `<tr><td class="empty">No activity this week</td></tr>`;
 
-        return `<div class="instance-section">
-  <div class="instance-hdr">
+        return `<div>
+  <div style="margin-bottom:12px">
     <div class="instance-title">${server.label}${versionIsNew ? ` <span class="badge">Updated</span>` : ""}</div>
     <span class="meta">ID: ${server.id} &nbsp;·&nbsp; Version: ${version || "—"}</span>
-  </div>
-  ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">${versionIsNew ? "What's New" : "AI Summary"}</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}
-  <div style="display:flex;gap:12px;margin-bottom:20px">
-    <div class="stat" style="flex:1"><div class="stat-lbl">Total Users</div><div class="stat-val-sm">${userCount}${diffFlair}</div></div>
-    <div class="stat" style="flex:1"><div class="stat-lbl">Active Users (7 days)</div><div class="stat-val-sm">${activeUsers}</div></div>
   </div>
   <h3 class="section-h">Projects (${projectsSortedByActivity.length})</h3>
   <table>
@@ -743,7 +732,18 @@ function buildMultiInstanceAdminEmailHtml(
     <tbody>${topUserRows}</tbody>
   </table>
 </div>`;
-    }).join(`<div style="border-top:2px solid #0e706c;margin:32px 0"></div>`);
+    }).join(`<div style="border-top:1px solid #cacaca;margin:28px 0"></div>`);
+
+    // Deduplicate changelogs by content — show once at the end
+    const seenChangelogs = new Map<string, string>();
+    for (const inst of instances) {
+        if (inst.changelogHtml && !seenChangelogs.has(inst.changelogHtml)) {
+            seenChangelogs.set(inst.changelogHtml, inst.changelogHtml);
+        }
+    }
+    const changelogSection = seenChangelogs.size > 0
+        ? `<h2>What's New</h2>${[...seenChangelogs.values()].join("")}`
+        : "";
 
     return `<!DOCTYPE html>
 <html>
@@ -755,11 +755,8 @@ body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#f2f2f2;mar
 .hdr h1{color:#fff;margin:0;font-size:20px;font-weight:700}
 .hdr p{color:rgba(255,255,255,.7);margin:4px 0 0;font-size:14px}
 .bdy{padding:28px 32px}
-.stat{background:#f2f2f2;border-radius:4px;padding:16px 20px;border:1px solid #cacaca}
-.stat-lbl{font-size:11px;color:#2a2a2a;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
-.stat-val-sm{font-size:28px;font-weight:700;color:#0e706c;margin-top:4px}
-.instance-hdr{margin-bottom:16px}
-.instance-title{font-size:16px;font-weight:700;color:#0e706c;margin:0 0 2px}
+.instance-title{font-size:15px;font-weight:700;color:#0e706c;margin:0 0 2px}
+h2{font-size:13px;font-weight:700;color:#2a2a2a;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em}
 .section-h{font-size:12px;font-weight:700;color:#2a2a2a;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.06em}
 table{width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:20px;border:1px solid #cacaca;border-radius:4px}
 thead tr{background:#f2f2f2}
@@ -768,11 +765,10 @@ th.c{text-align:center}
 td{padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a}
 td.m{color:#a1a1a1;font-size:13px}
 td.c{text-align:center;font-weight:700;color:#0e706c}
-td.note{text-align:center;color:#a1a1a1;font-size:12px}
 td.empty{padding:16px;text-align:center;color:#a1a1a1}
 .badge{margin-left:8px;background:#0e706c;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;vertical-align:middle}
-.sdiff-up{margin-left:8px;background:#d4edda;color:#155724;font-size:14px;font-weight:700;padding:3px 10px;border-radius:12px;vertical-align:middle;display:inline-block}
-.sdiff-dn{margin-left:8px;background:#f8d7da;color:#721c24;font-size:14px;font-weight:700;padding:3px 10px;border-radius:12px;vertical-align:middle;display:inline-block}
+.diff-up{margin-left:8px;background:#d4edda;color:#155724;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;vertical-align:middle;display:inline-block}
+.diff-dn{margin-left:8px;background:#f8d7da;color:#721c24;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;vertical-align:middle;display:inline-block}
 .meta{font-size:12px;color:#a1a1a1;margin-bottom:16px}
 .changelog{margin-bottom:20px}
 .changelog-entry{margin-bottom:16px}
@@ -782,7 +778,7 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 .changelog-entry li{font-size:14px;color:#2a2a2a;margin-bottom:3px}
 .ftr{padding:16px 32px;border-top:1px solid #cacaca;text-align:center}
 .ftr p{margin:0;font-size:12px;color:#a1a1a1}
-.ai-summary{background:#f7fffe;border:1px solid #0e706c;border-radius:4px;padding:16px 20px;margin-bottom:20px}
+.ai-summary{background:#f7fffe;border:1px solid #0e706c;border-radius:4px;padding:20px 24px;margin-bottom:28px}
 .ai-summary-lbl{font-size:11px;color:#0e706c;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px}
 .ai-summary-text{font-size:14px;color:#2a2a2a;line-height:1.6;margin:0}
 </style>
@@ -794,14 +790,59 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     <p>${weekStart} – ${weekEnd}</p>
   </div>
   <div class="bdy">
-    <p class="meta">This report covers ${instances.length} instances you administer on FASTR Analytics.</p>
-    ${sections}
-    ${sharedChangelogSection}
+    ${overallAiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">AI Summary</div><p class="ai-summary-text">${overallAiSummary}</p></div>` : ""}
+    <h2>Your Instances</h2>
+    <table>
+      <thead><tr><th>Instance</th><th>Version</th><th class="c">Users</th><th class="c">Active Users</th><th class="c">Projects</th></tr></thead>
+      <tbody>${instanceRows}</tbody>
+    </table>
+    <h2>Instance Details</h2>
+    ${detailSections}
+    ${changelogSection}
   </div>
   <div class="ftr"><p>Fastr Analytics · Automated weekly report</p></div>
 </div>
 </body>
 </html>`;
+}
+
+async function generateMultiInstanceAiSummary(weekStart: string, weekEnd: string, instances: InstanceEmailData[]): Promise<string> {
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) return "";
+
+    const instanceSummaries = instances.map(inst =>
+        `- ${inst.server.label}: ${inst.userCount} users (${inst.userCountDiff > 0 ? "+" : ""}${inst.userCountDiff} change), ${inst.activeUsers} active, ${inst.projectsSortedByActivity.length} projects${inst.versionIsNew ? `, updated to v${inst.version}` : `, v${inst.version}`}`
+    ).join("\n");
+
+    const prompt = `You are writing a brief summary for a weekly report sent to an admin who manages ${instances.length} FASTR Analytics instances. Be concise (2-4 sentences), factual, and highlight the most notable activity or changes across all their instances. Use plain language — no markdown, no bullet points, just flowing prose.
+
+Week: ${weekStart} to ${weekEnd}
+
+Instances:
+${instanceSummaries}
+
+Write the summary now:`;
+
+    try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+                "x-api-key": anthropicKey,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "claude-haiku-4-5-20251001",
+                max_tokens: 250,
+                messages: [{ role: "user", content: prompt }],
+            }),
+        });
+        if (!response.ok) return "";
+        const result = await response.json();
+        return result.content?.[0]?.text ?? "";
+    } catch {
+        return "";
+    }
 }
 
 async function generateAiSummary(data: {
@@ -1159,7 +1200,8 @@ router.post("/instance-admin-emails", async (c) => {
                 });
             } else {
                 const combinedSubject = `Weekly Report — ${instances.length} Instances · ${weekStart} – ${weekEnd}`;
-                const combinedHtml = buildMultiInstanceAdminEmailHtml(weekStart, weekEnd, instances);
+                const overallAiSummary = await generateMultiInstanceAiSummary(weekStart, weekEnd, instances);
+                const combinedHtml = buildMultiInstanceAdminEmailHtml(weekStart, weekEnd, instances, overallAiSummary);
                 await sendEmail([recipient], combinedSubject, combinedHtml);
                 const emailId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
                 for (const inst of instances) {
