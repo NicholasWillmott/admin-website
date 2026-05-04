@@ -96,7 +96,7 @@ router.post("/:id/pg_stat_statements/reset", async (c) => {
     }
 
     try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/pg_stat_statements/reset`, { method: "POST" });
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/pg_stat_statements_reset`, { method: "POST" });
         const data = await response.json();
         return c.json(data);
     } catch (error) {
