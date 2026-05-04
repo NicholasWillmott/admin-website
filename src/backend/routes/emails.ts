@@ -73,6 +73,23 @@ interface InstanceAdminEmailState {
     knownVersions: Record<string, string>;
 }
 
+interface InstanceEmailData {
+    server: Server;
+    version: string;
+    versionIsNew: boolean;
+    userCount: number;
+    userCountDiff: number;
+    activeUsers: number;
+    projectsSortedByActivity: { name: string; requests: number; isNew: boolean }[];
+    recentLogs: UserLog[];
+    changelogHtml: string;
+    aiSummary: string;
+    topUsers: [string, number][];
+    emailSubject: string;
+    html: string;
+    adminUsers: string[];
+}
+
 async function readInstanceAdminEmailState(): Promise<InstanceAdminEmailState | null> {
     try {
         return JSON.parse(await Deno.readTextFile(INSTANCE_ADMIN_STATE_FILE));
@@ -635,6 +652,148 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 </html>`;
 }
 
+function buildMultiInstanceAdminEmailHtml(
+    weekStart: string,
+    weekEnd: string,
+    instances: InstanceEmailData[]
+): string {
+    const sections = instances.map((inst) => {
+        const { server, version, versionIsNew, userCount, userCountDiff, activeUsers,
+                projectsSortedByActivity, recentLogs, changelogHtml, aiSummary, topUsers } = inst;
+
+        const projectRows = projectsSortedByActivity.map(p => {
+            const newBadge = p.isNew ? `<span class="badge">New</span>` : "";
+            const reqCell = p.requests > 0 ? `<td class="c">${p.requests}</td>` : `<td class="c" style="color:#a1a1a1">—</td>`;
+            return `<tr><td>${p.name}${newBadge}</td>${reqCell}</tr>`;
+        }).join("") || `<tr><td colspan="2" class="empty">No projects</td></tr>`;
+
+        const chartDays: string[] = [];
+        const chartCounts: number[] = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+            chartDays.push(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+            const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+            const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+            const uniqueUsers = new Set(recentLogs.filter(l => {
+                const t = new Date(l.timestamp).getTime();
+                return t >= dayStart && t < dayEnd;
+            }).map(l => l.user_email));
+            chartCounts.push(uniqueUsers.size);
+        }
+        const chartConfig = {
+            type: "bar",
+            data: {
+                labels: chartDays,
+                datasets: [{ data: chartCounts, backgroundColor: "#0e706c", borderRadius: 3 }],
+            },
+            options: {
+                legend: { display: false },
+                scales: { yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }] },
+            },
+        };
+        const chartUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}&w=576&h=200&bkg=%23ffffff`;
+
+        const diffFlair = userCountDiff > 0
+            ? `<span class="sdiff-up">+${userCountDiff}</span>`
+            : userCountDiff < 0
+                ? `<span class="sdiff-dn">${userCountDiff}</span>`
+                : "";
+
+        const topUserRows = topUsers.length > 0
+            ? topUsers.map(([email]) => {
+                const [local, domain] = email.split("@");
+                const broken = domain ? `${local}<span></span>@${domain.replace(/\./g, "<span></span>.")}` : email;
+                return `<tr><td><span style="color:#1a73e8">${broken}</span></td></tr>`;
+            }).join("")
+            : `<tr><td class="empty">No activity this week</td></tr>`;
+
+        return `<div class="instance-section">
+  <div class="instance-hdr">
+    <div class="instance-title">${server.label}${versionIsNew ? ` <span class="badge">Updated</span>` : ""}</div>
+    <span class="meta">ID: ${server.id} &nbsp;·&nbsp; Version: ${version || "—"}</span>
+  </div>
+  ${versionIsNew && changelogHtml ? `
+  ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">What's New</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}
+  <h3 class="section-h">What's New in v${version}</h3>${changelogHtml}<hr style="border:none;border-top:1px solid #cacaca;margin:0 0 20px">` : `
+  ${aiSummary ? `<div class="ai-summary"><div class="ai-summary-lbl">AI Summary</div><p class="ai-summary-text">${aiSummary}</p></div>` : ""}`}
+  <div style="display:flex;gap:12px;margin-bottom:20px">
+    <div class="stat" style="flex:1"><div class="stat-lbl">Total Users</div><div class="stat-val-sm">${userCount}${diffFlair}</div></div>
+    <div class="stat" style="flex:1"><div class="stat-lbl">Active Users (7 days)</div><div class="stat-val-sm">${activeUsers}</div></div>
+  </div>
+  <h3 class="section-h">Projects (${projectsSortedByActivity.length})</h3>
+  <table>
+    <thead><tr><th>Project</th><th class="c">Actions (7 days)</th></tr></thead>
+    <tbody>${projectRows}</tbody>
+  </table>
+  <h3 class="section-h">Active Users — Last 7 Days</h3>
+  <img src="${chartUrl}" width="576" alt="Active users per day" style="display:block;border-radius:4px;border:1px solid #cacaca;margin-bottom:20px;max-width:100%" />
+  <h3 class="section-h">Top Active Users</h3>
+  <table style="margin-bottom:0">
+    <thead><tr><th>User</th></tr></thead>
+    <tbody>${topUserRows}</tbody>
+  </table>
+  ${!versionIsNew && changelogHtml ? `<h3 class="section-h" style="margin-top:20px">What's New</h3>${changelogHtml}` : ""}
+</div>`;
+    }).join(`<div style="border-top:2px solid #0e706c;margin:32px 0"></div>`);
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+<style>
+body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#f2f2f2;margin:0;padding:32px}
+.wrap{max-width:640px;margin:0 auto;background:#fff;border-radius:4px;overflow:hidden;border:1px solid #cacaca}
+.hdr{background:#0e706c;padding:28px 32px}
+.hdr h1{color:#fff;margin:0;font-size:20px;font-weight:700}
+.hdr p{color:rgba(255,255,255,.7);margin:4px 0 0;font-size:14px}
+.bdy{padding:28px 32px}
+.stat{background:#f2f2f2;border-radius:4px;padding:16px 20px;border:1px solid #cacaca}
+.stat-lbl{font-size:11px;color:#2a2a2a;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.stat-val-sm{font-size:28px;font-weight:700;color:#0e706c;margin-top:4px}
+.instance-hdr{margin-bottom:16px}
+.instance-title{font-size:16px;font-weight:700;color:#0e706c;margin:0 0 2px}
+.section-h{font-size:12px;font-weight:700;color:#2a2a2a;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.06em}
+table{width:100%;border-collapse:collapse;font-size:14px;color:#2a2a2a;margin-bottom:20px;border:1px solid #cacaca;border-radius:4px}
+thead tr{background:#f2f2f2}
+th{padding:10px 16px;text-align:left;font-weight:700;color:#2a2a2a;font-size:11px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #cacaca}
+th.c{text-align:center}
+td{padding:10px 16px;border-bottom:1px solid #cacaca;color:#2a2a2a}
+td.m{color:#a1a1a1;font-size:13px}
+td.c{text-align:center;font-weight:700;color:#0e706c}
+td.note{text-align:center;color:#a1a1a1;font-size:12px}
+td.empty{padding:16px;text-align:center;color:#a1a1a1}
+.badge{margin-left:8px;background:#0e706c;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:2px;text-transform:uppercase;letter-spacing:.06em;vertical-align:middle}
+.sdiff-up{margin-left:8px;background:#d4edda;color:#155724;font-size:14px;font-weight:700;padding:3px 10px;border-radius:12px;vertical-align:middle;display:inline-block}
+.sdiff-dn{margin-left:8px;background:#f8d7da;color:#721c24;font-size:14px;font-weight:700;padding:3px 10px;border-radius:12px;vertical-align:middle;display:inline-block}
+.meta{font-size:12px;color:#a1a1a1;margin-bottom:16px}
+.changelog{margin-bottom:20px}
+.changelog-entry{margin-bottom:16px}
+.changelog-entry h3{font-size:12px;font-weight:700;color:#2a2a2a;margin:0 0 6px;text-transform:uppercase;letter-spacing:.06em}
+.changelog-entry strong{display:block;font-size:11px;color:#0e706c;text-transform:uppercase;letter-spacing:.06em;margin:8px 0 4px}
+.changelog-entry ul{margin:0;padding-left:18px}
+.changelog-entry li{font-size:14px;color:#2a2a2a;margin-bottom:3px}
+.ftr{padding:16px 32px;border-top:1px solid #cacaca;text-align:center}
+.ftr p{margin:0;font-size:12px;color:#a1a1a1}
+.ai-summary{background:#f7fffe;border:1px solid #0e706c;border-radius:4px;padding:16px 20px;margin-bottom:20px}
+.ai-summary-lbl{font-size:11px;color:#0e706c;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px}
+.ai-summary-text{font-size:14px;color:#2a2a2a;line-height:1.6;margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <h1>Weekly Report — ${instances.length} Instances</h1>
+    <p>${weekStart} – ${weekEnd}</p>
+  </div>
+  <div class="bdy">
+    <p class="meta">This report covers ${instances.length} instances you administer on FASTR Analytics.</p>
+    ${sections}
+  </div>
+  <div class="ftr"><p>Fastr Analytics · Automated weekly report</p></div>
+</div>
+</body>
+</html>`;
+}
+
 async function generateAiSummary(data: {
     weekStart: string;
     weekEnd: string;
@@ -878,13 +1037,14 @@ router.post("/instance-admin-emails", async (c) => {
             projectActivity: await fetchServerProjectActivity(server.id),
         })));
 
-        let emailsSent = 0;
-
         const testOverrideEmail = "nicholaswillmottvball@gmail.com";
 
         const newKnownProjects: Record<string, string[]> = {};
         const newKnownUserCounts: Record<string, number> = {};
         const newKnownVersions: Record<string, string> = {};
+
+        // First pass: collect per-instance email data
+        const instanceEmailDataList: InstanceEmailData[] = [];
 
         for (const { server, logs, projects, health, projectActivity } of results) {
             const version = server.serverVersion || health.version;
@@ -934,6 +1094,7 @@ router.post("/instance-admin-emails", async (c) => {
                     newProjects: newProjectLabels,
                     changelogText,
                 });
+
             const emailSubject = versionIsNew
                 ? `${server.label} instance has been updated to v${version}! · Weekly Report · ${weekStart} – ${weekEnd}`
                 : `${server.label} Weekly Report · ${weekStart} – ${weekEnd}`;
@@ -946,17 +1107,61 @@ router.post("/instance-admin-emails", async (c) => {
                 changelogHtml, aiSummary, topUsers, versionIsNew
             );
 
-            await sendEmail([testOverrideEmail], emailSubject, html);
-            await appendEmailHistoryFor(server.id, {
-                id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                type: "instance-admin",
-                sentAt: Date.now(),
-                subject: emailSubject,
-                recipients: [testOverrideEmail],
-                html,
-                instanceLabel: server.label,
-                instanceId: server.id,
+            instanceEmailDataList.push({
+                server, version, versionIsNew,
+                userCount: health.userCount, userCountDiff, activeUsers,
+                projectsSortedByActivity, recentLogs,
+                changelogHtml, aiSummary, topUsers,
+                emailSubject, html,
+                adminUsers: health.adminUsers,
             });
+        }
+
+        // Group instances by admin user so multi-instance admins get one combined email
+        const adminToInstances = new Map<string, InstanceEmailData[]>();
+        for (const data of instanceEmailDataList) {
+            for (const adminEmail of data.adminUsers) {
+                if (!adminToInstances.has(adminEmail)) adminToInstances.set(adminEmail, []);
+                adminToInstances.get(adminEmail)!.push(data);
+            }
+        }
+
+        let emailsSent = 0;
+
+        for (const [, instances] of adminToInstances) {
+            const recipient = testOverrideEmail;
+
+            if (instances.length === 1) {
+                const inst = instances[0];
+                await sendEmail([recipient], inst.emailSubject, inst.html);
+                await appendEmailHistoryFor(inst.server.id, {
+                    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                    type: "instance-admin",
+                    sentAt: Date.now(),
+                    subject: inst.emailSubject,
+                    recipients: [recipient],
+                    html: inst.html,
+                    instanceLabel: inst.server.label,
+                    instanceId: inst.server.id,
+                });
+            } else {
+                const combinedSubject = `Weekly Report — ${instances.length} Instances · ${weekStart} – ${weekEnd}`;
+                const combinedHtml = buildMultiInstanceAdminEmailHtml(weekStart, weekEnd, instances);
+                await sendEmail([recipient], combinedSubject, combinedHtml);
+                const emailId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                for (const inst of instances) {
+                    await appendEmailHistoryFor(inst.server.id, {
+                        id: emailId,
+                        type: "instance-admin",
+                        sentAt: Date.now(),
+                        subject: combinedSubject,
+                        recipients: [recipient],
+                        html: combinedHtml,
+                        instanceLabel: inst.server.label,
+                        instanceId: inst.server.id,
+                    });
+                }
+            }
             emailsSent += 1;
         }
 
