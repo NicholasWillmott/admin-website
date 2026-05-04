@@ -717,6 +717,7 @@ async function sendEmail(toEmails: string[], subject: string, html: string): Pro
 }
 
 router.post("/superadmin-email", async (c) => {
+    console.log("superadmin-email route hit");
     const authError = await requireAdminOrInternal(c);
     if (authError) return authError;
 
