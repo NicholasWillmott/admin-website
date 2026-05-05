@@ -11,11 +11,10 @@ router.delete("/server/snapshot/:id", async (c) => {
     if (authError) return authError;
 
     const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
-    const volumeId = Deno.env.get("VOLUME_ID");
     const snapshotId = c.req.param("id");
 
-    if (!doToken || !volumeId) {
-        return c.json({ success: false, error: "Digital Ocean API token or Volume ID not found" });
+    if (!doToken) {
+        return c.json({ success: false, error: "DigitalOcean API token not found" });
     }
 
     try {
