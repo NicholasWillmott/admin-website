@@ -64,6 +64,7 @@ export function AiUsageView(props: AiUsageViewProps) {
   const [dateFrom, setDateFrom] = createSignal('');
   const [dateTo, setDateTo] = createSignal('');
   const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
+  const [viewMode, setViewMode] = createSignal<'instance' | 'user'>('instance');
 
   const toggleExpanded = (serverId: string) => {
     setExpanded(prev => {
@@ -119,11 +120,45 @@ export function AiUsageView(props: AiUsageViewProps) {
     )
   );
 
+  const userRows = createMemo(() => {
+    const logs = props.aiUsageLogs ?? {};
+    const pricing = props.pricing ?? {};
+    const from = dateFrom() ? new Date(dateFrom()).getTime() : null;
+    const to = dateTo() ? new Date(dateTo() + 'T23:59:59').getTime() : null;
+
+    const userMap = new Map<string, UsageTotals>();
+    for (const serverLogs of Object.values(logs)) {
+      for (const log of serverLogs) {
+        const t = new Date(log.timestamp).getTime();
+        if (from !== null && t < from) continue;
+        if (to !== null && t > to) continue;
+        const key = log.user_email || '(unknown)';
+        userMap.set(key, addLog(userMap.get(key) ?? emptyTotals(), log, pricing));
+      }
+    }
+
+    return Array.from(userMap.entries())
+      .map(([email, t]) => ({ email, ...t }))
+      .sort((a, b) => b.cost - a.cost || b.requests - a.requests);
+  });
+
   return (
     <div class="ai-usage-container">
       <div class="ai-usage-content">
         <div class="ai-usage-header">
-          <h2 class="ai-usage-title">AI Usage</h2>
+          <div class="ai-usage-header-left">
+            <h2 class="ai-usage-title">AI Usage</h2>
+            <div class="ai-usage-view-toggle">
+              <button
+                class={`ai-usage-toggle-btn ${viewMode() === 'instance' ? 'active' : ''}`}
+                onClick={() => setViewMode('instance')}
+              >By Instance</button>
+              <button
+                class={`ai-usage-toggle-btn ${viewMode() === 'user' ? 'active' : ''}`}
+                onClick={() => setViewMode('user')}
+              >By User</button>
+            </div>
+          </div>
           <div class="ai-usage-filters">
             <input type="date" class="server-filter-input" value={dateFrom()} onChange={(e) => setDateFrom(e.currentTarget.value)} />
             <span class="ai-usage-filter-sep">to</span>
@@ -146,86 +181,136 @@ export function AiUsageView(props: AiUsageViewProps) {
         </Show>
 
         <Show when={!props.loading && !props.error}>
-          <table class="ai-usage-table">
-            <thead>
-              <tr>
-                <th>Instance</th>
-                <th>Requests</th>
-                <th>Input Tokens</th>
-                <th>Output Tokens</th>
-                <th>Cache Read</th>
-                <th>Cache Creation</th>
-                <th>Est. Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              <For each={rows()}>
-                {(row) => {
-                  const isOpen = () => expanded().has(row.server.id);
-                  const canExpand = () => row.users.length > 0;
-                  return (
-                    <>
-                      <tr
-                        class={`ai-usage-instance-row ${row.requests === 0 ? 'ai-usage-row-empty' : ''} ${canExpand() ? 'ai-usage-row-clickable' : ''}`}
-                        onClick={() => canExpand() && toggleExpanded(row.server.id)}
-                      >
-                        <td class="ai-usage-instance">
-                          <span class={`ai-usage-chevron ${isOpen() ? 'open' : ''} ${canExpand() ? '' : 'hidden'}`}>▶</span>
-                          {row.server.label}
-                        </td>
-                        <td class="ai-usage-num">{row.requests.toLocaleString()}</td>
-                        <td class="ai-usage-num">{formatTokens(row.inputTokens)}</td>
-                        <td class="ai-usage-num">{formatTokens(row.outputTokens)}</td>
-                        <td class="ai-usage-num">{formatTokens(row.cacheReadTokens)}</td>
-                        <td class="ai-usage-num">{formatTokens(row.cacheCreationTokens)}</td>
-                        <td class="ai-usage-cost">{formatCost(row.cost)}</td>
-                      </tr>
-                      <Show when={isOpen() && canExpand()}>
-                        <tr class="ai-usage-user-header">
-                          <td>User</td>
-                          <td class="ai-usage-num">Requests</td>
-                          <td class="ai-usage-num">Input</td>
-                          <td class="ai-usage-num">Output</td>
-                          <td class="ai-usage-num">Cache Read</td>
-                          <td class="ai-usage-num">Cache Creation</td>
-                          <td class="ai-usage-num">Cost</td>
+          <Show when={viewMode() === 'instance'}>
+            <table class="ai-usage-table">
+              <thead>
+                <tr>
+                  <th>Instance</th>
+                  <th>Requests</th>
+                  <th>Input Tokens</th>
+                  <th>Output Tokens</th>
+                  <th>Cache Read</th>
+                  <th>Cache Creation</th>
+                  <th>Est. Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                <For each={rows()}>
+                  {(row) => {
+                    const isOpen = () => expanded().has(row.server.id);
+                    const canExpand = () => row.users.length > 0;
+                    return (
+                      <>
+                        <tr
+                          class={`ai-usage-instance-row ${row.requests === 0 ? 'ai-usage-row-empty' : ''} ${canExpand() ? 'ai-usage-row-clickable' : ''}`}
+                          onClick={() => canExpand() && toggleExpanded(row.server.id)}
+                        >
+                          <td class="ai-usage-instance">
+                            <span class={`ai-usage-chevron ${isOpen() ? 'open' : ''} ${canExpand() ? '' : 'hidden'}`}>▶</span>
+                            {row.server.label}
+                          </td>
+                          <td class="ai-usage-num">{row.requests.toLocaleString()}</td>
+                          <td class="ai-usage-num">{formatTokens(row.inputTokens)}</td>
+                          <td class="ai-usage-num">{formatTokens(row.outputTokens)}</td>
+                          <td class="ai-usage-num">{formatTokens(row.cacheReadTokens)}</td>
+                          <td class="ai-usage-num">{formatTokens(row.cacheCreationTokens)}</td>
+                          <td class="ai-usage-cost">{formatCost(row.cost)}</td>
                         </tr>
-                        <For each={row.users}>
-                          {(user) => (
-                            <tr class="ai-usage-user-row">
-                              <td class="ai-usage-user-email">{user.email}</td>
-                              <td class="ai-usage-num">{user.requests.toLocaleString()}</td>
-                              <td class="ai-usage-num">{formatTokens(user.inputTokens)}</td>
-                              <td class="ai-usage-num">{formatTokens(user.outputTokens)}</td>
-                              <td class="ai-usage-num">{formatTokens(user.cacheReadTokens)}</td>
-                              <td class="ai-usage-num">{formatTokens(user.cacheCreationTokens)}</td>
-                              <td class="ai-usage-cost">{formatCost(user.cost)}</td>
-                            </tr>
-                          )}
-                        </For>
-                      </Show>
-                    </>
-                  );
-                }}
-              </For>
-            </tbody>
-            <tfoot>
-              <tr class="ai-usage-total-row">
-                <td>Total</td>
-                <td class="ai-usage-num">{grandTotal().requests.toLocaleString()}</td>
-                <td class="ai-usage-num">{formatTokens(grandTotal().inputTokens)}</td>
-                <td class="ai-usage-num">{formatTokens(grandTotal().outputTokens)}</td>
-                <td class="ai-usage-num">{formatTokens(grandTotal().cacheReadTokens)}</td>
-                <td class="ai-usage-num">{formatTokens(grandTotal().cacheCreationTokens)}</td>
-                <td class="ai-usage-cost">{formatCost(grandTotal().cost)}</td>
-              </tr>
-            </tfoot>
-          </table>
+                        <Show when={isOpen() && canExpand()}>
+                          <tr class="ai-usage-user-header">
+                            <td>User</td>
+                            <td class="ai-usage-num">Requests</td>
+                            <td class="ai-usage-num">Input</td>
+                            <td class="ai-usage-num">Output</td>
+                            <td class="ai-usage-num">Cache Read</td>
+                            <td class="ai-usage-num">Cache Creation</td>
+                            <td class="ai-usage-num">Cost</td>
+                          </tr>
+                          <For each={row.users}>
+                            {(user) => (
+                              <tr class="ai-usage-user-row">
+                                <td class="ai-usage-user-email">{user.email}</td>
+                                <td class="ai-usage-num">{user.requests.toLocaleString()}</td>
+                                <td class="ai-usage-num">{formatTokens(user.inputTokens)}</td>
+                                <td class="ai-usage-num">{formatTokens(user.outputTokens)}</td>
+                                <td class="ai-usage-num">{formatTokens(user.cacheReadTokens)}</td>
+                                <td class="ai-usage-num">{formatTokens(user.cacheCreationTokens)}</td>
+                                <td class="ai-usage-cost">{formatCost(user.cost)}</td>
+                              </tr>
+                            )}
+                          </For>
+                        </Show>
+                      </>
+                    );
+                  }}
+                </For>
+              </tbody>
+              <tfoot>
+                <tr class="ai-usage-total-row">
+                  <td>Total</td>
+                  <td class="ai-usage-num">{grandTotal().requests.toLocaleString()}</td>
+                  <td class="ai-usage-num">{formatTokens(grandTotal().inputTokens)}</td>
+                  <td class="ai-usage-num">{formatTokens(grandTotal().outputTokens)}</td>
+                  <td class="ai-usage-num">{formatTokens(grandTotal().cacheReadTokens)}</td>
+                  <td class="ai-usage-num">{formatTokens(grandTotal().cacheCreationTokens)}</td>
+                  <td class="ai-usage-cost">{formatCost(grandTotal().cost)}</td>
+                </tr>
+              </tfoot>
+            </table>
 
-          <Show when={rows().every(r => r.requests === 0)}>
-            <div class="ai-usage-empty">
-              <p>No AI usage recorded yet across any instance.</p>
-            </div>
+            <Show when={rows().every(r => r.requests === 0)}>
+              <div class="ai-usage-empty">
+                <p>No AI usage recorded yet across any instance.</p>
+              </div>
+            </Show>
+          </Show>
+
+          <Show when={viewMode() === 'user'}>
+            <table class="ai-usage-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Requests</th>
+                  <th>Input Tokens</th>
+                  <th>Output Tokens</th>
+                  <th>Cache Read</th>
+                  <th>Cache Creation</th>
+                  <th>Est. Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                <For each={userRows()}>
+                  {(user) => (
+                    <tr>
+                      <td class="ai-usage-user-email" style="padding-left: 16px !important">{user.email}</td>
+                      <td class="ai-usage-num">{user.requests.toLocaleString()}</td>
+                      <td class="ai-usage-num">{formatTokens(user.inputTokens)}</td>
+                      <td class="ai-usage-num">{formatTokens(user.outputTokens)}</td>
+                      <td class="ai-usage-num">{formatTokens(user.cacheReadTokens)}</td>
+                      <td class="ai-usage-num">{formatTokens(user.cacheCreationTokens)}</td>
+                      <td class="ai-usage-cost">{formatCost(user.cost)}</td>
+                    </tr>
+                  )}
+                </For>
+              </tbody>
+              <tfoot>
+                <tr class="ai-usage-total-row">
+                  <td>Total</td>
+                  <td class="ai-usage-num">{grandTotal().requests.toLocaleString()}</td>
+                  <td class="ai-usage-num">{formatTokens(grandTotal().inputTokens)}</td>
+                  <td class="ai-usage-num">{formatTokens(grandTotal().outputTokens)}</td>
+                  <td class="ai-usage-num">{formatTokens(grandTotal().cacheReadTokens)}</td>
+                  <td class="ai-usage-num">{formatTokens(grandTotal().cacheCreationTokens)}</td>
+                  <td class="ai-usage-cost">{formatCost(grandTotal().cost)}</td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <Show when={userRows().length === 0}>
+              <div class="ai-usage-empty">
+                <p>No AI usage recorded yet.</p>
+              </div>
+            </Show>
           </Show>
 
           <Show when={Object.keys(props.pricing ?? {}).length === 0}>

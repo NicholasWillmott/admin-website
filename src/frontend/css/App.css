@@ -4728,6 +4728,43 @@ h1 {
   justify-content: space-between;
 }
 
+.ai-usage-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ai-usage-view-toggle {
+  display: flex;
+  background: #152318;
+  border-radius: 6px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.ai-usage-toggle-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ai-usage-toggle-btn:hover {
+  color: #94a3b8;
+}
+
+.ai-usage-toggle-btn.active {
+  background: #243d2e;
+  color: #e2e8f0;
+}
+
 .ai-usage-filters {
   display: flex;
   align-items: center;
