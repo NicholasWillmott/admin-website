@@ -173,27 +173,6 @@ async function saveEmailHistoryFor(key: string, record: SentEmailRecord): Promis
     await Deno.writeTextFile(emailIndexPath(key), JSON.stringify(index));
 }
 
-async function migrateEmailHistory(): Promise<void> {
-    const keysFile = `${EMAIL_HISTORY_DIR}/keys.json`;
-    try {
-        for await (const entry of Deno.readDir(EMAIL_HISTORY_DIR)) {
-            if (!entry.isFile || !entry.name.endsWith(".json") || entry.name === "keys.json") continue;
-            const key = entry.name.replace(".json", "");
-            const oldPath = `${EMAIL_HISTORY_DIR}/${entry.name}`;
-            let records: SentEmailRecord[];
-            try { records = JSON.parse(await Deno.readTextFile(oldPath)); }
-            catch { continue; }
-            for (const record of records) {
-                await saveEmailHistoryFor(key, record);
-            }
-            await Deno.remove(oldPath);
-        }
-        try { await Deno.remove(keysFile); } catch { /* ok */ }
-    } catch { /* email-history dir doesn't exist yet */ }
-}
-
-await migrateEmailHistory();
-
 async function fetchServerProjects(serverId: string): Promise<{ id: string; label: string }[]> {
     try {
         const response = await fetch(`https://${serverId}.fastr-analytics.org/projects`);
@@ -570,11 +549,11 @@ function buildInstanceAdminEmailHtml(
     topUsers: [string, number][],
     versionIsNew: boolean
 ): string {
-    const projectRows = projectsSortedByActivity.map(p => {
+    const activeProjects = projectsSortedByActivity.filter(p => p.requests > 0);
+    const projectRows = activeProjects.map(p => {
         const newBadge = p.isNew ? `<span class="badge">New</span>` : "";
-        const reqCell = p.requests > 0 ? `<td class="c">${p.requests}</td>` : `<td class="c" style="color:#a1a1a1">—</td>`;
-        return `<tr><td>${p.name}${newBadge}</td>${reqCell}</tr>`;
-    }).join("") || `<tr><td colspan="2" class="empty">No projects</td></tr>`;
+        return `<tr><td>${p.name}${newBadge}</td></tr>`;
+    }).join("") || `<tr><td class="empty">No active projects</td></tr>`;
 
     const chartDays: string[] = [];
     const chartCounts: number[] = [];
@@ -675,9 +654,9 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
       <div class="stat-lbl">Active Users (7 days)</div>
       <div class="stat-val">${activeUsers}</div>
     </div>
-    <h2>Projects (${projectsSortedByActivity.length})</h2>
+    <h2>Active Projects (${activeProjects.length})</h2>
     <table>
-      <thead><tr><th>Project</th><th class="c">Actions (7 days)</th></tr></thead>
+      <thead><tr><th>Project</th></tr></thead>
       <tbody>${projectRows}</tbody>
     </table>
     <h2>Active Users — Last 7 Days</h2>
@@ -714,67 +693,25 @@ function buildMultiInstanceAdminEmailHtml(
         return `<tr><td>${server.label}${updatedBadge}</td><td class="m">${version || "—"}</td><td class="c">${userCount}${diffFlair}</td><td class="c">${activeUsers}</td><td class="c">${projectsSortedByActivity.length}</td></tr>`;
     }).join("");
 
-    // Per-instance detail sections (projects, chart, top users)
+    // Combined active projects table across all instances
+    const allActiveProjectRows = instances.flatMap(inst =>
+        inst.projectsSortedByActivity
+            .filter(p => p.requests > 0)
+            .map(p => {
+                const newBadge = p.isNew ? `<span class="badge">New</span>` : "";
+                return `<tr><td>${p.name}${newBadge}</td><td class="m">${inst.server.label}</td></tr>`;
+            })
+    ).join("") || `<tr><td colspan="2" class="empty">No active projects</td></tr>`;
+
+    // Per-instance detail sections (chart, top users)
     const detailSections = instances.map(inst => {
-        const { server, version, versionIsNew, projectsSortedByActivity, recentLogs, topUsers } = inst;
-
-        const projectRows = projectsSortedByActivity.map(p => {
-            const newBadge = p.isNew ? `<span class="badge">New</span>` : "";
-            const reqCell = p.requests > 0 ? `<td class="c">${p.requests}</td>` : `<td class="c" style="color:#a1a1a1">—</td>`;
-            return `<tr><td>${p.name}${newBadge}</td>${reqCell}</tr>`;
-        }).join("") || `<tr><td colspan="2" class="empty">No projects</td></tr>`;
-
-        const chartDays: string[] = [];
-        const chartCounts: number[] = [];
-        for (let i = 6; i >= 0; i--) {
-            const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-            chartDays.push(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
-            const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-            const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-            const uniqueUsers = new Set(recentLogs.filter(l => {
-                const t = new Date(l.timestamp).getTime();
-                return t >= dayStart && t < dayEnd;
-            }).map(l => l.user_email));
-            chartCounts.push(uniqueUsers.size);
-        }
-        const chartConfig = {
-            type: "bar",
-            data: {
-                labels: chartDays,
-                datasets: [{ data: chartCounts, backgroundColor: "#0e706c", borderRadius: 3 }],
-            },
-            options: {
-                legend: { display: false },
-                scales: { yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }] },
-            },
-        };
-        const chartUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}&w=576&h=200&bkg=%23ffffff`;
-
-        const topUserRows = topUsers.length > 0
-            ? topUsers.map(([email]) => {
-                const [local, domain] = email.split("@");
-                const broken = domain ? `${local}<span></span>@${domain.replace(/\./g, "<span></span>.")}` : email;
-                return `<tr><td><span style="color:#1a73e8">${broken}</span></td></tr>`;
-            }).join("")
-            : `<tr><td class="empty">No activity this week</td></tr>`;
+        const { server, version, versionIsNew } = inst;
 
         return `<div>
   <div style="margin-bottom:12px">
     <div class="instance-title">${server.label}${versionIsNew ? ` <span class="badge">Updated</span>` : ""}</div>
     <span class="meta">ID: ${server.id} &nbsp;·&nbsp; Version: ${version || "—"}</span>
   </div>
-  <h3 class="section-h">Projects (${projectsSortedByActivity.length})</h3>
-  <table>
-    <thead><tr><th>Project</th><th class="c">Actions (7 days)</th></tr></thead>
-    <tbody>${projectRows}</tbody>
-  </table>
-  <h3 class="section-h">Active Users — Last 7 Days</h3>
-  <img src="${chartUrl}" width="576" alt="Active users per day" style="display:block;border-radius:4px;border:1px solid #cacaca;margin-bottom:20px;max-width:100%" />
-  <h3 class="section-h">Top Active Users</h3>
-  <table style="margin-bottom:0">
-    <thead><tr><th>User</th></tr></thead>
-    <tbody>${topUserRows}</tbody>
-  </table>
 </div>`;
     }).join(`<div style="border-top:1px solid #cacaca;margin:28px 0"></div>`);
 
@@ -839,6 +776,11 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
     <table>
       <thead><tr><th>Instance</th><th>Version</th><th class="c">Users</th><th class="c">Active Users</th><th class="c">Projects</th></tr></thead>
       <tbody>${instanceRows}</tbody>
+    </table>
+    <h2>Active Projects</h2>
+    <table>
+      <thead><tr><th>Project</th><th>Instance</th></tr></thead>
+      <tbody>${allActiveProjectRows}</tbody>
     </table>
     <h2>Instance Details</h2>
     ${detailSections}
