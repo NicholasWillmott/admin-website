@@ -127,35 +127,72 @@ interface SentEmailRecord {
     instanceId?: string;
 }
 
+interface EmailIndexEntry {
+    id: string;
+    filename: string;
+    type: "superadmin" | "instance-admin";
+    sentAt: number;
+    subject: string;
+    recipients: string[];
+    instanceLabel?: string;
+    instanceId?: string;
+}
+
 const EMAIL_HISTORY_DIR = "/mnt/fastr-config/email-history";
 
-function emailHistoryPath(key: string): string {
-    return `${EMAIL_HISTORY_DIR}/${key}.json`;
+function emailHistoryDirPath(key: string): string {
+    return `${EMAIL_HISTORY_DIR}/${key}`;
 }
 
-async function readEmailHistoryFor(key: string): Promise<SentEmailRecord[]> {
-    try { return JSON.parse(await Deno.readTextFile(emailHistoryPath(key))); }
+function emailIndexPath(key: string): string {
+    return `${EMAIL_HISTORY_DIR}/${key}/_index.json`;
+}
+
+async function readEmailIndex(key: string): Promise<EmailIndexEntry[]> {
+    try { return JSON.parse(await Deno.readTextFile(emailIndexPath(key))); }
     catch { return []; }
 }
 
-const EMAIL_HISTORY_KEYS_FILE = `${EMAIL_HISTORY_DIR}/keys.json`;
-
-async function readEmailHistoryKeys(): Promise<string[]> {
-    try { return JSON.parse(await Deno.readTextFile(EMAIL_HISTORY_KEYS_FILE)); }
-    catch { return []; }
+function sanitizeFilename(subject: string): string {
+    return subject.replace(/[/\\:*?"<>|]/g, "-").replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
-async function appendEmailHistoryFor(key: string, record: SentEmailRecord): Promise<void> {
-    const history = await readEmailHistoryFor(key);
-    history.push(record);
-    await Deno.mkdir(EMAIL_HISTORY_DIR, { recursive: true });
-    await Deno.writeTextFile(emailHistoryPath(key), JSON.stringify(history));
-    const keys = await readEmailHistoryKeys();
-    if (!keys.includes(key)) {
-        keys.push(key);
-        await Deno.writeTextFile(EMAIL_HISTORY_KEYS_FILE, JSON.stringify(keys));
+async function saveEmailHistoryFor(key: string, record: SentEmailRecord): Promise<void> {
+    const dir = emailHistoryDirPath(key);
+    await Deno.mkdir(dir, { recursive: true });
+    const index = await readEmailIndex(key);
+    let baseName = sanitizeFilename(record.subject);
+    let filename = `${baseName}.html`;
+    let counter = 1;
+    while (index.some(e => e.filename === filename)) {
+        filename = `${baseName} (${counter++}).html`;
     }
+    await Deno.writeTextFile(`${dir}/${filename}`, record.html);
+    const { html: _, ...meta } = record;
+    index.push({ ...meta, filename });
+    await Deno.writeTextFile(emailIndexPath(key), JSON.stringify(index));
 }
+
+async function migrateEmailHistory(): Promise<void> {
+    const keysFile = `${EMAIL_HISTORY_DIR}/keys.json`;
+    try {
+        for await (const entry of Deno.readDir(EMAIL_HISTORY_DIR)) {
+            if (!entry.isFile || !entry.name.endsWith(".json") || entry.name === "keys.json") continue;
+            const key = entry.name.replace(".json", "");
+            const oldPath = `${EMAIL_HISTORY_DIR}/${entry.name}`;
+            let records: SentEmailRecord[];
+            try { records = JSON.parse(await Deno.readTextFile(oldPath)); }
+            catch { continue; }
+            for (const record of records) {
+                await saveEmailHistoryFor(key, record);
+            }
+            await Deno.remove(oldPath);
+        }
+        try { await Deno.remove(keysFile); } catch { /* ok */ }
+    } catch { /* email-history dir doesn't exist yet */ }
+}
+
+await migrateEmailHistory();
 
 async function fetchServerProjects(serverId: string): Promise<{ id: string; label: string }[]> {
     try {
@@ -1044,7 +1081,7 @@ router.post("/superadmin-email", async (c) => {
         const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects, aiSummary, changelogHtml);
 
         await sendEmail(adminEmails, subject, html);
-        await appendEmailHistoryFor("superadmin", {
+        await saveEmailHistoryFor("superadmin", {
             id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             type: "superadmin",
             sentAt: Date.now(),
@@ -1198,7 +1235,7 @@ router.post("/instance-admin-emails", async (c) => {
             if (instances.length === 1) {
                 const inst = instances[0];
                 await sendEmail([recipient], inst.emailSubject, inst.html);
-                await appendEmailHistoryFor(inst.server.id, {
+                await saveEmailHistoryFor(inst.server.id, {
                     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
                     type: "instance-admin",
                     sentAt: Date.now(),
@@ -1215,7 +1252,7 @@ router.post("/instance-admin-emails", async (c) => {
                 await sendEmail([recipient], combinedSubject, combinedHtml);
                 const emailId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
                 for (const inst of instances) {
-                    await appendEmailHistoryFor(inst.server.id, {
+                    await saveEmailHistoryFor(inst.server.id, {
                         id: emailId,
                         type: "instance-admin",
                         sentAt: Date.now(),
@@ -1248,15 +1285,15 @@ router.get("/history", async (c) => {
     if (authError) return authError;
     const key = c.req.query("key");
     if (key) {
-        const history = await readEmailHistoryFor(key);
-        return c.json(history.map(({ html: _html, ...rest }) => rest).reverse());
+        const index = await readEmailIndex(key);
+        return c.json([...index].reverse());
     }
-    let all: Omit<SentEmailRecord, "html">[] = [];
+    let all: EmailIndexEntry[] = [];
     try {
         for await (const entry of Deno.readDir(EMAIL_HISTORY_DIR)) {
-            if (entry.isFile && entry.name.endsWith(".json") && entry.name !== "keys.json") {
-                const records = await readEmailHistoryFor(entry.name.replace(".json", ""));
-                all = all.concat(records.map(({ html: _html, ...rest }) => rest));
+            if (entry.isDirectory) {
+                const index = await readEmailIndex(entry.name);
+                all = all.concat(index);
             }
         }
     } catch { /* dir doesn't exist yet */ }
@@ -1269,10 +1306,16 @@ router.get("/history/:id", async (c) => {
     if (authError) return authError;
     const id = c.req.param("id");
     const key = c.req.query("key") ?? "superadmin";
-    const history = await readEmailHistoryFor(key);
-    const record = history.find(r => r.id === id);
-    if (!record) return c.json({ error: "Not found" }, 404);
-    return c.json(record);
+    const index = await readEmailIndex(key);
+    const entry = index.find(e => e.id === id);
+    if (!entry) return c.json({ error: "Not found" }, 404);
+    const htmlPath = `${emailHistoryDirPath(key)}/${entry.filename}`;
+    try {
+        const html = await Deno.readTextFile(htmlPath);
+        return c.json({ ...entry, html });
+    } catch {
+        return c.json({ error: "Not found" }, 404);
+    }
 });
 
 export default router;
