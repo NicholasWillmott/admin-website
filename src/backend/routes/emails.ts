@@ -703,18 +703,6 @@ function buildMultiInstanceAdminEmailHtml(
             })
     ).join("") || `<tr><td colspan="2" class="empty">No active projects</td></tr>`;
 
-    // Per-instance detail sections (chart, top users)
-    const detailSections = instances.map(inst => {
-        const { server, version, versionIsNew } = inst;
-
-        return `<div>
-  <div style="margin-bottom:12px">
-    <div class="instance-title">${server.label}${versionIsNew ? ` <span class="badge">Updated</span>` : ""}</div>
-    <span class="meta">ID: ${server.id} &nbsp;·&nbsp; Version: ${version || "—"}</span>
-  </div>
-</div>`;
-    }).join(`<div style="border-top:1px solid #cacaca;margin:28px 0"></div>`);
-
     // Deduplicate changelogs by content — show once at the end
     const seenChangelogs = new Map<string, string>();
     for (const inst of instances) {
@@ -782,8 +770,6 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
       <thead><tr><th>Project</th><th>Instance</th></tr></thead>
       <tbody>${allActiveProjectRows}</tbody>
     </table>
-    <h2>Instance Details</h2>
-    ${detailSections}
     ${changelogSection}
   </div>
   <div class="ftr"><p>Fastr Analytics · Automated weekly report</p></div>
