@@ -6,6 +6,7 @@ interface ActiveUsersExportModalProps {
     servers: Server[] | undefined;
     userLogs: ServerUserLogs | undefined;
     initialInstance: string | null;
+    hUsers: string[];
     onClose: () => void;
 }
 
@@ -37,6 +38,8 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
         });
     };
 
+    const hUserSet = createMemo(() => new Set(p.hUsers));
+
     const activeEmails = createMemo(() => {
         if (!p.userLogs) return new Set<string>();
         const from = new Date(fromDate() + 'T00:00:00').getTime();
@@ -45,6 +48,7 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
         for (const id of selectedInstances()) {
             for (const log of p.userLogs[id] ?? []) {
                 if (log.endpoint !== 'getCurrentUser') continue;
+                if (hUserSet().has(log.user_email)) continue;
                 const ts = new Date(log.timestamp).getTime();
                 if (ts >= from && ts <= to) emails.add(log.user_email);
             }
@@ -74,16 +78,16 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
 
         const instances = [...selectedInstances()];
 
-        // Build per-instance active email sets
-        const instanceEmailSets = new Map<string, Set<string>>();
+        // Build per-instance active email counts
+        const instanceEmailCounts = new Map<string, Map<string, number>>();
         for (const id of instances) {
-            const emails = new Set<string>();
+            const counts = new Map<string, number>();
             for (const log of p.userLogs?.[id] ?? []) {
                 if (log.endpoint !== 'getCurrentUser') continue;
                 const ts = new Date(log.timestamp).getTime();
-                if (ts >= from && ts <= to) emails.add(log.user_email);
+                if (ts >= from && ts <= to && !hUserSet().has(log.user_email)) counts.set(log.user_email, (counts.get(log.user_email) ?? 0) + 1);
             }
-            instanceEmailSets.set(id, emails);
+            instanceEmailCounts.set(id, counts);
         }
 
         // Build user lookup by email
@@ -93,20 +97,20 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
         // Build per-instance user rows (excluding excluded emails)
         const serverLabel = new Map((p.servers ?? []).map(s => [s.id, s.label]));
         const instanceColumns = instances.map(id => {
-            const emails = instanceEmailSets.get(id) ?? new Set<string>();
-            return [...emails]
+            const counts = instanceEmailCounts.get(id) ?? new Map<string, number>();
+            return [...counts.keys()]
                 .filter(email => !excludedEmails().has(email))
                 .map(email => {
                     const u = userByEmail.get(email);
                     const name = u ? [u.first_name, u.last_name].filter(Boolean).join(' ') || '-' : '-';
-                    return [name, email];
+                    return [name, email, String(counts.get(email) ?? 0)];
                 });
         });
 
-        // Header: one Name+Email pair per instance
+        // Header: one Name+Email+Count triple per instance
         const header = instances.flatMap(id => {
             const label = serverLabel.get(id) ?? id;
-            return [`${label} - Name`, `${label} - Email`];
+            return [`${label} - Name`, `${label} - Email`, `${label} - Active Count`];
         });
 
         // Rows: zip instance columns, padding shorter ones with empty cells

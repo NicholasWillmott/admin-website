@@ -433,6 +433,7 @@ export function Users(p: UsersProps) {
                     servers={p.servers}
                     userLogs={p.userLogs}
                     initialInstance={selectedInstance()}
+                    hUsers={p.hUsers}
                     onClose={() => setActiveUsersExportOpen(false)}
                 />
             )}
