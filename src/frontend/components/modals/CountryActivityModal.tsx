@@ -308,6 +308,22 @@ export function CountryActivityModal(p: CountryActivityModalProps) {
         }
     }
 
+    function downloadCsv() {
+        const data = charts();
+        const header = ['Date', ...data.map(c => c.server.label)];
+        const rows = ALL_DATES.map((date, i) =>
+            [date, ...data.map(c => String(c.counts[i] ?? 0))]
+        );
+        const csv = [header, ...rows].map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `country-daily-activity-${FROM_DATE}-to-${ALL_DATES[ALL_DATES.length - 1]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     const fromLabel = new Date(FROM_DATE).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
     const toLabel = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -374,6 +390,11 @@ export function CountryActivityModal(p: CountryActivityModalProps) {
                                     class="activity-btn"
                                     onClick={downloadAll}
                                 >Download All SVGs</button>
+                                <button
+                                    type="button"
+                                    class="activity-btn"
+                                    onClick={downloadCsv}
+                                >Download CSV</button>
                             </div>
                             <For each={charts()}>
                                 {({ server, counts }) => (
