@@ -3,6 +3,7 @@ import type { ClerkUser, ClerkSession, Server, HealthCheckResponse, ServerUserLo
 import { formatDate } from '../../../utils.ts';
 import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
 import { ActiveUsersExportModal } from '../../modals/ActiveUsersExportModal.tsx';
+import { ClerkSessionsExportModal } from '../../modals/ClerkSessionsExportModal.tsx';
 import { SuperAdminEmailModal } from '../../modals/SuperAdminEmailModal.tsx';
 import { InstanceAdminEmailModal } from '../../modals/InstanceAdminEmailModal.tsx';
 import { UserActivityGraph } from './graphs/UserActivityGraph.tsx';
@@ -43,6 +44,7 @@ type SortDir = 'asc' | 'desc';
 export function Users(p: UsersProps) {
     const [selectedUser, setSelectedUser] = createSignal<ClerkUser | null>(null);
     const [activeUsersExportOpen, setActiveUsersExportOpen] = createSignal(false);
+    const [clerkSessionsExportOpen, setClerkSessionsExportOpen] = createSignal(false);
     const [sortKey, setSortKey] = createSignal<SortKey>('created_at');
     const [sortDir, setSortDir] = createSignal<SortDir>('desc');
     const [selectedInstance, setSelectedInstance] = createSignal<string | null>(null);
@@ -277,6 +279,9 @@ export function Users(p: UsersProps) {
                                     <button type="button" class="dropdown-item" onClick={() => setActiveUsersExportOpen(true)}>
                                         Export Active Users
                                     </button>
+                                    <button type="button" class="dropdown-item" onClick={() => setClerkSessionsExportOpen(true)}>
+                                        Export Active Users (Clerk Sessions)
+                                    </button>
                                     <button type="button" class="dropdown-item" onClick={downloadOptInCsv}>
                                         Generate Mailing List
                                     </button>
@@ -425,6 +430,16 @@ export function Users(p: UsersProps) {
                     onClose={() => setSelectedUser(null)}
                     serverId={selectedInstance()}
                     onFetchActivity={p.onFetchActivity}
+                />
+            )}
+            {clerkSessionsExportOpen() && (
+                <ClerkSessionsExportModal
+                    users={p.users}
+                    servers={p.servers}
+                    onFetchInstanceStatus={p.onFetchInstanceStatus}
+                    onFetchSessions={p.onFetchSessions}
+                    hUsers={p.hUsers}
+                    onClose={() => setClerkSessionsExportOpen(false)}
                 />
             )}
             {activeUsersExportOpen() && (
