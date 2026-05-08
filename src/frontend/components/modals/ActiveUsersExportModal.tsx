@@ -110,14 +110,14 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
         // Header: one Name+Email+Count triple per instance
         const header = instances.flatMap(id => {
             const label = serverLabel.get(id) ?? id;
-            return [`${label} - Name`, `${label} - Email`, `${label} - Active Count`];
+            return [`${label} - Name`, `${label} - Email`, `${label} - Times Active`];
         });
 
         // Rows: zip instance columns, padding shorter ones with empty cells
         const maxRows = Math.max(...instanceColumns.map(col => col.length), 0);
         const rows = [header];
         for (let i = 0; i < maxRows; i++) {
-            rows.push(instanceColumns.flatMap(col => col[i] ?? ['', '']));
+            rows.push(instanceColumns.flatMap(col => col[i] ?? ['', '', '']));
         }
 
         const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
