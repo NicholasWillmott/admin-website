@@ -439,8 +439,10 @@ export function Users(p: UsersProps) {
             )}
             {countryActivityOpen() && (
                 <CountryActivityModal
+                    users={p.users}
                     servers={p.servers}
-                    userLogs={p.userLogs}
+                    onFetchInstanceStatus={p.onFetchInstanceStatus}
+                    onFetchSessions={p.onFetchSessions}
                     hUsers={p.hUsers}
                     onClose={() => setCountryActivityOpen(false)}
                 />
