@@ -4,6 +4,7 @@ import { formatDate } from '../../../utils.ts';
 import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
 import { ActiveUsersExportModal } from '../../modals/ActiveUsersExportModal.tsx';
 import { ClerkSessionsExportModal } from '../../modals/ClerkSessionsExportModal.tsx';
+import { CountryActivityModal } from '../../modals/CountryActivityModal.tsx';
 import { SuperAdminEmailModal } from '../../modals/SuperAdminEmailModal.tsx';
 import { InstanceAdminEmailModal } from '../../modals/InstanceAdminEmailModal.tsx';
 import { UserActivityGraph } from './graphs/UserActivityGraph.tsx';
@@ -45,6 +46,7 @@ export function Users(p: UsersProps) {
     const [selectedUser, setSelectedUser] = createSignal<ClerkUser | null>(null);
     const [activeUsersExportOpen, setActiveUsersExportOpen] = createSignal(false);
     const [clerkSessionsExportOpen, setClerkSessionsExportOpen] = createSignal(false);
+    const [countryActivityOpen, setCountryActivityOpen] = createSignal(false);
     const [sortKey, setSortKey] = createSignal<SortKey>('created_at');
     const [sortDir, setSortDir] = createSignal<SortDir>('desc');
     const [selectedInstance, setSelectedInstance] = createSignal<string | null>(null);
@@ -282,6 +284,9 @@ export function Users(p: UsersProps) {
                                     <button type="button" class="dropdown-item" onClick={() => setClerkSessionsExportOpen(true)}>
                                         Export Active Users (Clerk Sessions)
                                     </button>
+                                    <button type="button" class="dropdown-item" onClick={() => setCountryActivityOpen(true)}>
+                                        Country Daily Activity Charts
+                                    </button>
                                     <button type="button" class="dropdown-item" onClick={downloadOptInCsv}>
                                         Generate Mailing List
                                     </button>
@@ -430,6 +435,14 @@ export function Users(p: UsersProps) {
                     onClose={() => setSelectedUser(null)}
                     serverId={selectedInstance()}
                     onFetchActivity={p.onFetchActivity}
+                />
+            )}
+            {countryActivityOpen() && (
+                <CountryActivityModal
+                    servers={p.servers}
+                    userLogs={p.userLogs}
+                    hUsers={p.hUsers}
+                    onClose={() => setCountryActivityOpen(false)}
                 />
             )}
             {clerkSessionsExportOpen() && (
