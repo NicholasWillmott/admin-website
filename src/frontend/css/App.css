@@ -1788,7 +1788,7 @@ h1 {
 .users-table thead {
   position: sticky;
   top: 0;
-  background: rgba(255, 255, 255, 0.06);
+  background: #1a2e22;
   z-index: 10;
 }
 
