@@ -181,7 +181,7 @@ export function UserLogsView(props: UserLogsViewProps) {
 
                         {/* Aggregate table */}
                         <Show when={mode() === 'aggregate'}>
-                            <table class="ai-usage-table">
+                            <table class="ai-usage-table logs-text-table">
                                 <thead>
                                     <tr>
                                         <th class="th-sortable" onClick={() => toggleSort('week_start')}>
@@ -223,7 +223,7 @@ export function UserLogsView(props: UserLogsViewProps) {
 
                         {/* Raw table */}
                         <Show when={mode() === 'raw'}>
-                            <table class="ai-usage-table">
+                            <table class="ai-usage-table logs-text-table">
                                 <thead>
                                     <tr>
                                         <th>Time</th>

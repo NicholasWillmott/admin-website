@@ -5516,3 +5516,7 @@ h1 {
 .ai-usage-table th.th-sortable:hover {
   color: #e2e8f0;
 }
+
+.logs-text-table th:not(:first-child) {
+  text-align: left;
+}
