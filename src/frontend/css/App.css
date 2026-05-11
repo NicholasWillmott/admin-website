@@ -5520,3 +5520,35 @@ h1 {
 .logs-text-table th:not(:first-child) {
   text-align: left;
 }
+
+.logs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.logs-page-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  border-radius: 4px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.logs-page-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.logs-page-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.logs-page-info {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.5);
+}

@@ -13,6 +13,8 @@ interface UserLogsViewProps {
 type SortKey = 'week_start' | 'user_email' | 'endpoint' | 'project_id' | 'count';
 type SortDir = 'asc' | 'desc';
 
+const PAGE_SIZE = 100;
+
 export function UserLogsView(props: UserLogsViewProps) {
     const [mode, setMode] = createSignal<'aggregate' | 'raw'>('aggregate');
     const [dateFrom, setDateFrom] = createSignal('');
@@ -22,9 +24,15 @@ export function UserLogsView(props: UserLogsViewProps) {
     const [endpointSearch, setEndpointSearch] = createSignal('');
     const [sortKey, setSortKey] = createSignal<SortKey>('week_start');
     const [sortDir, setSortDir] = createSignal<SortDir>('desc');
+    const [aggPage, setAggPage] = createSignal(1);
+    const [rawPage, setRawPage] = createSignal(1);
 
     const serverLabel = (id: string) =>
         props.servers?.find(s => s.id === id)?.label ?? id;
+
+    function setFilter<T>(setter: (v: T) => void) {
+        return (v: T) => { setter(v); setAggPage(1); setRawPage(1); };
+    }
 
     function toggleSort(key: SortKey) {
         if (sortKey() === key) {
@@ -33,6 +41,7 @@ export function UserLogsView(props: UserLogsViewProps) {
             setSortKey(key);
             setSortDir('desc');
         }
+        setAggPage(1);
     }
 
     function sortIndicator(key: SortKey) {
@@ -97,9 +106,41 @@ export function UserLogsView(props: UserLogsViewProps) {
         return entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     });
 
+    const aggTotalPages = createMemo(() => Math.max(1, Math.ceil(aggregateRows().length / PAGE_SIZE)));
+    const rawTotalPages = createMemo(() => Math.max(1, Math.ceil(rawRows().length / PAGE_SIZE)));
+
+    const pagedAggRows = createMemo(() => {
+        const p = Math.min(aggPage(), aggTotalPages());
+        return aggregateRows().slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
+    });
+    const pagedRawRows = createMemo(() => {
+        const p = Math.min(rawPage(), rawTotalPages());
+        return rawRows().slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
+    });
+
     const totalCount = createMemo(() => aggregateRows().reduce((sum, r) => sum + r.count, 0));
     const isLoading = () => mode() === 'aggregate' ? props.aggregateLoading : props.rawLoading;
     const isEmpty = () => mode() === 'aggregate' ? aggregateRows().length === 0 : rawRows().length === 0;
+
+    function Pagination(p: { page: () => number; totalPages: () => number; setPage: (n: number) => void; total: number }) {
+        return (
+            <div class="logs-pagination">
+                <button
+                    class="logs-page-btn"
+                    disabled={p.page() <= 1}
+                    onClick={() => p.setPage(p.page() - 1)}
+                >←</button>
+                <span class="logs-page-info">
+                    Page {p.page()} of {p.totalPages()} · {p.total.toLocaleString()} rows
+                </span>
+                <button
+                    class="logs-page-btn"
+                    disabled={p.page() >= p.totalPages()}
+                    onClick={() => p.setPage(p.page() + 1)}
+                >→</button>
+            </div>
+        );
+    }
 
     return (
         <div class="ai-usage-container">
@@ -128,18 +169,18 @@ export function UserLogsView(props: UserLogsViewProps) {
                             type="date"
                             class="server-filter-input"
                             value={dateFrom()}
-                            onChange={e => setDateFrom(e.currentTarget.value)}
+                            onChange={e => setFilter(setDateFrom)(e.currentTarget.value)}
                         />
                         <span class="ai-usage-filter-sep">to</span>
                         <input
                             type="date"
                             class="server-filter-input"
                             value={dateTo()}
-                            onChange={e => setDateTo(e.currentTarget.value)}
+                            onChange={e => setFilter(setDateTo)(e.currentTarget.value)}
                         />
                         <select
                             class="instance-filter-select"
-                            onChange={e => setSelectedServerId(e.currentTarget.value)}
+                            onChange={e => setFilter(setSelectedServerId)(e.currentTarget.value)}
                         >
                             <option value="">All Servers</option>
                             <For each={props.servers}>
@@ -151,14 +192,14 @@ export function UserLogsView(props: UserLogsViewProps) {
                             class="server-filter-input"
                             placeholder="Filter by user..."
                             value={userSearch()}
-                            onInput={e => setUserSearch(e.currentTarget.value)}
+                            onInput={e => setFilter(setUserSearch)(e.currentTarget.value)}
                         />
                         <input
                             type="text"
                             class="server-filter-input"
                             placeholder="Filter by endpoint..."
                             value={endpointSearch()}
-                            onInput={e => setEndpointSearch(e.currentTarget.value)}
+                            onInput={e => setFilter(setEndpointSearch)(e.currentTarget.value)}
                         />
                     </div>
                 </div>
@@ -204,7 +245,7 @@ export function UserLogsView(props: UserLogsViewProps) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <For each={aggregateRows()}>
+                                    <For each={pagedAggRows()}>
                                         {log => (
                                             <tr>
                                                 <td class="logs-td-time">{log.week_start}</td>
@@ -219,6 +260,12 @@ export function UserLogsView(props: UserLogsViewProps) {
                                     </For>
                                 </tbody>
                             </table>
+                            <Pagination
+                                page={aggPage}
+                                totalPages={aggTotalPages}
+                                setPage={setAggPage}
+                                total={aggregateRows().length}
+                            />
                         </Show>
 
                         {/* Raw table */}
@@ -233,7 +280,7 @@ export function UserLogsView(props: UserLogsViewProps) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <For each={rawRows()}>
+                                    <For each={pagedRawRows()}>
                                         {log => (
                                             <tr>
                                                 <td class="logs-td-time">{formatDate(log.timestamp)}</td>
@@ -245,6 +292,12 @@ export function UserLogsView(props: UserLogsViewProps) {
                                     </For>
                                 </tbody>
                             </table>
+                            <Pagination
+                                page={rawPage}
+                                totalPages={rawTotalPages}
+                                setPage={setRawPage}
+                                total={rawRows().length}
+                            />
                         </Show>
 
                     </div>
