@@ -1,16 +1,20 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
-import type { Server, ServerUserLogsAggregate } from '../../types.ts';
+import type { Server, ServerUserLogs, ServerUserLogsAggregate } from '../../types.ts';
+import { formatDate } from '../../utils.ts';
 
 interface UserLogsViewProps {
     servers: Server[] | undefined;
     aggregateLogs: ServerUserLogsAggregate | undefined;
-    loading: boolean;
+    aggregateLoading: boolean;
+    rawLogs: ServerUserLogs | undefined;
+    rawLoading: boolean;
 }
 
 type SortKey = 'week_start' | 'user_email' | 'endpoint' | 'project_id' | 'count';
 type SortDir = 'asc' | 'desc';
 
 export function UserLogsView(props: UserLogsViewProps) {
+    const [mode, setMode] = createSignal<'aggregate' | 'raw'>('aggregate');
     const [dateFrom, setDateFrom] = createSignal('');
     const [dateTo, setDateTo] = createSignal('');
     const [selectedServerId, setSelectedServerId] = createSignal('');
@@ -36,7 +40,7 @@ export function UserLogsView(props: UserLogsViewProps) {
         return sortDir() === 'desc' ? ' ↓' : ' ↑';
     }
 
-    const flatLogs = createMemo(() => {
+    const aggregateRows = createMemo(() => {
         const logs = props.aggregateLogs ?? {};
         const from = dateFrom() || null;
         const to = dateTo() || null;
@@ -68,7 +72,34 @@ export function UserLogsView(props: UserLogsViewProps) {
         });
     });
 
-    const totalCount = createMemo(() => flatLogs().reduce((sum, r) => sum + r.count, 0));
+    const rawRows = createMemo(() => {
+        const logs = props.rawLogs ?? {};
+        const from = dateFrom() ? new Date(dateFrom()).getTime() : null;
+        const to = dateTo() ? new Date(dateTo() + 'T23:59:59').getTime() : null;
+        const serverId = selectedServerId();
+        const userQ = userSearch().toLowerCase().trim();
+        const endpointQ = endpointSearch().toLowerCase().trim();
+
+        const entries: { serverId: string; user_email: string; endpoint: string; timestamp: string; project_id?: string }[] = [];
+
+        for (const [sid, serverLogs] of Object.entries(logs)) {
+            if (serverId && sid !== serverId) continue;
+            for (const log of serverLogs) {
+                const t = new Date(log.timestamp).getTime();
+                if (from !== null && t < from) continue;
+                if (to !== null && t > to) continue;
+                if (userQ && !log.user_email.toLowerCase().includes(userQ)) continue;
+                if (endpointQ && !log.endpoint.toLowerCase().includes(endpointQ)) continue;
+                entries.push({ serverId: sid, ...log });
+            }
+        }
+
+        return entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    });
+
+    const totalCount = createMemo(() => aggregateRows().reduce((sum, r) => sum + r.count, 0));
+    const isLoading = () => mode() === 'aggregate' ? props.aggregateLoading : props.rawLoading;
+    const isEmpty = () => mode() === 'aggregate' ? aggregateRows().length === 0 : rawRows().length === 0;
 
     return (
         <div class="ai-usage-container">
@@ -76,8 +107,21 @@ export function UserLogsView(props: UserLogsViewProps) {
                 <div class="ai-usage-header">
                     <div class="ai-usage-header-left">
                         <h2 class="ai-usage-title">
-                            Usage Logs ({flatLogs().length.toLocaleString()} rows · {totalCount().toLocaleString()} events)
+                            {mode() === 'aggregate'
+                                ? `Usage Logs (${aggregateRows().length.toLocaleString()} rows · ${totalCount().toLocaleString()} events)`
+                                : `Raw Logs (${rawRows().length.toLocaleString()})`
+                            }
                         </h2>
+                        <div class="ai-usage-view-toggle">
+                            <button
+                                class={`ai-usage-toggle-btn ${mode() === 'aggregate' ? 'active' : ''}`}
+                                onClick={() => setMode('aggregate')}
+                            >Aggregate</button>
+                            <button
+                                class={`ai-usage-toggle-btn ${mode() === 'raw' ? 'active' : ''}`}
+                                onClick={() => setMode('raw')}
+                            >Raw</button>
+                        </div>
                     </div>
                     <div class="ai-usage-filters">
                         <input
@@ -119,59 +163,90 @@ export function UserLogsView(props: UserLogsViewProps) {
                     </div>
                 </div>
 
-                <Show when={props.loading}>
+                <Show when={isLoading()}>
                     <div class="ai-usage-loading">
                         <div class="spinner" />
                         <p>Loading usage logs...</p>
                     </div>
                 </Show>
 
-                <Show when={!props.loading && flatLogs().length === 0}>
+                <Show when={!isLoading() && isEmpty()}>
                     <div class="ai-usage-empty">
                         <p>No log entries match the current filters.</p>
                     </div>
                 </Show>
 
-                <Show when={!props.loading && flatLogs().length > 0}>
+                <Show when={!isLoading() && !isEmpty()}>
                     <div class="logs-table-container">
-                        <table class="ai-usage-table">
-                            <thead>
-                                <tr>
-                                    <th class="th-sortable" onClick={() => toggleSort('week_start')}>
-                                        Week{sortIndicator('week_start')}
-                                    </th>
-                                    <th>Server</th>
-                                    <th class="th-sortable" onClick={() => toggleSort('user_email')}>
-                                        User{sortIndicator('user_email')}
-                                    </th>
-                                    <th class="th-sortable" onClick={() => toggleSort('endpoint')}>
-                                        Endpoint{sortIndicator('endpoint')}
-                                    </th>
-                                    <th>Result</th>
-                                    <th class="th-sortable" onClick={() => toggleSort('project_id')}>
-                                        Project{sortIndicator('project_id')}
-                                    </th>
-                                    <th class="th-sortable" onClick={() => toggleSort('count')}>
-                                        Count{sortIndicator('count')}
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <For each={flatLogs()}>
-                                    {log => (
-                                        <tr>
-                                            <td class="logs-td-time">{log.week_start}</td>
-                                            <td class="logs-td-server">{serverLabel(log.serverId)}</td>
-                                            <td class="logs-td-email">{log.user_email}</td>
-                                            <td class="logs-td-endpoint">{log.endpoint}</td>
-                                            <td class="logs-td-result">{log.endpoint_result}</td>
-                                            <td class="logs-td-project">{log.project_id ?? '—'}</td>
-                                            <td class="ai-usage-num">{log.count.toLocaleString()}</td>
-                                        </tr>
-                                    )}
-                                </For>
-                            </tbody>
-                        </table>
+
+                        {/* Aggregate table */}
+                        <Show when={mode() === 'aggregate'}>
+                            <table class="ai-usage-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-sortable" onClick={() => toggleSort('week_start')}>
+                                            Week{sortIndicator('week_start')}
+                                        </th>
+                                        <th>Server</th>
+                                        <th class="th-sortable" onClick={() => toggleSort('user_email')}>
+                                            User{sortIndicator('user_email')}
+                                        </th>
+                                        <th class="th-sortable" onClick={() => toggleSort('endpoint')}>
+                                            Endpoint{sortIndicator('endpoint')}
+                                        </th>
+                                        <th>Result</th>
+                                        <th class="th-sortable" onClick={() => toggleSort('project_id')}>
+                                            Project{sortIndicator('project_id')}
+                                        </th>
+                                        <th class="th-sortable" onClick={() => toggleSort('count')}>
+                                            Count{sortIndicator('count')}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <For each={aggregateRows()}>
+                                        {log => (
+                                            <tr>
+                                                <td class="logs-td-time">{log.week_start}</td>
+                                                <td class="logs-td-server">{serverLabel(log.serverId)}</td>
+                                                <td class="logs-td-email">{log.user_email}</td>
+                                                <td class="logs-td-endpoint">{log.endpoint}</td>
+                                                <td class="logs-td-result">{log.endpoint_result}</td>
+                                                <td class="logs-td-project">{log.project_id ?? '—'}</td>
+                                                <td class="ai-usage-num">{log.count.toLocaleString()}</td>
+                                            </tr>
+                                        )}
+                                    </For>
+                                </tbody>
+                            </table>
+                        </Show>
+
+                        {/* Raw table */}
+                        <Show when={mode() === 'raw'}>
+                            <table class="ai-usage-table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Server</th>
+                                        <th>User</th>
+                                        <th>Endpoint</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <For each={rawRows()}>
+                                        {log => (
+                                            <tr>
+                                                <td class="logs-td-time">{formatDate(log.timestamp)}</td>
+                                                <td class="logs-td-server">{serverLabel(log.serverId)}</td>
+                                                <td class="logs-td-email">{log.user_email}</td>
+                                                <td class="logs-td-endpoint">{log.endpoint}</td>
+                                            </tr>
+                                        )}
+                                    </For>
+                                </tbody>
+                            </table>
+                        </Show>
+
                     </div>
                 </Show>
             </div>

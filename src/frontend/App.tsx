@@ -560,7 +560,9 @@ function App() {
             <UserLogsView
               servers={servers()}
               aggregateLogs={aggregateLogs()}
-              loading={aggregateLogs.loading}
+              aggregateLoading={aggregateLogs.loading}
+              rawLogs={allServerUserLogs()}
+              rawLoading={allServerUserLogs.loading}
             />
           </Show>
 
