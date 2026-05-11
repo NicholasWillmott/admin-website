@@ -40,6 +40,7 @@ import {
   fetchEmailDetailApi,
   fetchHUsers,
   fetchAllServerUserLogsAggregate,
+  fetchAllServerUserLogsAll,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -196,6 +197,15 @@ function App() {
     async (serverList) => {
       const token = await getToken();
       return fetchAllServerUserLogsAggregate(serverList!, token);
+    }
+  );
+
+  // get all raw user logs — lazy: only fetches when userLogs view is active
+  const [allRawUserLogs] = createResource(
+    () => activeView() === "userLogs" && servers() ? servers() : null,
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerUserLogsAll(serverList!, token);
     }
   );
 
@@ -561,8 +571,8 @@ function App() {
               servers={servers()}
               aggregateLogs={aggregateLogs()}
               aggregateLoading={aggregateLogs.loading}
-              rawLogs={allServerUserLogs()}
-              rawLoading={allServerUserLogs.loading}
+              rawLogs={allRawUserLogs()}
+              rawLoading={allRawUserLogs.loading}
             />
           </Show>
 

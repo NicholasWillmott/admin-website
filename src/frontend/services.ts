@@ -665,6 +665,30 @@ export async function fetchChangelogViewApi(token: string | null): Promise<{ ver
   return response.json();
 }
 
+export async function fetchServerUserLogsAll(serverId: string, token: string | null): Promise<UserLog[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/user_logs_all`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.logs ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAllServerUserLogsAll(servers: Server[], token: string | null): Promise<ServerUserLogs> {
+  const results = await pMap(servers, 10, async (server) => ({
+    id: server.id,
+    logs: await fetchServerUserLogsAll(server.id, token),
+  }));
+  return results.reduce((acc, { id, logs }) => {
+    acc[id] = logs;
+    return acc;
+  }, {} as ServerUserLogs);
+}
+
 export async function fetchServerUserLogsAggregate(serverId: string, token: string | null): Promise<UserLogAggregate[]> {
   try {
     const response = await fetch(`${API_BASE}/api/servers/${serverId}/user_logs_aggregate`, {
