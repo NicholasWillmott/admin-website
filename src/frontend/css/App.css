@@ -5454,3 +5454,65 @@ h1 {
   border: none;
   background: #fff;
 }
+
+/* User Logs View */
+.logs-table-container {
+  overflow-x: auto;
+}
+
+.logs-td-time {
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8125rem;
+}
+
+.logs-td-server {
+  white-space: nowrap;
+  color: #5eead4;
+  font-size: 0.8125rem;
+}
+
+.logs-td-email {
+  font-size: 0.8125rem;
+}
+
+.logs-td-endpoint {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: monospace;
+}
+
+.logs-internal-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.logs-internal-toggle input {
+  cursor: pointer;
+  accent-color: #5eead4;
+}
+
+.logs-td-result {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.logs-td-project {
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: monospace;
+}
+
+.ai-usage-table th.th-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.ai-usage-table th.th-sortable:hover {
+  color: #e2e8f0;
+}

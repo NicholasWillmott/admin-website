@@ -127,6 +127,18 @@ export interface VolumeUsage {
   directories: VolumeDirEntry[];
 }
 
+export interface UserLogAggregate {
+  id: number;
+  user_email: string;
+  endpoint: string;
+  endpoint_result: string;
+  project_id: string | null;
+  week_start: string; // date string YYYY-MM-DD
+  count: number;
+}
+
+export type ServerUserLogsAggregate = { [serverId: string]: UserLogAggregate[] };
+
 export interface AiUsageLog {
   id: number;
   timestamp: string;
@@ -163,7 +175,7 @@ export interface ChangelogVersion {
   types: ChangelogTypeGroup[];
 }
 
-export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog";
+export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs";
 
 export interface PgStatStatement {
   datname: string | null;

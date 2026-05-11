@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -663,6 +663,30 @@ export async function fetchChangelogViewApi(token: string | null): Promise<{ ver
   });
   if (!response.ok) return { versions: [] };
   return response.json();
+}
+
+export async function fetchServerUserLogsAggregate(serverId: string, token: string | null): Promise<UserLogAggregate[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/user_logs_aggregate`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.logs ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAllServerUserLogsAggregate(servers: Server[], token: string | null): Promise<ServerUserLogsAggregate> {
+  const results = await pMap(servers, 10, async (server) => ({
+    id: server.id,
+    logs: await fetchServerUserLogsAggregate(server.id, token),
+  }));
+  return results.reduce((acc, { id, logs }) => {
+    acc[id] = logs;
+    return acc;
+  }, {} as ServerUserLogsAggregate);
 }
 
 export async function fetchServerAiUsage(serverId: string, token: string | null): Promise<AiUsageLog[]> {

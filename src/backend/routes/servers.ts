@@ -152,6 +152,26 @@ router.get("/:id/ai_usage", async (c) => {
     }
 });
 
+// Get aggregated user logs
+router.get("/:id/user_logs_aggregate", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+
+    if (!isSafeParam(serverId)) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/user_logs_aggregate`);
+        const data = await response.json();
+        return c.json(data);
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // Get server user logs
 router.get("/:id/user_logs", async (c) => {
     const authError = await requireAdmin(c);

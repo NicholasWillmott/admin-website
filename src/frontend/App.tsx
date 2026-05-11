@@ -39,10 +39,12 @@ import {
   fetchEmailHistoryApi,
   fetchEmailDetailApi,
   fetchHUsers,
+  fetchAllServerUserLogsAggregate,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
 import { Users } from "./components/views/users/Users.tsx";
+import { UserLogsView } from "./components/views/UserLogsView.tsx";
 
 function App() {
   const { getToken } = useAuth();
@@ -188,6 +190,15 @@ function App() {
   // Track active view
   const [activeView, setActiveView] = createSignal<ViewType>("servers");
 
+  // get aggregate user logs — lazy: only fetches when userLogs view is active
+  const [aggregateLogs] = createResource(
+    () => activeView() === "userLogs" && servers() ? servers() : null,
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerUserLogsAggregate(serverList!, token);
+    }
+  );
+
   // get sent email history — lazy: only fetches when changelog view is active
   const [emailHistory, { refetch: refetchEmailHistory }] = createResource(
     () => activeView() === "changelog" ? true : null,
@@ -317,7 +328,7 @@ function App() {
   const viewLabel = (view: string) => {
     const labels: Record<string, string> = {
       servers: 'Servers', snapshots: 'Snapshots', users: 'Users',
-      volumeUsage: 'Volume Usage', aiUsage: 'AI Usage',
+      userLogs: 'Usage Logs', volumeUsage: 'Volume Usage', aiUsage: 'AI Usage',
       pgStatements: 'Postgres Statements',
       moduleEditor: 'Module Definitions', changelog: 'History',
     };
@@ -348,6 +359,7 @@ function App() {
                           ["servers", "Servers"],
                           ["snapshots", "Snapshots"],
                           ["users", "Users"],
+                          ["userLogs", "Usage Logs"],
                           ["volumeUsage", "Volume Usage"],
                           ["aiUsage", "AI Usage"],
                           ["pgStatements", "Postgres Statements"],
@@ -542,6 +554,14 @@ function App() {
 
           <Show when={activeView() === "moduleEditor"}>
             <ModuleEditorContent/>
+          </Show>
+
+          <Show when={activeView() === "userLogs"}>
+            <UserLogsView
+              servers={servers()}
+              aggregateLogs={aggregateLogs()}
+              loading={aggregateLogs.loading}
+            />
           </Show>
 
           <Show when={activeView() === "changelog"}>
