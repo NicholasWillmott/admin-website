@@ -3,6 +3,10 @@ interface SentEmailViewModalProps {
   onClose: () => void;
 }
 
+function stripScripts(html: string): string {
+  return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+}
+
 export function SentEmailViewModal(props: SentEmailViewModalProps) {
   return (
     <div class="sent-email-modal-overlay" onClick={props.onClose}>
@@ -13,7 +17,7 @@ export function SentEmailViewModal(props: SentEmailViewModalProps) {
         </div>
         <iframe
           class="sent-email-modal-iframe"
-          srcdoc={props.html}
+          srcdoc={stripScripts(props.html)}
           sandbox="allow-same-origin"
         />
       </div>
