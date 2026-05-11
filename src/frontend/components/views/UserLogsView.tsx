@@ -128,6 +128,11 @@ export function UserLogsView(props: UserLogsViewProps) {
                 <button
                     class="logs-page-btn"
                     disabled={p.page() <= 1}
+                    onClick={() => p.setPage(1)}
+                >⇤</button>
+                <button
+                    class="logs-page-btn"
+                    disabled={p.page() <= 1}
                     onClick={() => p.setPage(p.page() - 1)}
                 >←</button>
                 <span class="logs-page-info">
@@ -138,6 +143,11 @@ export function UserLogsView(props: UserLogsViewProps) {
                     disabled={p.page() >= p.totalPages()}
                     onClick={() => p.setPage(p.page() + 1)}
                 >→</button>
+                <button
+                    class="logs-page-btn"
+                    disabled={p.page() >= p.totalPages()}
+                    onClick={() => p.setPage(p.totalPages())}
+                >⇥</button>
             </div>
         );
     }
