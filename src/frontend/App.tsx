@@ -7,7 +7,7 @@ import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { AiUsageView } from './components/views/AiUsageView.tsx';
 import { PgStatStatementsView } from './components/views/PgStatStatementsView.tsx';
-import { ChangelogView } from './components/views/ChangelogView.tsx';
+import { HistoryView } from './components/views/HistoryView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { ServerVersionsModal } from './components/modals/ServerVersionsModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
@@ -545,7 +545,7 @@ function App() {
           </Show>
 
           <Show when={activeView() === "changelog"}>
-            <ChangelogView
+            <HistoryView
               changelog={changelog()}
               loading={changelog.loading}
               error={changelog.error}
