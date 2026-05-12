@@ -194,10 +194,7 @@ export function ServerCard(props: ServerCardProps) {
                   {(person) => (
                     <div class="admin-user-card">
                       <span class="user-icon">👤</span>
-                      <span class="user-email">
-                        {[person.firstName, person.lastName].filter(Boolean).join(' ') || person.email}
-                        {person.organisation && <span style="opacity:0.6"> — {person.organisation}</span>}
-                      </span>
+                      <span class="user-email">{person.email}</span>
                     </div>
                   )}
                 </For>
