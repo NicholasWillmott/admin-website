@@ -65,6 +65,7 @@ export interface HealthCheckResponse {
   totalUsers: number;
   adminUsers: string[];
   serverUsers?: string[];
+  contactPersons: { email: string; firstName: string | null; lastName: string | null; organisation: string | null }[];
   projects: string[];
   hasRunningModules: boolean;
   lastUserLog: { userEmail: string; endpoint: string; timestamp: string } | null;

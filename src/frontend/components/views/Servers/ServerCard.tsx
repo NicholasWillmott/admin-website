@@ -185,6 +185,26 @@ export function ServerCard(props: ServerCardProps) {
             </div>
           </div>
 
+          {/* Contact Persons */}
+          <Show when={(props.status?.contactPersons?.length ?? 0) > 0}>
+            <div class="admin-users-section">
+              <h3>Contact Persons ({props.status?.contactPersons?.length ?? 0})</h3>
+              <div class="admin-users-grid">
+                <For each={props.status?.contactPersons ?? []}>
+                  {(person) => (
+                    <div class="admin-user-card">
+                      <span class="user-icon">👤</span>
+                      <span class="user-email">
+                        {[person.firstName, person.lastName].filter(Boolean).join(' ') || person.email}
+                        {person.organisation && <span style="opacity:0.6"> — {person.organisation}</span>}
+                      </span>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
+
           {/* Actions */}
           <div class="actions-section">
             <h3>Actions</h3>
