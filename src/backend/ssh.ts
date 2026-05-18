@@ -113,6 +113,9 @@ const ALLOWED_COMMANDS = [
   /^df -BG \/mnt\/[\w_-]+$/,
   /^du -BG --max-depth=1 \/mnt\/[\w_-]+$/,
 
+  // VOLUME RESIZE
+  /^resize2fs \/dev\/disk\/by-id\/scsi-0DO_Volume_[\w_-]+$/,
+
   // OTHER
   /^wb help$/,
   /^docker ps$/,

@@ -1,6 +1,6 @@
 /// <reference lib="deno.ns" />
 import { Hono } from "hono";
-import { requireAdmin } from "../lib/auth.ts";
+import { requireAdmin, requireAdminOrInternal } from "../lib/auth.ts";
 import { executeCommand, isCommandAllowed } from "../ssh.ts";
 
 const router = new Hono();
@@ -126,6 +126,110 @@ router.get("/usage", async (c) => {
     mountPath,
     df: dfStats,
     directories,
+  });
+});
+
+// POST /api/volumes/resize
+// Called internally by platform server containers via X-Internal-Key header,
+// or by Clerk-authenticated admins. Triggers a DigitalOcean volume resize,
+// then expands the filesystem once the action completes.
+router.post("/resize", async (c) => {
+  const authError = await requireAdminOrInternal(c);
+  if (authError) return authError;
+
+  let volumeName: string | undefined;
+  let targetSizeGB: number | undefined;
+  try {
+    const body = await c.req.json();
+    volumeName = typeof body?.volume === "string" ? body.volume.trim() : undefined;
+    targetSizeGB = typeof body?.targetSizeGB === "number" ? body.targetSizeGB : undefined;
+  } catch {
+    // no body
+  }
+
+  if (!volumeName || !/^[\w_-]+$/.test(volumeName)) {
+    return c.json({ success: false, error: "Missing or invalid volume name" }, 400);
+  }
+  if (!targetSizeGB || targetSizeGB <= 0) {
+    return c.json({ success: false, error: "Missing or invalid targetSizeGB" }, 400);
+  }
+
+  const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
+  if (!doToken) {
+    return c.json({ success: false, error: "DigitalOcean API token not configured" }, 503);
+  }
+
+  const dropletIp = Deno.env.get("DROPLET_IP");
+  if (!dropletIp) {
+    return c.json({ success: false, error: "DROPLET_IP not configured" }, 503);
+  }
+
+  // Look up volume by name to get its ID and current size
+  const lookup = await fetch(
+    `https://api.digitalocean.com/v2/volumes?name=${encodeURIComponent(volumeName)}`,
+    { headers: { "Authorization": `Bearer ${doToken}` } },
+  ).catch(() => null);
+  if (!lookup?.ok) {
+    return c.json({ success: false, error: `Failed to look up volume "${volumeName}"` }, 500);
+  }
+  const lookupData = await lookup.json();
+  const volume = lookupData.volumes?.[0];
+  const volumeId = volume?.id as string | undefined;
+  if (!volumeId) {
+    return c.json({ success: false, error: `Volume "${volumeName}" not found` }, 404);
+  }
+  const currentSizeGB = (volume?.size_gigabytes as number | undefined) ?? 0;
+  if (currentSizeGB >= targetSizeGB) {
+    return c.json({ success: true, message: "Volume already at target size, no resize needed" });
+  }
+
+  // Trigger the block-device resize via DO API
+  const resizeRes = await fetch(`https://api.digitalocean.com/v2/volumes/${volumeId}/actions`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${doToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ type: "resize", size_gigabytes: targetSizeGB }),
+  }).catch(() => null);
+  if (!resizeRes?.ok) {
+    const err = await resizeRes?.json().catch(() => ({})) ?? {};
+    return c.json({ success: false, error: (err as { message?: string }).message || "Failed to trigger resize" }, 500);
+  }
+  const resizeData = await resizeRes.json();
+  const actionId = resizeData.action?.id as number | undefined;
+  if (!actionId) {
+    return c.json({ success: false, error: "No action ID returned from resize request" }, 500);
+  }
+
+  // Poll for completion in background, then expand the filesystem
+  (async () => {
+    try {
+      for (let i = 0; i < 60; i++) { // max ~30 minutes
+        await new Promise((r) => setTimeout(r, 30_000));
+        const poll = await fetch(
+          `https://api.digitalocean.com/v2/volumes/${volumeId}/actions/${actionId}`,
+          { headers: { "Authorization": `Bearer ${doToken}` } },
+        ).catch(() => null);
+        if (!poll?.ok) break;
+        const pollData = await poll.json();
+        if (pollData.action?.status === "completed") {
+          const fsCmd = `resize2fs /dev/disk/by-id/scsi-0DO_Volume_${volumeName}`;
+          if (isCommandAllowed(fsCmd)) {
+            await executeCommand(dropletIp, fsCmd);
+          }
+          break;
+        }
+        if (pollData.action?.status === "errored") break;
+      }
+    } catch {
+      // background task — ignore errors
+    }
+  })();
+
+  return c.json({
+    success: true,
+    message: `Volume resize from ${currentSizeGB} GB to ${targetSizeGB} GB triggered. Filesystem will be expanded automatically.`,
   });
 });
 
