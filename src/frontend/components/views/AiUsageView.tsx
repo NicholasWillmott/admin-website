@@ -1,9 +1,10 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
-import type { Server, AiUsageLog, ServerAiUsageLogs, ModelPricing } from '../../types.ts';
+import type { Server, AiUsageLog, ServerAiUsageLogs, ModelPricing, AllServerWeeklyUsage } from '../../types.ts';
 
 interface AiUsageViewProps {
   servers: Server[] | undefined;
   aiUsageLogs: ServerAiUsageLogs | undefined;
+  weeklyUsage: AllServerWeeklyUsage | undefined;
   pricing: Record<string, ModelPricing> | undefined;
   loading: boolean;
   error: Error | undefined;
@@ -64,7 +65,7 @@ export function AiUsageView(props: AiUsageViewProps) {
   const [dateFrom, setDateFrom] = createSignal('');
   const [dateTo, setDateTo] = createSignal('');
   const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
-  const [viewMode, setViewMode] = createSignal<'instance' | 'user'>('instance');
+  const [viewMode, setViewMode] = createSignal<'instance' | 'user' | 'weekly'>('instance');
 
   const toggleExpanded = (serverId: string) => {
     setExpanded(prev => {
@@ -157,6 +158,10 @@ export function AiUsageView(props: AiUsageViewProps) {
                 class={`ai-usage-toggle-btn ${viewMode() === 'user' ? 'active' : ''}`}
                 onClick={() => setViewMode('user')}
               >By User</button>
+              <button
+                class={`ai-usage-toggle-btn ${viewMode() === 'weekly' ? 'active' : ''}`}
+                onClick={() => setViewMode('weekly')}
+              >Weekly Limits</button>
             </div>
           </div>
           <div class="ai-usage-filters">
@@ -311,6 +316,46 @@ export function AiUsageView(props: AiUsageViewProps) {
                 <p>No AI usage recorded yet.</p>
               </div>
             </Show>
+          </Show>
+
+          <Show when={viewMode() === 'weekly'}>
+            <table class="ai-usage-table">
+              <thead>
+                <tr>
+                  <th>Country</th>
+                  <th>Tokens Used This Week</th>
+                  <th>Weekly Limit</th>
+                  <th>Usage</th>
+                </tr>
+              </thead>
+              <tbody>
+                <For each={props.servers ?? []}>
+                  {(server) => {
+                    const usage = () => props.weeklyUsage?.[server.id];
+                    const tokensUsed = () => usage()?.tokensUsedThisWeek ?? 0;
+                    const limit = () => usage()?.weeklyTokenLimit ?? null;
+                    const pct = () => limit() !== null ? Math.min(100, (tokensUsed() / limit()!) * 100) : null;
+                    return (
+                      <tr>
+                        <td class="ai-usage-instance" style="padding-left: 16px">{server.label}</td>
+                        <td class="ai-usage-num">{tokensUsed().toLocaleString()}</td>
+                        <td class="ai-usage-num">{limit() !== null ? limit()!.toLocaleString() : 'Not set'}</td>
+                        <td class="ai-usage-num" style="min-width: 160px">
+                          <Show when={pct() !== null} fallback={<span style="color: var(--text-muted)">—</span>}>
+                            <div style="display: flex; align-items: center; gap: 8px">
+                              <div style="flex: 1; background: var(--bg-secondary); border-radius: 4px; height: 8px; overflow: hidden">
+                                <div style={`width: ${pct()}%; height: 100%; background: ${pct()! >= 90 ? 'var(--color-error, #e53e3e)' : pct()! >= 70 ? 'var(--color-warning, #d69e2e)' : 'var(--color-success, #38a169)'}; border-radius: 4px`} />
+                              </div>
+                              <span style="font-size: 12px; white-space: nowrap">{pct()!.toFixed(1)}%</span>
+                            </div>
+                          </Show>
+                        </td>
+                      </tr>
+                    );
+                  }}
+                </For>
+              </tbody>
+            </table>
           </Show>
 
           <Show when={Object.keys(props.pricing ?? {}).length === 0}>

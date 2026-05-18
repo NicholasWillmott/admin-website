@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -735,6 +735,29 @@ export async function fetchAllServerAiUsage(servers: Server[], token: string | n
     acc[id] = logs;
     return acc;
   }, {} as ServerAiUsageLogs);
+}
+
+export async function fetchServerWeeklyUsage(serverId: string, token: string | null): Promise<ServerWeeklyUsage> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/ai_weekly_usage`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return { tokensUsedThisWeek: 0, weeklyTokenLimit: null };
+    return await response.json();
+  } catch {
+    return { tokensUsedThisWeek: 0, weeklyTokenLimit: null };
+  }
+}
+
+export async function fetchAllServerWeeklyUsage(servers: Server[], token: string | null): Promise<AllServerWeeklyUsage> {
+  const results = await pMap(servers, 10, async (server) => ({
+    id: server.id,
+    data: await fetchServerWeeklyUsage(server.id, token),
+  }));
+  return results.reduce((acc, { id, data }) => {
+    acc[id] = data;
+    return acc;
+  }, {} as AllServerWeeklyUsage);
 }
 
 export async function resetServerPgStatStatements(serverId: string, token: string | null): Promise<{ success: boolean }> {

@@ -154,6 +154,13 @@ export interface AiUsageLog {
 
 export type ServerAiUsageLogs = { [serverId: string]: AiUsageLog[] };
 
+export interface ServerWeeklyUsage {
+  tokensUsedThisWeek: number;
+  weeklyTokenLimit: number | null;
+}
+
+export type AllServerWeeklyUsage = { [serverId: string]: ServerWeeklyUsage };
+
 export interface ModelPricing {
   input_cost_per_token?: number;
   output_cost_per_token?: number;

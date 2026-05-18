@@ -29,6 +29,7 @@ import {
   unlockServerApi,
   fetchAllServerUserLogs,
   fetchAllServerAiUsage,
+  fetchAllServerWeeklyUsage,
   fetchModelPricing,
   fetchVolumeUsage,
   fetchCategoriesApi,
@@ -89,6 +90,15 @@ function App() {
     async (serverList) => {
       const token = await getToken();
       return fetchAllServerAiUsage(serverList, token);
+    }
+  );
+
+  // get weekly token usage for all servers
+  const [allServerWeeklyUsage, { refetch: refetchWeeklyUsage }] = createResource(
+    servers,
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerWeeklyUsage(serverList, token);
     }
   );
 
@@ -548,10 +558,11 @@ function App() {
             <AiUsageView
               servers={servers()}
               aiUsageLogs={allServerAiUsage()}
+              weeklyUsage={allServerWeeklyUsage()}
               pricing={modelPricing()}
               loading={allServerAiUsage.loading || modelPricing.loading}
               error={allServerAiUsage.error}
-              onRefetch={refetchAiUsage}
+              onRefetch={() => { refetchAiUsage(); refetchWeeklyUsage(); }}
             />
           </Show>
 

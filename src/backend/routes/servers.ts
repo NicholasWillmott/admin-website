@@ -152,6 +152,25 @@ router.get("/:id/ai_usage", async (c) => {
     }
 });
 
+router.get("/:id/ai_weekly_usage", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const serverId = c.req.param("id");
+
+    if (!isSafeParam(serverId)) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
+    try {
+        const response = await fetch(`https://${serverId}.fastr-analytics.org/ai_weekly_usage`);
+        const data = await response.json();
+        return c.json(data);
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // Get all user logs (on-demand)
 router.get("/:id/user_logs_all", async (c) => {
     const authError = await requireAdmin(c);
