@@ -288,6 +288,26 @@ async function fetchServerAiUsageLogs(serverId: string, since?: string): Promise
     }
 }
 
+interface AiLimitHit {
+    user_email: string;
+    limit_type: "daily_user" | "weekly_instance";
+    hit_date: string;
+}
+
+async function fetchServerAiLimitHits(serverId: string, since?: string): Promise<AiLimitHit[]> {
+    try {
+        const url = since
+            ? `https://${serverId}.fastr-analytics.org/ai_limit_hits?since=${encodeURIComponent(since)}`
+            : `https://${serverId}.fastr-analytics.org/ai_limit_hits`;
+        const response = await fetch(url);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.hits ?? [];
+    } catch {
+        return [];
+    }
+}
+
 let modelPricingCache: { data: Record<string, ModelPricing>; fetchedAt: number } | null = null;
 
 async function fetchModelPricing(): Promise<Record<string, ModelPricing>> {
@@ -335,7 +355,8 @@ function buildSuperAdminEmailHtml(
     newInstanceIds: Set<string>,
     newProjects: { instanceLabel: string; project: string }[],
     aiSummary: string,
-    changelogHtml: string
+    changelogHtml: string,
+    instanceLimitHits: { instanceLabel: string; dailyUsers: string[]; weeklyHit: boolean }[]
 ): string {
     const sortedInstances = instanceStats.sort((a, b) => b.activeUsers - a.activeUsers);
     const displayedInstances = sortedInstances.slice(0, 50);
@@ -442,6 +463,18 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
       <thead><tr><th>Name</th><th>Email</th><th>Joined</th></tr></thead>
       <tbody>${signupRows}</tbody>
     </table>
+    ${instanceLimitHits.length > 0 ? `
+    <h2>AI Limit Hits This Week</h2>
+    <table>
+      <thead><tr><th>Instance</th><th>Daily User Limit Hits</th><th class="c">Weekly Limit Hit</th></tr></thead>
+      <tbody>${instanceLimitHits.map(inst => {
+        const userList = inst.dailyUsers.length > 0
+            ? inst.dailyUsers.map(email => { const [local, domain] = email.split("@"); return domain ? `${local}<span></span>@${domain.replace(/\./g, "<span></span>.")}` : email; }).join("<br>")
+            : `<span style="color:#a1a1a1">—</span>`;
+        const weeklyCell = inst.weeklyHit ? `<span class="badge" style="background:#c0392b">Yes</span>` : `<span style="color:#a1a1a1">—</span>`;
+        return `<tr><td>${inst.instanceLabel}</td><td class="m" style="font-size:12px">${userList}</td><td class="c">${weeklyCell}</td></tr>`;
+      }).join("")}</tbody>
+    </table>` : ""}
     ${changelogHtml ? `<h2>What's New</h2>${changelogHtml}` : ""}
   </div>
   <div class="ftr"><p>Fastr Analytics Admin · Automated weekly report</p></div>
@@ -929,15 +962,17 @@ router.post("/superadmin-email", async (c) => {
             }));
 
         const [state, pricing] = await Promise.all([readEmailState(), fetchModelPricing()]);
-        const logResults: { server: Server; logs: UserLog[]; projects: { id: string; label: string }[]; health: { online: boolean; version: string; userCount: number; adminUsers: string[] }; aiUsage: AiUsageLog[] }[] = [];
+        const weekAgoDate = new Date(weekAgoMs).toISOString().slice(0, 10);
+        const logResults: { server: Server; logs: UserLog[]; projects: { id: string; label: string }[]; health: { online: boolean; version: string; userCount: number; adminUsers: string[] }; aiUsage: AiUsageLog[]; limitHits: AiLimitHit[] }[] = [];
         for (const server of servers) {
-            const [logs, projects, health, aiUsage] = await Promise.all([
+            const [logs, projects, health, aiUsage, limitHits] = await Promise.all([
                 fetchServerUserLogs(server.id),
                 fetchServerProjects(server.id),
                 fetchServerHealth(server.id),
                 fetchServerAiUsageLogs(server.id, new Date(weekAgoMs).toISOString()),
+                fetchServerAiLimitHits(server.id, weekAgoDate),
             ]);
-            logResults.push({ server, logs, projects, health, aiUsage });
+            logResults.push({ server, logs, projects, health, aiUsage, limitHits });
         }
 
         const knownIds = new Set(state?.knownInstanceIds ?? []);
@@ -945,6 +980,16 @@ router.post("/superadmin-email", async (c) => {
         const knownVersions = state?.knownVersions ?? {};
         const knownUserCounts = state?.knownUserCounts ?? {};
         const knownProjects = state?.knownProjects ?? {};
+
+        const instanceLimitHits: { instanceLabel: string; dailyUsers: string[]; weeklyHit: boolean }[] = [];
+        for (const { server, limitHits, health } of logResults) {
+            if (!health.online) continue;
+            const dailyUsers = [...new Set(limitHits.filter(h => h.limit_type === "daily_user").map(h => h.user_email))];
+            const weeklyHit = limitHits.some(h => h.limit_type === "weekly_instance");
+            if (dailyUsers.length > 0 || weeklyHit) {
+                instanceLimitHits.push({ instanceLabel: server.label, dailyUsers, weeklyHit });
+            }
+        }
 
         const allActiveUsers = new Set<string>();
         const instanceStats = logResults
@@ -1006,7 +1051,7 @@ router.post("/superadmin-email", async (c) => {
         });
 
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
-        const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects, aiSummary, changelogHtml);
+        const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects, aiSummary, changelogHtml, instanceLimitHits);
 
         await sendEmail(adminEmails, subject, html);
         await saveEmailHistoryFor("superadmin", {
