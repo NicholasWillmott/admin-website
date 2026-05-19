@@ -161,6 +161,14 @@ export interface ServerWeeklyUsage {
 
 export type AllServerWeeklyUsage = { [serverId: string]: ServerWeeklyUsage };
 
+export interface AiLimitHit {
+  user_email: string;
+  limit_type: 'daily_user' | 'weekly_instance';
+  hit_date: string;
+}
+
+export type ServerAiLimitHits = { [serverId: string]: AiLimitHit[] };
+
 export interface ModelPricing {
   input_cost_per_token?: number;
   output_cost_per_token?: number;

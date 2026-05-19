@@ -1,10 +1,11 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
-import type { Server, AiUsageLog, ServerAiUsageLogs, ModelPricing, AllServerWeeklyUsage } from '../../types.ts';
+import type { Server, AiUsageLog, ServerAiUsageLogs, ModelPricing, AllServerWeeklyUsage, ServerAiLimitHits } from '../../types.ts';
 
 interface AiUsageViewProps {
   servers: Server[] | undefined;
   aiUsageLogs: ServerAiUsageLogs | undefined;
   weeklyUsage: AllServerWeeklyUsage | undefined;
+  limitHits: ServerAiLimitHits | undefined;
   pricing: Record<string, ModelPricing> | undefined;
   loading: boolean;
   error: Error | undefined;
@@ -65,7 +66,7 @@ export function AiUsageView(props: AiUsageViewProps) {
   const [dateFrom, setDateFrom] = createSignal('');
   const [dateTo, setDateTo] = createSignal('');
   const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
-  const [viewMode, setViewMode] = createSignal<'instance' | 'user' | 'weekly'>('instance');
+  const [viewMode, setViewMode] = createSignal<'instance' | 'user' | 'weekly' | 'limitHits'>('instance');
 
   const toggleExpanded = (serverId: string) => {
     setExpanded(prev => {
@@ -162,6 +163,10 @@ export function AiUsageView(props: AiUsageViewProps) {
                 class={`ai-usage-toggle-btn ${viewMode() === 'weekly' ? 'active' : ''}`}
                 onClick={() => setViewMode('weekly')}
               >Weekly Limits</button>
+              <button
+                class={`ai-usage-toggle-btn ${viewMode() === 'limitHits' ? 'active' : ''}`}
+                onClick={() => setViewMode('limitHits')}
+              >Limit Hits</button>
             </div>
           </div>
           <div class="ai-usage-filters">
@@ -356,6 +361,46 @@ export function AiUsageView(props: AiUsageViewProps) {
                 </For>
               </tbody>
             </table>
+          </Show>
+
+          <Show when={viewMode() === 'limitHits'}>
+            {(() => {
+              const allHits = () => {
+                const servers = props.servers ?? [];
+                const hitsMap = props.limitHits ?? {};
+                return servers.flatMap(server =>
+                  (hitsMap[server.id] ?? []).map(hit => ({ ...hit, serverLabel: server.label }))
+                ).sort((a, b) => b.hit_date.localeCompare(a.hit_date) || a.serverLabel.localeCompare(b.serverLabel));
+              };
+              return (
+                <>
+                  <Show when={allHits().length > 0} fallback={<div class="ai-usage-empty"><p>No limit hits recorded.</p></div>}>
+                    <table class="ai-usage-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Country</th>
+                          <th>Type</th>
+                          <th>User</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <For each={allHits()}>
+                          {(hit) => (
+                            <tr>
+                              <td class="ai-usage-num" style="text-align: left; padding-left: 16px">{hit.hit_date}</td>
+                              <td class="ai-usage-instance" style="padding-left: 16px">{hit.serverLabel}</td>
+                              <td class="ai-usage-num" style="text-align: left; padding-left: 16px">{hit.limit_type === 'daily_user' ? 'Daily (user)' : 'Weekly (country)'}</td>
+                              <td class="ai-usage-user-email" style="padding-left: 16px">{hit.limit_type === 'weekly_instance' ? '—' : hit.user_email}</td>
+                            </tr>
+                          )}
+                        </For>
+                      </tbody>
+                    </table>
+                  </Show>
+                </>
+              );
+            })()}
           </Show>
 
           <Show when={Object.keys(props.pricing ?? {}).length === 0}>

@@ -30,6 +30,7 @@ import {
   fetchAllServerUserLogs,
   fetchAllServerAiUsage,
   fetchAllServerWeeklyUsage,
+  fetchAllServerAiLimitHits,
   fetchModelPricing,
   fetchVolumeUsage,
   fetchCategoriesApi,
@@ -99,6 +100,15 @@ function App() {
     async (serverList) => {
       const token = await getToken();
       return fetchAllServerWeeklyUsage(serverList, token);
+    }
+  );
+
+  // get AI limit hits for all servers
+  const [allServerAiLimitHits, { refetch: refetchAiLimitHits }] = createResource(
+    servers,
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerAiLimitHits(serverList, token);
     }
   );
 
@@ -559,10 +569,11 @@ function App() {
               servers={servers()}
               aiUsageLogs={allServerAiUsage()}
               weeklyUsage={allServerWeeklyUsage()}
+              limitHits={allServerAiLimitHits()}
               pricing={modelPricing()}
               loading={allServerAiUsage.loading || modelPricing.loading}
               error={allServerAiUsage.error}
-              onRefetch={() => { refetchAiUsage(); refetchWeeklyUsage(); }}
+              onRefetch={() => { refetchAiUsage(); refetchWeeklyUsage(); refetchAiLimitHits(); }}
             />
           </Show>
 

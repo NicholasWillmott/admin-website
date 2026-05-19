@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -758,6 +758,30 @@ export async function fetchAllServerWeeklyUsage(servers: Server[], token: string
     acc[id] = data;
     return acc;
   }, {} as AllServerWeeklyUsage);
+}
+
+export async function fetchServerAiLimitHits(serverId: string, token: string | null): Promise<AiLimitHit[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/ai_limit_hits`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.hits ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAllServerAiLimitHits(servers: Server[], token: string | null): Promise<ServerAiLimitHits> {
+  const results = await pMap(servers, 10, async (server) => ({
+    id: server.id,
+    hits: await fetchServerAiLimitHits(server.id, token),
+  }));
+  return results.reduce((acc, { id, hits }) => {
+    acc[id] = hits;
+    return acc;
+  }, {} as ServerAiLimitHits);
 }
 
 export async function resetServerPgStatStatements(serverId: string, token: string | null): Promise<{ success: boolean }> {
