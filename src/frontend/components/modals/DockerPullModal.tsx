@@ -1,4 +1,21 @@
-import { createSignal } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
+
+const HISTORY_KEY = 'docker-pull-history';
+const MAX_HISTORY = 5;
+
+function loadHistory(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveToHistory(version: string, current: string[]): string[] {
+  const deduped = [version, ...current.filter((v) => v !== version)].slice(0, MAX_HISTORY);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(deduped));
+  return deduped;
+}
 
 interface DockerPullModalProps {
   sshOperationInProgress: boolean;
@@ -8,6 +25,14 @@ interface DockerPullModalProps {
 
 export function DockerPullModal(props: DockerPullModalProps) {
   const [version, setVersion] = createSignal('');
+  const [history, setHistory] = createSignal<string[]>(loadHistory());
+
+  function handlePull() {
+    const v = version().trim();
+    if (!v) return;
+    setHistory(saveToHistory(v, history()));
+    props.onPull(v);
+  }
 
   return (
     <div class="modal-overlay" onClick={() => props.onClose()}>
@@ -28,10 +53,28 @@ export function DockerPullModal(props: DockerPullModalProps) {
               placeholder="Enter version (e.g., 1.0.0)"
               autofocus
             />
+            <Show when={history().length > 0}>
+              <div class="docker-pull-history">
+                <span class="docker-pull-history-label">Recent</span>
+                <div class="docker-pull-history-chips">
+                  <For each={history()}>
+                    {(v) => (
+                      <button
+                        type="button"
+                        class="docker-pull-history-chip"
+                        onClick={() => setVersion(v)}
+                      >
+                        {v}
+                      </button>
+                    )}
+                  </For>
+                </div>
+              </div>
+            </Show>
             <button
               type="button"
               class="action-btn docker-pull"
-              onClick={() => props.onPull(version())}
+              onClick={handlePull}
               disabled={!version().trim() || props.sshOperationInProgress}
             >
               Pull Docker Image

@@ -1531,6 +1531,43 @@ h1 {
   transform: none;
 }
 
+.docker-pull-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docker-pull-history-label {
+  font-weight: 600;
+  color: #94a3b8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.docker-pull-history-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.docker-pull-history-chip {
+  background: rgba(13, 148, 136, 0.12);
+  border: 1px solid rgba(13, 148, 136, 0.35);
+  color: #5eead4;
+  font-size: 12px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.docker-pull-history-chip:hover {
+  background: rgba(13, 148, 136, 0.25);
+  border-color: rgba(13, 148, 136, 0.6);
+}
+
 /* Config Modal */
 .config-rows {
   display: flex;
