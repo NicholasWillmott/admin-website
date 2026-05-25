@@ -45,3 +45,4 @@ export async function requireAdmin(c: any) {
     return c.json({ error: "Failed to verify user permissions" }, 500);
   }
 }
+

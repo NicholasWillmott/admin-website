@@ -9,6 +9,7 @@ export interface Server {
   ethiopian?: boolean;
   openAccess?: boolean;
   volume?: string;
+  mode?: "central";
 }
 
 export interface ServerLogs {

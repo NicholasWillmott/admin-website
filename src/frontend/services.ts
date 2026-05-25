@@ -835,3 +835,4 @@ export async function fetchModelPricing(): Promise<Record<string, ModelPricing>>
     return {};
   }
 }
+
