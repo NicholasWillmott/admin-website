@@ -52,7 +52,7 @@ router.post("/indicators/export", async (c) => {
         }),
     );
 
-    const rows: string[] = ["Server,DHIS2 ID,Label,Mapped To"];
+    const rows: string[] = ["Server,DHIS2 ID,Label,Indicator ID"];
     for (const result of results) {
         if (result.status === "fulfilled") {
             const { server, indicators } = result.value;
