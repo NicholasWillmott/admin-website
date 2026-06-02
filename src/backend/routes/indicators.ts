@@ -36,22 +36,30 @@ router.post("/indicators/export", async (c) => {
         servers = servers.filter((s) => body.ids!.includes(s.id));
     }
 
+    interface IndicatorRow {
+        id: string;
+        label: string;
+        mappedTo: string | null;
+    }
+
     const results = await Promise.allSettled(
         servers.map(async (server) => {
             const response = await fetch(
                 `https://${server.id}.fastr-analytics.org/indicators`,
             );
             const data = await response.json();
-            return { server, indicators: data.indicators as string[] };
+            return { server, indicators: data.indicators as IndicatorRow[] };
         }),
     );
 
-    const rows: string[] = ["Server,Indicator Name"];
+    const rows: string[] = ["Server,DHIS2 ID,Label,Mapped To"];
     for (const result of results) {
         if (result.status === "fulfilled") {
             const { server, indicators } = result.value;
-            for (const name of indicators) {
-                rows.push(`${csvEscape(server.label)},${csvEscape(name)}`);
+            for (const ind of indicators) {
+                rows.push(
+                    `${csvEscape(server.label)},${csvEscape(ind.id)},${csvEscape(ind.label)},${csvEscape(ind.mappedTo ?? "")}`,
+                );
             }
         }
     }
