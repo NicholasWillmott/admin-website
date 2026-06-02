@@ -53,7 +53,7 @@ router.post("/indicators/export", async (c) => {
     const results = await Promise.allSettled(
         servers.map(async (server) => {
             const response = await fetch(
-                `https://${server.id}.fastr-analytics.org/indicators`,
+                `https://${server.id}.fastr-analytics.org/dhis2-indicators-export`,
             );
             const data = await response.json();
             return { server, indicators: data.indicators as IndicatorRow[] };
@@ -119,7 +119,7 @@ router.post("/indicators/export", async (c) => {
 
     const buffer = await wb.xlsx.writeBuffer();
     const date = new Date().toISOString().slice(0, 10);
-    return new Response(buffer as unknown as Uint8Array, {
+    return new Response(buffer as unknown as ArrayBuffer, {
         headers: {
             "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "Content-Disposition": `attachment; filename="indicators-${date}.xlsx"`,
