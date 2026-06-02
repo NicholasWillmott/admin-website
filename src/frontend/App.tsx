@@ -12,6 +12,7 @@ import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { ServerVersionsModal } from './components/modals/ServerVersionsModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
 import { ConfigureCategoriesModal } from './components/modals/CreateCategoryModal.tsx';
+import { IndicatorsExportModal } from './components/modals/IndicatorsExportModal.tsx';
 import type { ViewType } from './types.ts';
 import {
   fetchServerCardData,
@@ -178,6 +179,9 @@ function App() {
 
   // track create category modal
   const [createCategoryModalOpen, setCreateCategoryModalOpen] = createSignal<boolean>(false);
+
+  // track indicators export modal
+  const [indicatorsExportModalOpen, setIndicatorsExportModalOpen] = createSignal<boolean>(false);
 
   // track which servers I have multi selected
   const [multiSelectMode, setMultiSelectMode] = createSignal(false);
@@ -433,6 +437,13 @@ function App() {
                       >
                         Server Versions
                       </button>
+                      <button
+                        type="button"
+                        class="nav-dropdown-item"
+                        onClick={() => { setIndicatorsExportModalOpen(true); setMoreDropdownOpen(false); }}
+                      >
+                        Export Indicators
+                      </button>
                     </div>
                   </Show>
                 </div>
@@ -658,6 +669,15 @@ function App() {
             getToken={getToken}
             categories={() => categories() || []}
             volumes={() => volumes() || []}
+          />
+        )}
+
+        {/* Indicators Export Modal */}
+        {indicatorsExportModalOpen() && (
+          <IndicatorsExportModal
+            servers={servers() || []}
+            getToken={getToken}
+            onClose={() => setIndicatorsExportModalOpen(false)}
           />
         )}
 

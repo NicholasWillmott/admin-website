@@ -836,3 +836,28 @@ export async function fetchModelPricing(): Promise<Record<string, ModelPricing>>
   }
 }
 
+export async function exportIndicatorsCsvApi(serverIds: string[], token: string | null): Promise<void> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/indicators/export`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: serverIds }),
+    });
+    if (!response.ok) {
+      addToast('Failed to export indicators CSV', 'error');
+      return;
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `indicators-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (error) {
+    addToast(`Error exporting indicators: ${error}`, 'error');
+  }
+}
+
