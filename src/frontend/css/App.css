@@ -780,6 +780,53 @@ h1 {
   flex: 1;
 }
 
+/* Central-mode Docker Pull modal */
+.modal-content.central-mode {
+  background: #130f00;
+  border-color: rgba(184, 134, 11, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(184, 134, 11, 0.15);
+}
+
+.modal-content.central-mode .modal-header {
+  border-bottom-color: rgba(184, 134, 11, 0.3);
+}
+
+.modal-content.central-mode .docker-pull-type-toggle {
+  background: rgba(184, 134, 11, 0.1);
+}
+
+.modal-content.central-mode .docker-pull-type-toggle .toggle-btn.active {
+  background: rgba(184, 134, 11, 0.25);
+  color: #d4a017;
+}
+
+.modal-content.central-mode .version-input {
+  border-color: rgba(184, 134, 11, 0.3);
+}
+
+.modal-content.central-mode .version-input:focus {
+  border-color: #b8860b;
+  box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.15);
+}
+
+.modal-content.central-mode .action-btn.docker-pull {
+  background: linear-gradient(135deg, #b8860b 0%, #7a5a07 100%);
+}
+
+.modal-content.central-mode .action-btn.docker-pull:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d4a017 0%, #9a7209 100%);
+}
+
+.modal-content.central-mode .docker-pull-history-chip {
+  border-color: rgba(184, 134, 11, 0.3);
+  color: #d4a017;
+}
+
+.modal-content.central-mode .docker-pull-history-chip:hover {
+  background: rgba(184, 134, 11, 0.15);
+  border-color: rgba(184, 134, 11, 0.5);
+}
+
 .logs-display {
   background: #1e1e1e;
   color: #d4d4d4;
@@ -1524,14 +1571,6 @@ h1 {
   color: #94a3b8;
 }
 
-.docker-pull-type-toggle.central-active {
-  background: rgba(184, 134, 11, 0.1);
-}
-
-.docker-pull-type-toggle.central-active .toggle-btn.active {
-  background: rgba(184, 134, 11, 0.25);
-  color: #d4a017;
-}
 
 .docker-pull-form label {
   font-weight: 600;

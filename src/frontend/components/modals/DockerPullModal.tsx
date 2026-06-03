@@ -37,7 +37,7 @@ export function DockerPullModal(props: DockerPullModalProps) {
 
   return (
     <div class="modal-overlay" onClick={() => props.onClose()}>
-      <div class="modal-content" onClick={(e) => e.stopPropagation()}>
+      <div class={`modal-content ${serverType() === 'central' ? 'central-mode' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div class="modal-header">
           <h2>Docker Pull</h2>
           <button class="modal-close" onClick={() => props.onClose()}>✕</button>
