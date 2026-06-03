@@ -117,14 +117,14 @@ export async function fetchServerVersions(token: string | null): Promise<string[
   }
 }
 
-export async function dockerPull(version: string, token: string | null): Promise<any> {
+export async function dockerPull(version: string, token: string | null, type: 'server' | 'central' = 'server'): Promise<any> {
   try {
-    const response = await fetch(`${API_BASE}/api/docker/pull/${version}`, {
+    const response = await fetch(`${API_BASE}/api/docker/pull/${version}?type=${type}`, {
       method: 'POST',
       headers: getAuthHeaders(token),
     });
     if (response.ok) {
-      addToast(`Docker image for version ${version} pulled successfully!`, "success");
+      addToast(`Docker image for ${type} version ${version} pulled successfully!`, "success");
       return await response.json();
     } else {
       return null;

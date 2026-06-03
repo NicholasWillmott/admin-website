@@ -20,18 +20,19 @@ function saveToHistory(version: string, current: string[]): string[] {
 interface DockerPullModalProps {
   sshOperationInProgress: boolean;
   onClose: () => void;
-  onPull: (version: string) => Promise<void>;
+  onPull: (version: string, type: 'server' | 'central') => Promise<void>;
 }
 
 export function DockerPullModal(props: DockerPullModalProps) {
   const [version, setVersion] = createSignal('');
   const [history, setHistory] = createSignal<string[]>(loadHistory());
+  const [serverType, setServerType] = createSignal<'server' | 'central'>('server');
 
   function handlePull() {
     const v = version().trim();
     if (!v) return;
     setHistory(saveToHistory(v, history()));
-    props.onPull(v);
+    props.onPull(v, serverType());
   }
 
   return (
@@ -43,6 +44,22 @@ export function DockerPullModal(props: DockerPullModalProps) {
         </div>
         <div class="modal-body">
           <div class="docker-pull-form">
+            <div class={`docker-pull-type-toggle ${serverType() === 'central' ? 'central-active' : ''}`}>
+              <button
+                type="button"
+                class={`toggle-btn ${serverType() === 'server' ? 'active' : ''}`}
+                onClick={() => setServerType('server')}
+              >
+                Server
+              </button>
+              <button
+                type="button"
+                class={`toggle-btn ${serverType() === 'central' ? 'active' : ''}`}
+                onClick={() => setServerType('central')}
+              >
+                Central
+              </button>
+            </div>
             <label for="docker-version">Docker Version</label>
             <input
               id="docker-version"

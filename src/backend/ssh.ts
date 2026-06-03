@@ -104,6 +104,7 @@ const ALLOWED_COMMANDS = [
   /^wb start (?:[\w-]+|all|@[\w-]+|server=[\d.]+|admin)(?: (?:[\w-]+|@[\w-]+|server=[\d.]+))*$/,
   /^wb stop (?:[\w-]+|all|@[\w-]+|server=[\d.]+|admin)(?: (?:[\w-]+|@[\w-]+|server=[\d.]+))*$/,
   /^wb restart (?:[\w-]+|all|@[\w-]+|server=[\d.]+|admin)(?: (?:[\w-]+|@[\w-]+|server=[\d.]+))*$/,
+  /^wb run-central [\w-]+$/,
   /^wb pull$/,
   /^wb prune$/,
 

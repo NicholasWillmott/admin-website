@@ -12,12 +12,16 @@ router.post("/docker/pull/:version", async (c) => {
     if (authError) return authError;
 
     const versionToPull = c.req.param("version");
+    const serverType = c.req.query("type") === "central" ? "central" : "server";
 
     if (!isSafeParam(versionToPull)) {
         return c.json({ error: "Invalid version format" }, 400);
     }
 
-    const command = `docker pull timroberton/comb:wb-fastr-server-v${versionToPull}`;
+    const imageTag = serverType === "central"
+        ? `timroberton/comb:wb-fastr-central-v${versionToPull}`
+        : `timroberton/comb:wb-fastr-server-v${versionToPull}`;
+    const command = `docker pull ${imageTag}`;
 
     if (!isCommandAllowed(command)) {
         return c.json({ error: "Command not allowed" }, 403);

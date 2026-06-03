@@ -331,7 +331,7 @@ function App() {
   };
 
   // docker pull handler
-  const handleDockerPull = async (version: string) => {
+  const handleDockerPull = async (version: string, type: 'server' | 'central') => {
     if (sshOperationInProgress()) {
       addToast('Please wait for the current operation to complete', "info");
       return;
@@ -339,7 +339,7 @@ function App() {
     setSshOperationInProgress(true);
     try {
       const token = await getToken();
-      await dockerPull(version, token);
+      await dockerPull(version, token, type);
       await new Promise(resolve => setTimeout(resolve, 1000));
       await refetchServerVersions();
     } finally {

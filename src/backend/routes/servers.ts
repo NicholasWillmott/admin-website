@@ -37,7 +37,7 @@ router.post("/:id/restart", async (c) => {
         return c.json({ error: "Server not found" }, 404);
     }
 
-    const command = `wb restart ${serverId}`;
+    const command = server.mode === "central" ? `wb run-central ${serverId}` : `wb restart ${serverId}`;
     console.log(command);
 
     if (!isCommandAllowed(command)) {
@@ -600,7 +600,12 @@ router.post("/run", async (c) => {
     const body = await c.req.json<{ serverId: string }>();
     const serverId = body.serverId;
 
-    const command = `wb run ${serverId}`;
+    if (!isSafeParam(serverId)) {
+        return c.json({ success: false, error: "Invalid server ID" });
+    }
+
+    const server = await getServerInfo(serverId);
+    const command = server?.mode === "central" ? `wb run-central ${serverId}` : `wb run ${serverId}`;
 
     if (!isCommandAllowed(command)) {
         return c.json({ success: false, error: "Invalid command" });
