@@ -36,7 +36,7 @@ export function ServerCard(props: ServerCardProps) {
   const [selectedVersion, setSelectedVersion] = createSignal(props.server.serverVersion);
 
   return (
-    <div class={`server-card ${props.isExpanded ? 'expanded' : ''} ${props.isSelected ? 'selected' : ''}`} onClick={() => props.onToggle()}>
+    <div class={`server-card ${props.isExpanded ? 'expanded' : ''} ${props.isSelected ? 'selected' : ''} ${props.server.mode === 'central' ? 'central' : ''}`} onClick={() => props.onToggle()}>
       {/*Collapsed View*/}
       <div class={`card-header ${props.multiSelectMode ? 'has-checkbox' : ''}`}>
         {props.multiSelectMode && (

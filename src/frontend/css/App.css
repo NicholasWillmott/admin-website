@@ -188,6 +188,20 @@ h1 {
   box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.2);
 }
 
+.server-card.central {
+  background: rgba(10, 8, 0, 0.35);
+  border-top-color: #b8860b;
+}
+
+.server-card.central:hover {
+  border-top-color: #d4a017;
+}
+
+.server-card.central.selected {
+  border-color: #b8860b;
+  box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.2);
+}
+
 .select-checkbox {
   position: absolute;
   top: 12px;
