@@ -123,7 +123,7 @@ function App() {
     return fetchServerVersions(token);
   });
 
-  const [centralVersions] = createResource(async () => {
+  const [centralVersions, { refetch: refetchCentralVersions }] = createResource(async () => {
     const token = await getToken();
     return fetchCentralVersions(token);
   });
@@ -347,7 +347,11 @@ function App() {
       const token = await getToken();
       await dockerPull(version, token, type);
       await new Promise(resolve => setTimeout(resolve, 1000));
-      await refetchServerVersions();
+      if (type === 'central') {
+        await refetchCentralVersions();
+      } else {
+        await refetchServerVersions();
+      }
     } finally {
       setSshOperationInProgress(false);
     }
