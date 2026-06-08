@@ -48,6 +48,7 @@ interface ServersViewProps {
   refetchStatuses: () => void;
   allServerUserLogs: Accessor<ServerUserLogs | undefined>;
   serverVersions: Accessor<string[] | undefined>;
+  centralVersions: Accessor<string[] | undefined>;
   volumes: Accessor<string[] | undefined>;
   lockedServers: Accessor<Set<string>>;
   onToggleLock: (serverId: string) => void;
@@ -144,6 +145,14 @@ export function ServersView(props: ServersViewProps) {
     searchQuery(); statusFilter(); versionFilter(); lockedFilter();
     props.setMultiSelectedServerIds([]);
   });
+
+  // mode of the first selected server — constrains subsequent selections to the same type
+  const selectionMode = () => {
+    const selectedIds = props.multiSelectedServerIds();
+    if (!selectedIds || selectedIds.length === 0) return null;
+    const firstServer = (props.servers() || []).find(s => selectedIds.includes(s.id));
+    return firstServer?.mode ?? 'normal';
+  };
 
   const activeInstances = () => (props.servers() || []).filter(s => {
     const status = props.statuses()?.[s.id];
@@ -561,7 +570,7 @@ export function ServersView(props: ServersViewProps) {
                             status={props.statuses()?.[server.id] ?? null}
                             isLoading={props.statusesLoading && props.statuses() === undefined}
                             restartStatus={serverRestartStatuses()[server.id] ?? 'idle'}
-                            versions={props.serverVersions() || []}
+                            versions={server.mode === 'central' ? (props.centralVersions() || []) : (props.serverVersions() || [])}
                             updatingServerId={updatingServerId()}
                             restartingServerId={restartingServerId()}
                             backingUpServerId={backingUpServerId()}
@@ -577,9 +586,19 @@ export function ServersView(props: ServersViewProps) {
                             onToggleLock={toggleLock}
                             multiSelectMode={props.multiSelectMode()}
                             isSelected={props.multiSelectedServerIds()!.includes(server.id)}
-                            onToggleSelect={(id) => props.setMultiSelectedServerIds(prev =>
-                              prev!.includes(id) ? prev!.filter(x => x !== id) : [...prev!, id]
-                            )}
+                            isSelectDisabled={(() => {
+                              const mode = selectionMode();
+                              if (mode === null) return false;
+                              const serverMode = server.mode ?? 'normal';
+                              return serverMode !== mode;
+                            })()}
+                            onToggleSelect={(id) => {
+                              const mode = selectionMode();
+                              if (mode !== null && (server.mode ?? 'normal') !== mode) return;
+                              props.setMultiSelectedServerIds(prev =>
+                                prev!.includes(id) ? prev!.filter(x => x !== id) : [...prev!, id]
+                              );
+                            }}
                             onDelete={(id) => setDeleteServerModalId(id)}
                             onConfig={(id) => setConfigModalServerId(id)}
                             onMoveVolume={(id) => setMoveVolumeModalId(id)}

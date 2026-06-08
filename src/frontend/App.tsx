@@ -19,6 +19,7 @@ import {
   fetchServerStatus,
   fetchAllServerStatuses,
   fetchServerVersions,
+  fetchCentralVersions,
   fetchVolumeSnapshots,
   dockerPull,
   deleteVolumeSnapshotApi,
@@ -120,6 +121,11 @@ function App() {
   const [serverVersions, { refetch: refetchServerVersions }] = createResource(async () => {
     const token = await getToken();
     return fetchServerVersions(token);
+  });
+
+  const [centralVersions] = createResource(async () => {
+    const token = await getToken();
+    return fetchCentralVersions(token);
   });
 
   // fetch volume usage for all unique volumes across servers
@@ -465,7 +471,20 @@ function App() {
                       type="button"
                       class="multi-select-toggle active"
                       disabled={lockedServersResource.loading}
-                      onClick={() => setMultiSelectedServerIds(selectableServerIds().filter(id => !lockedServers().has(id)))}
+                      onClick={() => {
+                        const selectable = selectableServerIds().filter(id => !lockedServers().has(id));
+                        const currentSelected = multiSelectedServerIds() ?? [];
+                        if (currentSelected.length > 0) {
+                          const firstServer = (servers() ?? []).find(s => currentSelected.includes(s.id));
+                          const selectedMode = firstServer?.mode ?? 'normal';
+                          setMultiSelectedServerIds(selectable.filter(id => {
+                            const s = (servers() ?? []).find(s => s.id === id);
+                            return (s?.mode ?? 'normal') === selectedMode;
+                          }));
+                        } else {
+                          setMultiSelectedServerIds(selectable);
+                        }
+                      }}
                     >
                       {lockedServersResource.loading ? 'Loading...' : 'Select all'}
                     </button>
@@ -540,6 +559,7 @@ function App() {
               refetchStatuses={refetchStatuses}
               allServerUserLogs={allServerUserLogs}
               serverVersions={serverVersions}
+              centralVersions={centralVersions}
               volumes={volumes}
               lockedServers={lockedServers}
               onToggleLock={toggleLock}

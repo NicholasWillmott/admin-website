@@ -44,6 +44,9 @@ router.get("/versions", async (c) => {
     const authError = await requireAdmin(c);
     if (authError) return authError;
 
+    const serverType = c.req.query("type") === "central" ? "central" : "server";
+    const tagPrefix = serverType === "central" ? "wb-fastr-central-v" : "wb-fastr-server-v";
+
     const command = `docker images --format "{{.Tag}}" timroberton/comb`;
 
     if (!isCommandAllowed(command)) {
@@ -59,8 +62,8 @@ router.get("/versions", async (c) => {
 
         const tags = result.stdout
             .split('\n')
-            .filter(tag => tag.startsWith('wb-fastr-server-v'))
-            .map(tag => tag.replace('wb-fastr-server-v', ''));
+            .filter(tag => tag.startsWith(tagPrefix))
+            .map(tag => tag.replace(tagPrefix, ''));
 
         const sortedTags = tags.sort((a, b) => {
             const aParts = a.split('.').map(Number);

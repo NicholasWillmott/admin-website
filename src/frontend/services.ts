@@ -117,6 +117,19 @@ export async function fetchServerVersions(token: string | null): Promise<string[
   }
 }
 
+export async function fetchCentralVersions(token: string | null): Promise<string[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/versions?type=central`, {
+      headers: getAuthHeaders(token),
+    });
+    const data: { versions: string[] } = await response.json();
+    return data.versions;
+  } catch (error) {
+    console.error("Failed to fetch central versions:", error);
+    return [];
+  }
+}
+
 export async function dockerPull(version: string, token: string | null, type: 'server' | 'central' = 'server'): Promise<any> {
   try {
     const response = await fetch(`${API_BASE}/api/docker/pull/${version}?type=${type}`, {

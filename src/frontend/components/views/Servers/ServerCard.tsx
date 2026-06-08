@@ -25,6 +25,7 @@ interface ServerCardProps {
   onToggleLock: (serverId: string) => void;
   multiSelectMode: boolean;
   isSelected: boolean;
+  isSelectDisabled: boolean;
   onToggleSelect: (id: string) => void;
   onDelete: (serverId: string) => void;
   onConfig: (serverId: string) => void;
@@ -41,8 +42,8 @@ export function ServerCard(props: ServerCardProps) {
       <div class={`card-header ${props.multiSelectMode ? 'has-checkbox' : ''}`}>
         {props.multiSelectMode && (
           <div
-            class={`select-checkbox ${props.isSelected ? 'checked' : ''} ${props.isLocked ? 'disabled' : ''}`}
-            onClick={(e) => { e.stopPropagation(); if (!props.isLocked) props.onToggleSelect(props.server.id); }}
+            class={`select-checkbox ${props.isSelected ? 'checked' : ''} ${props.isLocked || props.isSelectDisabled ? 'disabled' : ''}`}
+            onClick={(e) => { e.stopPropagation(); if (!props.isLocked && !props.isSelectDisabled) props.onToggleSelect(props.server.id); }}
           >
             {props.isSelected && (
               <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
