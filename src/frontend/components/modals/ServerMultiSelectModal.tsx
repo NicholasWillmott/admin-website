@@ -6,6 +6,8 @@ type ConfirmAction = 'update' | 'restart' | 'stop' | null;
 interface multiSelectProps {
   serverIds: string[];
   versions: string[];
+  centralVersions: string[];
+  isCentral: boolean;
   sshOperationInProgress: boolean;
   onUpdate: (serverIds: string[], version: string) => Promise<void>;
   onRestart: (serverIds: string[]) => Promise<void>;
@@ -35,7 +37,8 @@ function ServerListLabel(props: { ids: string[] }) {
 }
 
 export function ServerMultiSelectModal(props: multiSelectProps) {
-  const [selectedVersion, setSelectedVersion] = createSignal(props.versions[0] ?? '');
+  const availableVersions = () => props.isCentral ? props.centralVersions : props.versions;
+  const [selectedVersion, setSelectedVersion] = createSignal(availableVersions()[0] ?? '');
   const [confirmAction, setConfirmAction] = createSignal<ConfirmAction>(null);
 
   const count = () => props.serverIds.length;
@@ -54,7 +57,7 @@ export function ServerMultiSelectModal(props: multiSelectProps) {
                 value={selectedVersion()}
                 onChange={(e) => setSelectedVersion(e.currentTarget.value)}
               >
-                <For each={props.versions}>
+                <For each={availableVersions()}>
                   {(version) => <option value={version}>{version}</option>}
                 </For>
               </select>

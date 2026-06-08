@@ -473,17 +473,10 @@ function App() {
                       disabled={lockedServersResource.loading}
                       onClick={() => {
                         const selectable = selectableServerIds().filter(id => !lockedServers().has(id));
-                        const currentSelected = multiSelectedServerIds() ?? [];
-                        if (currentSelected.length > 0) {
-                          const firstServer = (servers() ?? []).find(s => currentSelected.includes(s.id));
-                          const selectedMode = firstServer?.mode ?? 'normal';
-                          setMultiSelectedServerIds(selectable.filter(id => {
-                            const s = (servers() ?? []).find(s => s.id === id);
-                            return (s?.mode ?? 'normal') === selectedMode;
-                          }));
-                        } else {
-                          setMultiSelectedServerIds(selectable);
-                        }
+                        setMultiSelectedServerIds(selectable.filter(id => {
+                          const s = (servers() ?? []).find(s => s.id === id);
+                          return s?.mode !== 'central';
+                        }));
                       }}
                     >
                       {lockedServersResource.loading ? 'Loading...' : 'Select all'}

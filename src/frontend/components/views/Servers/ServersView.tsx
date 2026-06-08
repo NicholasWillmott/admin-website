@@ -650,6 +650,8 @@ export function ServersView(props: ServersViewProps) {
             <ServerMultiSelectModal
               serverIds={props.multiSelectedServerIds()!}
               versions={props.serverVersions() || []}
+              centralVersions={props.centralVersions() || []}
+              isCentral={selectionMode() === 'central'}
               sshOperationInProgress={props.sshOperationInProgress()}
               onUpdate={bulkUpdateServerVersion}
               onRestart={bulkRestartServer}
