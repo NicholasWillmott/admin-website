@@ -25,8 +25,29 @@ async function writeReportState(state: LanguageReportState): Promise<void> {
     await Deno.writeTextFile(LANGUAGE_REPORT_FILE, JSON.stringify(state));
 }
 
-// Generate language report CSV — adds any Clerk users who signed in since last run,
-// then categorises all tracked emails by French/English server membership.
+// Seed the stored users-to-check list (merges, does not overwrite).
+router.post("/language-report/seed", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ emails: string[] }>();
+    if (!Array.isArray(body.emails)) return c.json({ error: "emails must be an array" }, 400);
+
+    const state = await readReportState();
+    const existing = new Set(state.emails.map((e: string) => e.toLowerCase()));
+    const added: string[] = [];
+    for (const e of body.emails) {
+        const lower = e.trim().toLowerCase();
+        if (lower && !existing.has(lower)) { added.push(lower); existing.add(lower); }
+    }
+    const updated: LanguageReportState = { emails: [...state.emails, ...added], lastRunAt: state.lastRunAt };
+    await writeReportState(updated);
+    return c.json({ added: added.length, total: updated.emails.length });
+});
+
+// Generate technical support email list CSV.
+// Uses the stored users-to-check list as the base, and adds only Clerk users
+// who signed up (created_at) since the last run. Never pulls the full user list.
 router.post("/language-report", async (c) => {
     const authError = await requireAdmin(c);
     if (authError) return authError;
@@ -35,36 +56,37 @@ router.post("/language-report", async (c) => {
     const state = await readReportState();
     const runAt = Date.now();
 
-    // Fetch Clerk users who signed in since the last run and add new emails
-    const clerkLimit = 500;
-    let clerkOffset = 0;
-    const newEmails = new Set<string>();
-    while (true) {
-        const url = new URL("https://api.clerk.com/v1/users");
-        url.searchParams.set("limit", String(clerkLimit));
-        url.searchParams.set("offset", String(clerkOffset));
-        if (state.lastRunAt) {
-            url.searchParams.set("last_active_at_since", String(state.lastRunAt));
+    // Only fetch new signups if we have a previous run timestamp to anchor against
+    const added: string[] = [];
+    if (state.lastRunAt) {
+        const existingSet = new Set(state.emails.map((e: string) => e.toLowerCase()));
+        const clerkLimit = 500;
+        let clerkOffset = 0;
+        // Fetch newest users first; stop once we reach users created before lastRunAt
+        outer: while (true) {
+            const url = new URL("https://api.clerk.com/v1/users");
+            url.searchParams.set("limit", String(clerkLimit));
+            url.searchParams.set("offset", String(clerkOffset));
+            url.searchParams.set("order_by", "-created_at");
+            const resp = await fetch(url.toString(), {
+                headers: { Authorization: `Bearer ${clerkSecretKey}` },
+            });
+            if (!resp.ok) return c.json({ error: "Failed to fetch Clerk users" }, 502);
+            const page = await resp.json();
+            for (const u of page) {
+                if (u.created_at < state.lastRunAt!) break outer;
+                const primary = (u.email_addresses ?? []).find((e: { id: string }) => e.id === u.primary_email_address_id);
+                const email = primary?.email_address?.toLowerCase();
+                if (email && !existingSet.has(email)) {
+                    added.push(email);
+                    existingSet.add(email);
+                }
+            }
+            if (page.length < clerkLimit) break;
+            clerkOffset += clerkLimit;
         }
-        const resp = await fetch(url.toString(), {
-            headers: { Authorization: `Bearer ${clerkSecretKey}` },
-        });
-        if (!resp.ok) return c.json({ error: "Failed to fetch Clerk users" }, 502);
-        const page = await resp.json();
-        for (const u of page) {
-            const primary = (u.email_addresses ?? []).find((e: { id: string }) => e.id === u.primary_email_address_id);
-            if (primary?.email_address) newEmails.add(primary.email_address.toLowerCase());
-        }
-        if (page.length < clerkLimit) break;
-        clerkOffset += clerkLimit;
     }
 
-    // Merge new emails into the stored list (preserve order, dedupe)
-    const existingSet = new Set(state.emails.map((e: string) => e.toLowerCase()));
-    const added: string[] = [];
-    for (const e of newEmails) {
-        if (!existingSet.has(e)) { added.push(e); existingSet.add(e); }
-    }
     const allEmails = [...state.emails, ...added];
 
     // Fetch all servers
