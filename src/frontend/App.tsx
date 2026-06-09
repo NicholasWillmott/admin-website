@@ -650,6 +650,7 @@ function App() {
               servers={servers()}
               userLogs={allServerUserLogs()}
               hUsers={hUsers() ?? []}
+              getToken={getToken}
               onFetchInstanceStatus={async (serverId) => {
                 const token = await getToken();
                 return fetchServerStatus(serverId, token);

@@ -874,3 +874,40 @@ export async function exportIndicatorsCsvApi(serverIds: string[], token: string 
   }
 }
 
+export interface LanguageReportStats {
+  french: number;
+  english: number;
+  both: number;
+  neither: number;
+  newEmailsAdded: number;
+  totalTracked: number;
+}
+
+export async function generateLanguageReportApi(token: string | null): Promise<LanguageReportStats | null> {
+  try {
+    const response = await fetch(`${API_BASE}/api/users/language-report`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) {
+      addToast('Failed to generate language report', 'error');
+      return null;
+    }
+    const data = await response.json();
+
+    // Download four-column CSV
+    const blob = new Blob([data.fourColumn], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `users-by-language-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    return data.stats as LanguageReportStats;
+  } catch (error) {
+    addToast(`Error generating language report: ${error}`, 'error');
+    return null;
+  }
+}
+

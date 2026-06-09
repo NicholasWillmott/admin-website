@@ -1,6 +1,8 @@
 import { For, createSignal } from 'solid-js';
 import type { ClerkUser, ClerkSession, Server, HealthCheckResponse, ServerUserLogs } from '../../../types.ts';
 import { formatDate } from '../../../utils.ts';
+import { generateLanguageReportApi } from '../../../services.ts';
+import type { LanguageReportStats } from '../../../services.ts';
 import { UserSessionsModal } from '../../modals/UserSessionsModal.tsx';
 import { ActiveUsersExportModal } from '../../modals/ActiveUsersExportModal.tsx';
 import { ClerkSessionsExportModal } from '../../modals/ClerkSessionsExportModal.tsx';
@@ -27,6 +29,7 @@ interface UsersProps {
     onSendWeeklyReport: (emails: string[]) => Promise<void>;
     onSendInstanceAdminReports: (serverIds: string[]) => Promise<void>;
     hUsers: string[];
+    getToken: () => Promise<string | null>;
 }
 
 function getPrimaryEmail(user: ClerkUser): string {
@@ -145,6 +148,19 @@ export function Users(p: UsersProps) {
 
     const [instanceAdminEmailOpen, setInstanceAdminEmailOpen] = createSignal(false);
     const [sendingInstanceReports, setSendingInstanceReports] = createSignal(false);
+
+    const [generatingLanguageReport, setGeneratingLanguageReport] = createSignal(false);
+    const [languageReportStats, setLanguageReportStats] = createSignal<LanguageReportStats | null>(null);
+
+    async function generateLanguageReport() {
+        if (generatingLanguageReport()) return;
+        setGeneratingLanguageReport(true);
+        setLanguageReportStats(null);
+        const token = await p.getToken();
+        const stats = await generateLanguageReportApi(token);
+        if (stats) setLanguageReportStats(stats);
+        setGeneratingLanguageReport(false);
+    }
 
     async function sendInstanceAdminReports(serverIds: string[]) {
         if (sendingInstanceReports()) return;
@@ -302,8 +318,17 @@ export function Users(p: UsersProps) {
                                     <button type="button" class="dropdown-item" onClick={() => setInstanceAdminEmailOpen(true)} disabled={sendingInstanceReports()}>
                                         {sendingInstanceReports() ? 'Sending...' : 'Send Instance Admin Reports'}
                                     </button>
+                                    <button type="button" class="dropdown-item" onClick={generateLanguageReport} disabled={generatingLanguageReport()}>
+                                        {generatingLanguageReport() ? 'Generating...' : 'Generate Technical Support Email List'}
+                                    </button>
                                 </div>
                             </div>
+                            {languageReportStats() && (
+                                <span style={{ color: 'rgba(255,255,255,0.6)', 'font-size': '12px' }}>
+                                    FR: {languageReportStats()!.french} · EN: {languageReportStats()!.english} · Both: {languageReportStats()!.both} · Neither: {languageReportStats()!.neither}
+                                    {languageReportStats()!.newEmailsAdded > 0 && ` · +${languageReportStats()!.newEmailsAdded} new`}
+                                </span>
+                            )}
                             <input
                                 type="text"
                                 class="users-search-input"
