@@ -510,9 +510,6 @@ async function generateInstanceAiSummary(data: {
     newProjects: string[];
     changelogText: string;
 }): Promise<string> {
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!anthropicKey) return "";
-
     const prompt = `You are writing a brief summary for a weekly instance report sent to the admin of a FASTR Analytics instance called "${data.instanceLabel}". Be concise (2-4 sentences), factual, and highlight the most notable activity or changes. Use plain language — no markdown, no bullet points, just flowing prose.
 
 Here is the data for the week of ${data.weekStart} to ${data.weekEnd}:
@@ -524,33 +521,10 @@ Here is the data for the week of ${data.weekStart} to ${data.weekEnd}:
 ${data.changelogText ? `\nNew platform changes deployed to this instance:\n${data.changelogText}` : ""}
 Write the summary now:`;
 
-    try {
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-                "x-api-key": anthropicKey,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            body: JSON.stringify({
-                model: "claude-haiku-4-5-20251001",
-                max_tokens: 200,
-                messages: [{ role: "user", content: prompt }],
-            }),
-        });
-
-        if (!response.ok) return "";
-        const result = await response.json();
-        return result.content?.[0]?.text ?? "";
-    } catch {
-        return "";
-    }
+    return requestAiSummary(prompt);
 }
 
 async function generateChangelogAiSummary(instanceLabel: string, version: string, changelogText: string): Promise<string> {
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!anthropicKey) return "";
-
     const prompt = `You are writing a brief intro for a platform update notification sent to the admin of a FASTR Analytics instance called "${instanceLabel}". Summarise the changelog entries below in 2-4 plain-English sentences, highlighting the most impactful changes. No markdown, no bullet points, just flowing prose.
 
 Platform version: ${version}
@@ -559,6 +533,15 @@ ${changelogText}
 
 Write the summary now:`;
 
+    return requestAiSummary(prompt);
+}
+
+// Returns "" when no API key is configured or the request fails — callers render
+// the email without the AI summary in that case.
+async function requestAiSummary(prompt: string, maxTokens = 200): Promise<string> {
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) return "";
+
     try {
         const response = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
@@ -569,7 +552,7 @@ Write the summary now:`;
             },
             body: JSON.stringify({
                 model: "claude-haiku-4-5-20251001",
-                max_tokens: 200,
+                max_tokens: maxTokens,
                 messages: [{ role: "user", content: prompt }],
             }),
         });
@@ -828,9 +811,6 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
 }
 
 async function generateMultiInstanceAiSummary(weekStart: string, weekEnd: string, instances: InstanceEmailData[]): Promise<string> {
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!anthropicKey) return "";
-
     const instanceSummaries = instances.map(inst =>
         `- ${inst.server.label}: ${inst.userCount} users (${inst.userCountDiff > 0 ? "+" : ""}${inst.userCountDiff} change), ${inst.activeUsers} active, ${inst.projectsSortedByActivity.length} projects${inst.versionIsNew ? `, updated to v${inst.version}` : `, v${inst.version}`}`
     ).join("\n");
@@ -844,26 +824,7 @@ ${instanceSummaries}
 
 Write the summary now:`;
 
-    try {
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-                "x-api-key": anthropicKey,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            body: JSON.stringify({
-                model: "claude-haiku-4-5-20251001",
-                max_tokens: 250,
-                messages: [{ role: "user", content: prompt }],
-            }),
-        });
-        if (!response.ok) return "";
-        const result = await response.json();
-        return result.content?.[0]?.text ?? "";
-    } catch {
-        return "";
-    }
+    return requestAiSummary(prompt, 250);
 }
 
 async function generateAiSummary(data: {
@@ -878,9 +839,6 @@ async function generateAiSummary(data: {
     instanceStats: { label: string; activeUsers: number; version: string; versionIsNew: boolean; userCount: number; userCountDiff: number }[];
     changelogText: string;
 }): Promise<string> {
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!anthropicKey) return "";
-
     const prompt = `You are writing a brief executive summary for a weekly analytics platform report. Be concise (3-5 sentences), factual, and highlight the most notable changes. Use plain language — no markdown, no bullet points, just flowing prose.
 
 Here is the data for the week of ${data.weekStart} to ${data.weekEnd}:
@@ -897,27 +855,7 @@ I already have tables for all the data, so just give me a high-level summary of 
 
 Write the summary now:`;
 
-    try {
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-                "x-api-key": anthropicKey,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            body: JSON.stringify({
-                model: "claude-haiku-4-5-20251001",
-                max_tokens: 300,
-                messages: [{ role: "user", content: prompt }],
-            }),
-        });
-
-        if (!response.ok) return "";
-        const result = await response.json();
-        return result.content?.[0]?.text ?? "";
-    } catch {
-        return "";
-    }
+    return requestAiSummary(prompt, 300);
 }
 
 async function sendEmail(toEmails: string[], subject: string, html: string): Promise<void> {

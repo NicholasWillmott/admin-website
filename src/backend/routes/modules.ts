@@ -13,7 +13,7 @@ router.get("/", async (c) => {
         const modules = await github.listModules();
         return c.json({ success: true, data: modules });
     } catch (error) {
-        return c.json({ success: false, error: error.message }, 500);
+        return c.json({ success: false, error: error instanceof Error ? error.message : String(error) }, 500);
     }
 });
 
@@ -28,7 +28,7 @@ router.get("/:moduleId", async (c) => {
         const content = await github.getDefinitionFile(moduleId);
         return c.json({ success: true, data: { content } });
     } catch (error) {
-        return c.json({ success: false, error: error.message }, 500);
+        return c.json({ success: false, error: error instanceof Error ? error.message : String(error) }, 500);
     }
 });
 
@@ -44,7 +44,7 @@ router.post("/commit", async (c) => {
         const result = await github.commitBatchChanges(changes, commitMessage);
         return c.json({ success: true, data: result });
     } catch (error) {
-        return c.json({ success: false, error: error.message }, 500);
+        return c.json({ success: false, error: error instanceof Error ? error.message : String(error) }, 500);
     }
 });
 

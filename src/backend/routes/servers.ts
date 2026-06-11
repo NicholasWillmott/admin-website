@@ -148,175 +148,45 @@ router.post("/:id/pg_stat_statements/reset", async (c) => {
     }
 });
 
-// Get pg_stat_statements snapshot for a server
-router.get("/:id/pg_stat_statements", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
+// Per-server proxy: GET /:id/<route> forwards to https://<id>.fastr-analytics.org/<targetPath>,
+// passing through only the listed query params (and only when non-empty).
+function proxyRoute(route: string, targetPath: string, allowedQuery: string[] = []) {
+    router.get(`/:id/${route}`, async (c) => {
+        const authError = await requireAdmin(c);
+        if (authError) return authError;
 
-    const serverId = c.req.param("id");
+        const serverId = c.req.param("id");
 
-    if (!isSafeParam(serverId)) {
-        return c.json({ error: "Invalid server ID" }, 400);
-    }
+        if (!isSafeParam(serverId)) {
+            return c.json({ error: "Invalid server ID" }, 400);
+        }
 
-    const allowed = ["orderBy", "limit", "minMeanMs"];
-    const qs = new URLSearchParams();
-    for (const k of allowed) {
-        const v = c.req.query(k);
-        if (v != null && v !== "") qs.set(k, v);
-    }
-    const tail = qs.toString() ? `?${qs.toString()}` : "";
+        const qs = new URLSearchParams();
+        for (const k of allowedQuery) {
+            const v = c.req.query(k);
+            if (v != null && v !== "") qs.set(k, v);
+        }
+        const tail = qs.toString() ? `?${qs.toString()}` : "";
 
-    try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/pg_stat_statements${tail}`);
-        const data = await response.json();
-        return c.json(data);
-    } catch (error) {
-        return c.json({ error: String(error) }, 500);
-    }
-});
+        try {
+            const response = await fetch(`https://${serverId}.fastr-analytics.org/${targetPath}${tail}`);
+            const data = await response.json();
+            return c.json(data);
+        } catch (error) {
+            return c.json({ error: String(error) }, 500);
+        }
+    });
+}
 
-// Get server AI usage logs
-router.get("/:id/ai_usage", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
-
-    const serverId = c.req.param("id");
-
-    if (!isSafeParam(serverId)) {
-        return c.json({ error: "Invalid server ID" }, 400);
-    }
-
-    try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/ai_usage`);
-        const data = await response.json();
-        return c.json(data);
-    } catch (error) {
-        return c.json({ error: String(error) }, 500);
-    }
-});
-
-router.get("/:id/ai_weekly_usage", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
-
-    const serverId = c.req.param("id");
-
-    if (!isSafeParam(serverId)) {
-        return c.json({ error: "Invalid server ID" }, 400);
-    }
-
-    try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/ai_weekly_usage`);
-        const data = await response.json();
-        return c.json(data);
-    } catch (error) {
-        return c.json({ error: String(error) }, 500);
-    }
-});
-
-router.get("/:id/ai_limit_hits", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
-
-    const serverId = c.req.param("id");
-
-    if (!isSafeParam(serverId)) {
-        return c.json({ error: "Invalid server ID" }, 400);
-    }
-
-    try {
-        const since = c.req.query("since");
-        const url = since
-            ? `https://${serverId}.fastr-analytics.org/ai_limit_hits?since=${encodeURIComponent(since)}`
-            : `https://${serverId}.fastr-analytics.org/ai_limit_hits`;
-        const response = await fetch(url);
-        const data = await response.json();
-        return c.json(data);
-    } catch (error) {
-        return c.json({ error: String(error) }, 500);
-    }
-});
-
-// Get all user logs (on-demand)
-router.get("/:id/user_logs_all", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
-
-    const serverId = c.req.param("id");
-
-    if (!isSafeParam(serverId)) {
-        return c.json({ error: "Invalid server ID" }, 400);
-    }
-
-    try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/user_logs_all`);
-        const data = await response.json();
-        return c.json(data);
-    } catch (error) {
-        return c.json({ error: String(error) }, 500);
-    }
-});
-
-// Get aggregated user logs
-router.get("/:id/user_logs_aggregate", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
-
-    const serverId = c.req.param("id");
-
-    if (!isSafeParam(serverId)) {
-        return c.json({ error: "Invalid server ID" }, 400);
-    }
-
-    try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/user_logs_aggregate`);
-        const data = await response.json();
-        return c.json(data);
-    } catch (error) {
-        return c.json({ error: String(error) }, 500);
-    }
-});
-
-// Get server user logs
-router.get("/:id/user_logs", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
-
-    const serverId = c.req.param("id");
-
-    if (!isSafeParam(serverId)) {
-        return c.json({ error: "Invalid server ID" }, 400);
-    }
-
-    try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/user_logs`);
-        const data = await response.json();
-        return c.json(data);
-    } catch (error) {
-        return c.json({ error: String(error) }, 500);
-    }
-});
-
-// Get server status
-router.get("/:id/status", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
-
-    const serverId = c.req.param("id");
-
-    if (!isSafeParam(serverId)) {
-        return c.json({ error: "Invalid server ID" }, 400);
-    }
-
-    try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/health_check`);
-        const data = await response.json();
-        return c.json(data);
-    } catch (error) {
-        return c.json({ error: String(error) }, 500);
-    }
-});
+proxyRoute("pg_stat_statements", "pg_stat_statements", ["orderBy", "limit", "minMeanMs"]);
+proxyRoute("ai_usage", "ai_usage");
+proxyRoute("ai_weekly_usage", "ai_weekly_usage");
+proxyRoute("ai_limit_hits", "ai_limit_hits", ["since"]);
+proxyRoute("user_logs_all", "user_logs_all");
+proxyRoute("user_logs_aggregate", "user_logs_aggregate");
+proxyRoute("user_logs", "user_logs");
+proxyRoute("user_activity", "user_activity", ["email"]);
+proxyRoute("status", "health_check");
 
 // Update server version
 router.post("/:id/update", async (c) => {
@@ -495,26 +365,6 @@ router.get("/:id/logs", async (c) => {
 });
 
 // Proxy user activity from a platform instance
-router.get("/:id/user_activity", async (c) => {
-    const authError = await requireAdmin(c);
-    if (authError) return authError;
-
-    const serverId = c.req.param("id");
-    const email = c.req.query("email") ?? "";
-
-    if (!isSafeParam(serverId)) {
-        return c.json({ error: "Invalid server ID" }, 400);
-    }
-
-    try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/user_activity?email=${encodeURIComponent(email)}`);
-        const data = await response.json();
-        return c.json(data);
-    } catch (error) {
-        return c.json({ error: String(error) }, 500);
-    }
-});
-
 // Get all locked servers
 router.get("/locks", async (c) => {
     const authError = await requireAdmin(c);
