@@ -21,6 +21,48 @@ async function writeLocks(locks: string[]): Promise<void> {
   await Deno.writeTextFile(LOCKS_FILE, JSON.stringify(locks));
 }
 
+// Aggregate proxy: fetches one endpoint across every server in a single request, so the
+// frontend doesn't pay auth + round-trip overhead per server. Returns the raw per-server
+// JSON keyed by server id; servers that fail or are unreachable map to null.
+// NOTE: registered before the /:id/* routes so "all" is never captured as a server id.
+const AGGREGATE_ENDPOINTS = new Set([
+    "ai_usage",
+    "ai_weekly_usage",
+    "ai_limit_hits",
+    "user_logs",
+    "user_logs_aggregate",
+    "user_logs_all",
+]);
+
+router.get("/all/:endpoint", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const endpoint = c.req.param("endpoint");
+    if (!AGGREGATE_ENDPOINTS.has(endpoint)) {
+        return c.json({ error: "Invalid endpoint" }, 400);
+    }
+
+    try {
+        const response = await fetch("https://central.fastr-analytics.org/servers.json");
+        const servers: { id: string }[] = await response.json();
+
+        const entries = await Promise.all(servers.map(async (server) => {
+            try {
+                const resp = await fetch(`https://${server.id}.fastr-analytics.org/${endpoint}`);
+                if (!resp.ok) return [server.id, null] as const;
+                return [server.id, await resp.json()] as const;
+            } catch {
+                return [server.id, null] as const;
+            }
+        }));
+
+        return c.json(Object.fromEntries(entries));
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // Restart individual server
 router.post("/:id/restart", async (c) => {
     const authError = await requireAdmin(c);

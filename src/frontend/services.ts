@@ -16,6 +16,20 @@ async function pMap<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>
   return results;
 }
 
+// Fetches one endpoint across all servers in a single backend request (the backend fans
+// out server-side). Returns the raw per-server JSON keyed by server id, null on failure.
+async function fetchAggregate(endpoint: string, token: string | null): Promise<Record<string, unknown>> {
+  try {
+    const response = await fetch(`${API_BASE}/api/servers/all/${endpoint}`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return {};
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
 function getAuthHeaders(token: string | null): HeadersInit {
   const headers: HeadersInit = {};
   if (token) {
@@ -80,28 +94,9 @@ export async function fetchAllServerStatuses(servers: Server[], token: string | 
   }, {} as ServerStatuses);
 }
 
-export async function fetchServerUserLogs(serverId: string, token: string | null): Promise<UserLog[]> {
-  try {
-    const response = await fetch(`${API_BASE}/api/servers/${serverId}/user_logs`, {
-      headers: getAuthHeaders(token),
-    });
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.logs ?? [];
-  } catch {
-    return [];
-  }
-}
-
 export async function fetchAllServerUserLogs(servers: Server[], token: string | null): Promise<ServerUserLogs> {
-  const results = await pMap(servers, 10, async (server) => ({
-    id: server.id,
-    logs: await fetchServerUserLogs(server.id, token),
-  }));
-  return results.reduce((acc, { id, logs }) => {
-    acc[id] = logs;
-    return acc;
-  }, {} as ServerUserLogs);
+  const data = await fetchAggregate("user_logs", token) as Record<string, { logs?: UserLog[] } | null>;
+  return Object.fromEntries(servers.map(s => [s.id, data[s.id]?.logs ?? []]));
 }
 
 export async function fetchServerVersions(token: string | null): Promise<string[]> {
@@ -678,123 +673,29 @@ export async function fetchChangelogViewApi(token: string | null): Promise<{ ver
   return response.json();
 }
 
-export async function fetchServerUserLogsAll(serverId: string, token: string | null): Promise<UserLog[]> {
-  try {
-    const response = await fetch(`${API_BASE}/api/servers/${serverId}/user_logs_all`, {
-      headers: getAuthHeaders(token),
-    });
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.logs ?? [];
-  } catch {
-    return [];
-  }
-}
-
 export async function fetchAllServerUserLogsAll(servers: Server[], token: string | null): Promise<ServerUserLogs> {
-  const results = await pMap(servers, 10, async (server) => ({
-    id: server.id,
-    logs: await fetchServerUserLogsAll(server.id, token),
-  }));
-  return results.reduce((acc, { id, logs }) => {
-    acc[id] = logs;
-    return acc;
-  }, {} as ServerUserLogs);
-}
-
-export async function fetchServerUserLogsAggregate(serverId: string, token: string | null): Promise<UserLogAggregate[]> {
-  try {
-    const response = await fetch(`${API_BASE}/api/servers/${serverId}/user_logs_aggregate`, {
-      headers: getAuthHeaders(token),
-    });
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.logs ?? [];
-  } catch {
-    return [];
-  }
+  const data = await fetchAggregate("user_logs_all", token) as Record<string, { logs?: UserLog[] } | null>;
+  return Object.fromEntries(servers.map(s => [s.id, data[s.id]?.logs ?? []]));
 }
 
 export async function fetchAllServerUserLogsAggregate(servers: Server[], token: string | null): Promise<ServerUserLogsAggregate> {
-  const results = await pMap(servers, 10, async (server) => ({
-    id: server.id,
-    logs: await fetchServerUserLogsAggregate(server.id, token),
-  }));
-  return results.reduce((acc, { id, logs }) => {
-    acc[id] = logs;
-    return acc;
-  }, {} as ServerUserLogsAggregate);
-}
-
-export async function fetchServerAiUsage(serverId: string, token: string | null): Promise<AiUsageLog[]> {
-  try {
-    const response = await fetch(`${API_BASE}/api/servers/${serverId}/ai_usage`, {
-      headers: getAuthHeaders(token),
-    });
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.logs ?? [];
-  } catch {
-    return [];
-  }
+  const data = await fetchAggregate("user_logs_aggregate", token) as Record<string, { logs?: UserLogAggregate[] } | null>;
+  return Object.fromEntries(servers.map(s => [s.id, data[s.id]?.logs ?? []]));
 }
 
 export async function fetchAllServerAiUsage(servers: Server[], token: string | null): Promise<ServerAiUsageLogs> {
-  const results = await pMap(servers, 10, async (server) => ({
-    id: server.id,
-    logs: await fetchServerAiUsage(server.id, token),
-  }));
-  return results.reduce((acc, { id, logs }) => {
-    acc[id] = logs;
-    return acc;
-  }, {} as ServerAiUsageLogs);
-}
-
-export async function fetchServerWeeklyUsage(serverId: string, token: string | null): Promise<ServerWeeklyUsage> {
-  try {
-    const response = await fetch(`${API_BASE}/api/servers/${serverId}/ai_weekly_usage`, {
-      headers: getAuthHeaders(token),
-    });
-    if (!response.ok) return { tokensUsedThisWeek: 0, weeklyTokenLimit: null };
-    return await response.json();
-  } catch {
-    return { tokensUsedThisWeek: 0, weeklyTokenLimit: null };
-  }
+  const data = await fetchAggregate("ai_usage", token) as Record<string, { logs?: AiUsageLog[] } | null>;
+  return Object.fromEntries(servers.map(s => [s.id, data[s.id]?.logs ?? []]));
 }
 
 export async function fetchAllServerWeeklyUsage(servers: Server[], token: string | null): Promise<AllServerWeeklyUsage> {
-  const results = await pMap(servers, 10, async (server) => ({
-    id: server.id,
-    data: await fetchServerWeeklyUsage(server.id, token),
-  }));
-  return results.reduce((acc, { id, data }) => {
-    acc[id] = data;
-    return acc;
-  }, {} as AllServerWeeklyUsage);
-}
-
-export async function fetchServerAiLimitHits(serverId: string, token: string | null): Promise<AiLimitHit[]> {
-  try {
-    const response = await fetch(`${API_BASE}/api/servers/${serverId}/ai_limit_hits`, {
-      headers: getAuthHeaders(token),
-    });
-    if (!response.ok) return [];
-    const data = await response.json();
-    return data.hits ?? [];
-  } catch {
-    return [];
-  }
+  const data = await fetchAggregate("ai_weekly_usage", token) as Record<string, ServerWeeklyUsage | null>;
+  return Object.fromEntries(servers.map(s => [s.id, data[s.id] ?? { tokensUsedThisWeek: 0, weeklyTokenLimit: null }]));
 }
 
 export async function fetchAllServerAiLimitHits(servers: Server[], token: string | null): Promise<ServerAiLimitHits> {
-  const results = await pMap(servers, 10, async (server) => ({
-    id: server.id,
-    hits: await fetchServerAiLimitHits(server.id, token),
-  }));
-  return results.reduce((acc, { id, hits }) => {
-    acc[id] = hits;
-    return acc;
-  }, {} as ServerAiLimitHits);
+  const data = await fetchAggregate("ai_limit_hits", token) as Record<string, { hits?: AiLimitHit[] } | null>;
+  return Object.fromEntries(servers.map(s => [s.id, data[s.id]?.hits ?? []]));
 }
 
 export async function resetServerPgStatStatements(serverId: string, token: string | null): Promise<{ success: boolean }> {
