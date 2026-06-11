@@ -25,21 +25,23 @@ async function writeLocks(locks: string[]): Promise<void> {
 // frontend doesn't pay auth + round-trip overhead per server. Returns the raw per-server
 // JSON keyed by server id; servers that fail or are unreachable map to null.
 // NOTE: registered before the /:id/* routes so "all" is never captured as a server id.
-const AGGREGATE_ENDPOINTS = new Set([
-    "ai_usage",
-    "ai_weekly_usage",
-    "ai_limit_hits",
-    "user_logs",
-    "user_logs_aggregate",
-    "user_logs_all",
+// Maps the public endpoint name to the path fetched on each target server
+const AGGREGATE_ENDPOINTS = new Map([
+    ["ai_usage", "ai_usage"],
+    ["ai_weekly_usage", "ai_weekly_usage"],
+    ["ai_limit_hits", "ai_limit_hits"],
+    ["user_logs", "user_logs"],
+    ["user_logs_aggregate", "user_logs_aggregate"],
+    ["user_logs_all", "user_logs_all"],
+    ["status", "health_check"],
 ]);
 
 router.get("/all/:endpoint", async (c) => {
     const authError = await requireAdmin(c);
     if (authError) return authError;
 
-    const endpoint = c.req.param("endpoint");
-    if (!AGGREGATE_ENDPOINTS.has(endpoint)) {
+    const endpoint = AGGREGATE_ENDPOINTS.get(c.req.param("endpoint"));
+    if (!endpoint) {
         return c.json({ error: "Invalid endpoint" }, 400);
     }
 

@@ -3,19 +3,6 @@ import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckRespons
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
-async function pMap<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let i = 0;
-  async function worker(): Promise<void> {
-    while (i < items.length) {
-      const idx = i++;
-      results[idx] = await fn(items[idx]);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
-}
-
 // Fetches one endpoint across all servers in a single backend request (the backend fans
 // out server-side). Returns the raw per-server JSON keyed by server id, null on failure.
 async function fetchAggregate(endpoint: string, token: string | null): Promise<Record<string, unknown>> {
@@ -84,14 +71,8 @@ export async function fetchServerStatus(serverId: string, token: string | null):
 }
 
 export async function fetchAllServerStatuses(servers: Server[], token: string | null): Promise<ServerStatuses> {
-  const results = await pMap(servers, 10, async (server) => ({
-    id: server.id,
-    status: await fetchServerStatus(server.id, token),
-  }));
-  return results.reduce((acc, { id, status }) => {
-    acc[id] = status;
-    return acc;
-  }, {} as ServerStatuses);
+  const data = await fetchAggregate("status", token) as Record<string, HealthCheckResponse | null>;
+  return Object.fromEntries(servers.map(s => [s.id, data[s.id] ?? null]));
 }
 
 export async function fetchAllServerUserLogs(servers: Server[], token: string | null): Promise<ServerUserLogs> {
