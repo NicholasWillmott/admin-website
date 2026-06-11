@@ -6,6 +6,7 @@ interface ServerActivityModalProps {
   serverId: string;
   serverLabel: string;
   userLogs: UserLog[];
+  loading: boolean;
   onClose: () => void;
 }
 
@@ -33,10 +34,16 @@ export function ServerActivityModal(props: ServerActivityModalProps) {
           <button class="modal-close" onClick={() => props.onClose()}>✕</button>
         </div>
         <div class="modal-body">
-          <Show when={recentUsers().length === 0}>
+          <Show when={props.loading}>
+            <div class="logs-loading">
+              <div class="spinner"></div>
+              <p>Loading activity...</p>
+            </div>
+          </Show>
+          <Show when={!props.loading && recentUsers().length === 0}>
             <p style="color: #888; text-align: center; padding: 16px 0">No activity recorded.</p>
           </Show>
-          <Show when={recentUsers().length > 0}>
+          <Show when={!props.loading && recentUsers().length > 0}>
             <div style="display: flex; flex-direction: column; gap: 8px">
               <For each={recentUsers()}>{([email, timestamp], i) => (
                 <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #f9f9f9; border-radius: 6px; border: 1px solid #e0e0e0">

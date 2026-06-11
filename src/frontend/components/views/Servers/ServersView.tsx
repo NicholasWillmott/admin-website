@@ -47,6 +47,8 @@ interface ServersViewProps {
   statusesLoading: boolean;
   refetchStatuses: () => void;
   allServerUserLogs: Accessor<ServerUserLogs | undefined>;
+  userLogsLoading: Accessor<boolean>;
+  onRequestUserLogs: () => void;
   serverVersions: Accessor<string[] | undefined>;
   centralVersions: Accessor<string[] | undefined>;
   volumes: Accessor<string[] | undefined>;
@@ -602,7 +604,7 @@ export function ServersView(props: ServersViewProps) {
                             onDelete={(id) => setDeleteServerModalId(id)}
                             onConfig={(id) => setConfigModalServerId(id)}
                             onMoveVolume={(id) => setMoveVolumeModalId(id)}
-                            onActivityDotClick={(id) => setActivityModalServerId(id)}
+                            onActivityDotClick={(id) => { props.onRequestUserLogs(); setActivityModalServerId(id); }}
                           />
                         )}
                       </For>
@@ -631,6 +633,7 @@ export function ServersView(props: ServersViewProps) {
               serverId={activityModalServerId()!}
               serverLabel={props.servers()?.find(s => s.id === activityModalServerId())?.label ?? activityModalServerId()!}
               userLogs={props.allServerUserLogs()?.[activityModalServerId()!] ?? []}
+              loading={props.userLogsLoading()}
               onClose={() => setActivityModalServerId(null)}
             />
           )}

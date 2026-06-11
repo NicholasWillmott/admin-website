@@ -78,45 +78,6 @@ function App() {
     }
   );
 
-  // get user logs for all servers (fetched once on load), keyed by server id
-  const [allServerUserLogs] = createResource(
-    servers,
-    async (serverList) => {
-      const token = await getToken();
-      return fetchAllServerUserLogs(serverList, token);
-    }
-  );
-
-  // get AI usage logs for all servers, keyed by server id
-  const [allServerAiUsage, { refetch: refetchAiUsage }] = createResource(
-    servers,
-    async (serverList) => {
-      const token = await getToken();
-      return fetchAllServerAiUsage(serverList, token);
-    }
-  );
-
-  // get weekly token usage for all servers
-  const [allServerWeeklyUsage, { refetch: refetchWeeklyUsage }] = createResource(
-    servers,
-    async (serverList) => {
-      const token = await getToken();
-      return fetchAllServerWeeklyUsage(serverList, token);
-    }
-  );
-
-  // get AI limit hits for all servers
-  const [allServerAiLimitHits, { refetch: refetchAiLimitHits }] = createResource(
-    servers,
-    async (serverList) => {
-      const token = await getToken();
-      return fetchAllServerAiLimitHits(serverList, token);
-    }
-  );
-
-  // get LiteLLM model pricing
-  const [modelPricing] = createResource(fetchModelPricing);
-
   // get server versions
   const [serverVersions, { refetch: refetchServerVersions }] = createResource(async () => {
     const token = await getToken();
@@ -221,6 +182,20 @@ function App() {
   // Track active view
   const [activeView, setActiveView] = createSignal<ViewType>("servers");
 
+  // user logs are needed by the users view and the server activity modal — latched so the
+  // fetch fires once on first demand and the data is kept for the rest of the session
+  const [userLogsRequested, setUserLogsRequested] = createSignal(false);
+  createEffect(() => { if (activeView() === "users") setUserLogsRequested(true); });
+
+  // get user logs for all servers, keyed by server id — lazy: only fetches on first demand
+  const [allServerUserLogs] = createResource(
+    () => userLogsRequested() && servers() ? servers() : null,
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerUserLogs(serverList!, token);
+    }
+  );
+
   // get aggregate user logs — lazy: only fetches when userLogs view is active
   const [aggregateLogs] = createResource(
     () => activeView() === "userLogs" && servers() ? servers() : null,
@@ -237,6 +212,39 @@ function App() {
       const token = await getToken();
       return fetchAllServerUserLogsAll(serverList!, token);
     }
+  );
+
+  // get AI usage logs for all servers, keyed by server id — lazy: only fetches when aiUsage view is active
+  const [allServerAiUsage, { refetch: refetchAiUsage }] = createResource(
+    () => activeView() === "aiUsage" && servers() ? servers() : null,
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerAiUsage(serverList!, token);
+    }
+  );
+
+  // get weekly token usage for all servers — lazy: only fetches when aiUsage view is active
+  const [allServerWeeklyUsage, { refetch: refetchWeeklyUsage }] = createResource(
+    () => activeView() === "aiUsage" && servers() ? servers() : null,
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerWeeklyUsage(serverList!, token);
+    }
+  );
+
+  // get AI limit hits for all servers — lazy: only fetches when aiUsage view is active
+  const [allServerAiLimitHits, { refetch: refetchAiLimitHits }] = createResource(
+    () => activeView() === "aiUsage" && servers() ? servers() : null,
+    async (serverList) => {
+      const token = await getToken();
+      return fetchAllServerAiLimitHits(serverList!, token);
+    }
+  );
+
+  // get LiteLLM model pricing — lazy: only fetches when aiUsage view is active
+  const [modelPricing] = createResource(
+    () => activeView() === "aiUsage" ? true : null,
+    fetchModelPricing
   );
 
   // get sent email history — lazy: only fetches when changelog view is active
@@ -555,6 +563,8 @@ function App() {
               statusesLoading={statuses.loading}
               refetchStatuses={refetchStatuses}
               allServerUserLogs={allServerUserLogs}
+              userLogsLoading={() => allServerUserLogs.loading}
+              onRequestUserLogs={() => setUserLogsRequested(true)}
               serverVersions={serverVersions}
               centralVersions={centralVersions}
               volumes={volumes}
