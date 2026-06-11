@@ -356,8 +356,10 @@ function buildSuperAdminEmailHtml(
     newProjects: { instanceLabel: string; project: string }[],
     aiSummary: string,
     changelogHtml: string,
-    instanceLimitHits: { instanceLabel: string; dailyUsers: string[]; weeklyHit: boolean }[]
+    instanceLimitHits: { instanceLabel: string; dailyUsers: string[]; weeklyHit: boolean }[],
+    topAiUsers: { email: string; requests: number; costUsd: number }[]
 ): string {
+    const totalAiCostUsd = instanceStats.reduce((sum, inst) => sum + inst.aiCostUsd, 0);
     const sortedInstances = instanceStats.sort((a, b) => b.activeUsers - a.activeUsers);
     const displayedInstances = sortedInstances.slice(0, 50);
     const instanceRows = displayedInstances.map(inst => {
@@ -447,11 +449,25 @@ td.empty{padding:16px;text-align:center;color:#a1a1a1}
       <div class="stat-lbl">Total Active Users (7 days)</div>
       <div class="stat-val">${totalActiveUsers}</div>
     </div>
+    <div class="stat">
+      <div class="stat-lbl">Total AI Cost (7 days)</div>
+      <div class="stat-val">${formatAiCost(totalAiCostUsd)}</div>
+    </div>
     <h2>Instance Info</h2>
     <table>
       <thead><tr><th>Instance</th><th>Version</th><th class="c">Projects</th><th class="c">Users</th><th class="c">Active Users</th><th class="c">AI Cost</th></tr></thead>
       <tbody>${instanceRows}${instancesHiddenNote}</tbody>
     </table>
+    ${topAiUsers.length > 0 ? `
+    <h2>Top AI Users (7 days)</h2>
+    <table>
+      <thead><tr><th>User</th><th class="c">Requests</th><th class="c">AI Cost</th></tr></thead>
+      <tbody>${topAiUsers.map(u => {
+        const [local, domain] = u.email.split("@");
+        const broken = domain ? `${local}<span></span>@${domain.replace(/\./g, "<span></span>.")}` : u.email;
+        return `<tr><td><span style="color:#1a73e8">${broken}</span></td><td class="c">${u.requests}</td><td class="c">${formatAiCost(u.costUsd)}</td></tr>`;
+      }).join("")}</tbody>
+    </table>` : ""}
     ${newProjects.length > 0 ? `
     <h2>New Projects (${newProjects.length})</h2>
     <table>
@@ -1005,6 +1021,20 @@ router.post("/superadmin-email", async (c) => {
                 return { label: server.label, id: server.id, activeUsers: uniqueUsers.size, version, versionIsNew, projectCount: projects.length, userCount: health.userCount, userCountDiff, aiCostUsd };
             });
 
+        const userAiLogs = new Map<string, AiUsageLog[]>();
+        for (const { health, aiUsage } of logResults) {
+            if (!health.online) continue;
+            for (const log of aiUsage) {
+                const logs = userAiLogs.get(log.user_email) ?? [];
+                logs.push(log);
+                userAiLogs.set(log.user_email, logs);
+            }
+        }
+        const topAiUsers = [...userAiLogs.entries()]
+            .map(([email, logs]) => ({ email, requests: logs.length, costUsd: computeAiCost(logs, pricing) }))
+            .sort((a, b) => b.costUsd - a.costUsd)
+            .slice(0, 10);
+
         const newProjects: { instanceLabel: string; project: string }[] = [];
         const currentProjects: Record<string, string[]> = {};
         const currentVersions: Record<string, string> = {};
@@ -1051,7 +1081,7 @@ router.post("/superadmin-email", async (c) => {
         });
 
         const subject = `Weekly Analytics Report · ${weekStart} – ${weekEnd}`;
-        const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects, aiSummary, changelogHtml, instanceLimitHits);
+        const html = buildSuperAdminEmailHtml(weekStart, weekEnd, totalUsers, totalUsersDiff, allActiveUsers.size, instanceStats, recentSignups, newInstanceIds, newProjects, aiSummary, changelogHtml, instanceLimitHits, topAiUsers);
 
         await sendEmail(adminEmails, subject, html);
         await saveEmailHistoryFor("superadmin", {
