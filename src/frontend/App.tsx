@@ -3,6 +3,7 @@ import './css/App.css'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 import { ModuleEditorContent } from './components/views/ModuleDefinitions/ModuleEditorContent.tsx';
 import { ServersView } from './components/views/Servers/ServersView.tsx';
+import { Sidebar } from './components/Sidebar.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { AiUsageView } from './components/views/AiUsageView.tsx';
@@ -155,7 +156,6 @@ function App() {
   const [multiSelectedServerIds, setMultiSelectedServerIds] = createSignal<string[] | null>([]);
   const [selectableServerIds, setSelectableServerIds] = createSignal<string[]>([]);
 
-  const [navDropdownOpen, setNavDropdownOpen] = createSignal(false);
   const [moreDropdownOpen, setMoreDropdownOpen] = createSignal(false);
 
   // track when an ssh operation is happening to stop other ssh operations from occuring
@@ -369,23 +369,12 @@ function App() {
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target.closest('.nav-dropdown')) {
-        setNavDropdownOpen(false);
         setMoreDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
     onCleanup(() => document.removeEventListener('mousedown', handler));
   });
-
-  const viewLabel = (view: string) => {
-    const labels: Record<string, string> = {
-      servers: 'Servers', snapshots: 'Snapshots', users: 'Users',
-      userLogs: 'Usage Logs', volumeUsage: 'Volume Usage', aiUsage: 'AI Usage',
-      pgStatements: 'Postgres Statements',
-      moduleEditor: 'Module Definitions', changelog: 'History',
-    };
-    return labels[view] ?? view;
-  };
 
   return (
     <>
@@ -399,43 +388,8 @@ function App() {
                 <div class="nav-dropdown">
                   <button
                     type="button"
-                    class="nav-dropdown-trigger active"
-                    onClick={() => { setNavDropdownOpen(o => !o); setMoreDropdownOpen(false); }}
-                  >
-                    {viewLabel(activeView())} <span class="nav-dropdown-chevron">▾</span>
-                  </button>
-                  <Show when={navDropdownOpen()}>
-                    <div class="nav-dropdown-menu">
-                      {(
-                        [
-                          ["servers", "Servers"],
-                          ["snapshots", "Snapshots"],
-                          ["users", "Users"],
-                          ["userLogs", "Usage Logs"],
-                          ["volumeUsage", "Volume Usage"],
-                          ["aiUsage", "AI Usage"],
-                          ["pgStatements", "Postgres Statements"],
-                          ["moduleEditor", "Module Definitions"],
-                          ["changelog", "History"],
-                        ] as [string, string][]
-                      ).map(([view, label]) => (
-                        <button
-                          type="button"
-                          class="nav-dropdown-item"
-                          data-selected={activeView() === view}
-                          onClick={() => { setActiveView(view as ViewType); setNavDropdownOpen(false); }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </Show>
-                </div>
-                <div class="nav-dropdown">
-                  <button
-                    type="button"
                     class="nav-dropdown-trigger"
-                    onClick={() => { setMoreDropdownOpen(o => !o); setNavDropdownOpen(false); }}
+                    onClick={() => setMoreDropdownOpen(o => !o)}
                   >
                     More <span class="nav-dropdown-chevron">▾</span>
                   </button>
@@ -513,6 +467,12 @@ function App() {
           </Show>
         </SignedIn>
       </div>
+
+      <SignedIn>
+        <Show when={isAdmin()}>
+          <Sidebar activeView={activeView} onSelect={setActiveView} />
+        </Show>
+      </SignedIn>
 
       {/* Authentication UI */}
       <div class="auth-container">
