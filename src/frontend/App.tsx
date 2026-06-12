@@ -1,4 +1,4 @@
-import { createResource, createSignal, Show, createEffect, onCleanup, onMount } from 'solid-js'
+import { createResource, createSignal, Show, createEffect, onCleanup } from 'solid-js'
 import './css/App.css'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 import { ModuleEditorContent } from './components/views/ModuleDefinitions/ModuleEditorContent.tsx';
@@ -156,7 +156,6 @@ function App() {
   const [multiSelectedServerIds, setMultiSelectedServerIds] = createSignal<string[] | null>([]);
   const [selectableServerIds, setSelectableServerIds] = createSignal<string[]>([]);
 
-  const [moreDropdownOpen, setMoreDropdownOpen] = createSignal(false);
 
   // track when an ssh operation is happening to stop other ssh operations from occuring
   const [sshOperationInProgress, setSshOperationInProgress] = createSignal<boolean>(false);
@@ -365,17 +364,6 @@ function App() {
     }
   };
 
-  onMount(() => {
-    const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.nav-dropdown')) {
-        setMoreDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    onCleanup(() => document.removeEventListener('mousedown', handler));
-  });
-
   return (
     <>
       <ToastContainer />
@@ -384,42 +372,6 @@ function App() {
         <SignedIn>
           <Show when={isAdmin()}>
             <div class="button-container">
-              <div class="nav-left">
-                <div class="nav-dropdown">
-                  <button
-                    type="button"
-                    class="nav-dropdown-trigger"
-                    onClick={() => setMoreDropdownOpen(o => !o)}
-                  >
-                    More <span class="nav-dropdown-chevron">▾</span>
-                  </button>
-                  <Show when={moreDropdownOpen()}>
-                    <div class="nav-dropdown-menu">
-                      <button
-                        type="button"
-                        class="nav-dropdown-item"
-                        onClick={() => { setDockerPullModalOpen(true); setMoreDropdownOpen(false); }}
-                      >
-                        Docker Pull
-                      </button>
-                      <button
-                        type="button"
-                        class="nav-dropdown-item"
-                        onClick={() => { setServerVersionsModalOpen(true); setMoreDropdownOpen(false); }}
-                      >
-                        Server Versions
-                      </button>
-                      <button
-                        type="button"
-                        class="nav-dropdown-item"
-                        onClick={() => { setIndicatorsExportModalOpen(true); setMoreDropdownOpen(false); }}
-                      >
-                        Export Indicators
-                      </button>
-                    </div>
-                  </Show>
-                </div>
-              </div>
               <div class="nav-right">
                 <Show when={activeView() === "servers"}>
                   <button
@@ -470,7 +422,15 @@ function App() {
 
       <SignedIn>
         <Show when={isAdmin()}>
-          <Sidebar activeView={activeView} onSelect={setActiveView} />
+          <Sidebar
+            activeView={activeView}
+            onSelect={setActiveView}
+            actions={[
+              { label: 'Docker Pull', iconPath: 'M12 4v10m0 0l-4-4m4 4l4-4M5 19h14', onClick: () => setDockerPullModalOpen(true) },
+              { label: 'Server Versions', iconPath: 'M4 4h6l10 10-6 6L4 10V4zM8 8h.01', onClick: () => setServerVersionsModalOpen(true) },
+              { label: 'Export Indicators', iconPath: 'M12 15V3m0 0L8 7m4-4l4 4M4 15v4h16v-4', onClick: () => setIndicatorsExportModalOpen(true) },
+            ]}
+          />
         </Show>
       </SignedIn>
 

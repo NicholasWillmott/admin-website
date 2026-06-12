@@ -1037,57 +1037,12 @@ button:disabled {
   flex: 1;
 }
 
-.sticky-header .nav-left {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .sticky-header .nav-right {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
   margin-left: auto;
-}
-
-.nav-dropdown {
-  position: relative;
-}
-
-.nav-dropdown-trigger {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  background: transparent;
-  color: #94a3b8;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.nav-dropdown-trigger:hover {
-  background: rgba(13, 148, 136, 0.1);
-  color: #5eead4;
-  border-color: rgba(13, 148, 136, 0.4);
-}
-
-.nav-dropdown-trigger.active {
-  background: rgba(13, 148, 136, 0.15);
-  color: #2dd4bf;
-  border-color: #0d9488;
-}
-
-.nav-dropdown-chevron {
-  font-size: 9px;
-  opacity: 0.6;
-  margin-top: 1px;
 }
 
 /* ===== Sidebar Navigation ===== */
@@ -1209,48 +1164,6 @@ button:disabled {
     justify-content: center;
     padding: 8px 0;
   }
-}
-
-.nav-dropdown-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  background: #0a1a1b;
-  border: 1px solid rgba(13, 148, 136, 0.35);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(13, 148, 136, 0.1);
-  display: flex;
-  flex-direction: column;
-  min-width: 170px;
-  overflow: hidden;
-  z-index: 1100;
-  padding: 4px;
-}
-
-.nav-dropdown-item {
-  display: block;
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  color: #94a3b8;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 400;
-  text-align: left;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.nav-dropdown-item:hover {
-  background: rgba(13, 148, 136, 0.12);
-  color: #5eead4;
-}
-
-.nav-dropdown-item[data-selected="true"] {
-  background: rgba(13, 148, 136, 0.18);
-  color: #2dd4bf;
-  font-weight: 600;
 }
 
 h1 {

@@ -1,10 +1,17 @@
-import { For, createEffect, createSignal, onCleanup } from 'solid-js';
+import { For, Show, createEffect, createSignal, onCleanup } from 'solid-js';
 import type { JSX } from 'solid-js';
 import type { ViewType } from '../types.ts';
+
+export interface SidebarAction {
+  label: string;
+  iconPath: string;
+  onClick: () => void;
+}
 
 interface SidebarProps {
   activeView: () => ViewType;
   onSelect: (view: ViewType) => void;
+  actions?: SidebarAction[];
 }
 
 const icon = (d: string): JSX.Element => (
@@ -91,6 +98,24 @@ export function Sidebar(props: SidebarProps) {
             </div>
           )}
         </For>
+        <Show when={(props.actions?.length ?? 0) > 0}>
+          <div class="sidebar-group">
+            <div class="sidebar-group-label">Actions</div>
+            <For each={props.actions}>
+              {(action) => (
+                <button
+                  type="button"
+                  class="sidebar-item"
+                  title={action.label}
+                  onClick={() => action.onClick()}
+                >
+                  <span class="sidebar-item-icon">{icon(action.iconPath)}</span>
+                  <span class="sidebar-label">{action.label}</span>
+                </button>
+              )}
+            </For>
+          </div>
+        </Show>
       </nav>
       <button
         type="button"
