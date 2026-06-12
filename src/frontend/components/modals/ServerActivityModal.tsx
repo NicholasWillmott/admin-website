@@ -41,15 +41,15 @@ export function ServerActivityModal(props: ServerActivityModalProps) {
             </div>
           </Show>
           <Show when={!props.loading && recentUsers().length === 0}>
-            <p style="color: #888; text-align: center; padding: 16px 0">No activity recorded.</p>
+            <p style="color: #94a3b8; text-align: center; padding: 16px 0">No activity recorded.</p>
           </Show>
           <Show when={!props.loading && recentUsers().length > 0}>
             <div style="display: flex; flex-direction: column; gap: 8px">
               <For each={recentUsers()}>{([email, timestamp], i) => (
-                <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: #f9f9f9; border-radius: 6px; border: 1px solid #e0e0e0">
-                  <span style="font-size: 13px; color: #888; min-width: 18px; text-align: right">{i() + 1}.</span>
-                  <span style="flex: 1; font-size: 14px; color: #2c3e50; font-weight: 500; word-break: break-all">{email}</span>
-                  <span style="font-size: 12px; color: #666; white-space: nowrap">{timeAgo(timestamp)}</span>
+                <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: rgba(255, 255, 255, 0.06); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1)">
+                  <span style="font-size: 13px; color: #94a3b8; min-width: 18px; text-align: right">{i() + 1}.</span>
+                  <span style="flex: 1; font-size: 14px; color: #e2e8f0; font-weight: 500; word-break: break-all">{email}</span>
+                  <span style="font-size: 12px; color: #94a3b8; white-space: nowrap">{timeAgo(timestamp)}</span>
                 </div>
               )}</For>
             </div>

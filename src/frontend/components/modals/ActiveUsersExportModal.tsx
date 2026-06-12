@@ -151,7 +151,7 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
                                     value={fromDate()}
                                     onInput={(e) => setFromDate(e.currentTarget.value)}
                                 />
-                                <span style="color: #aaa">to</span>
+                                <span style="color: #94a3b8">to</span>
                                 <input
                                     type="date"
                                     class="version-input"
@@ -181,13 +181,13 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
                             <div style="max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
                                 <For each={p.servers ?? []}>
                                     {(server) => (
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc">
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedInstances().has(server.id)}
                                                 onChange={() => toggleInstance(server.id)}
                                             />
-                                            {server.label} <span style="color: #666; font-size: 12px">({server.id})</span>
+                                            {server.label} <span style="color: #94a3b8; font-size: 12px">({server.id})</span>
                                         </label>
                                     )}
                                 </For>
@@ -199,27 +199,27 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
                                 <p style="font-weight: 600; color: #fff">
                                     Active Users
-                                    <span style="font-weight: 400; color: #aaa; margin-left: 6px; font-size: 13px">
+                                    <span style="font-weight: 400; color: #94a3b8; margin-left: 6px; font-size: 13px">
                                         ({activeUsers().length} found — uncheck to exclude)
                                     </span>
                                 </p>
                             </div>
                             <div style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
                                 {activeUsers().length === 0
-                                    ? <p style="color: #666; font-size: 13px">No active users found for the selected criteria.</p>
+                                    ? <p style="color: #94a3b8; font-size: 13px">No active users found for the selected criteria.</p>
                                     : (
                                         <For each={activeUsers()}>
                                             {(user) => {
                                                 const email = getPrimaryEmail(user);
                                                 return (
-                                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc">
+                                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1">
                                                         <input
                                                             type="checkbox"
                                                             checked={!excludedEmails().has(email)}
                                                             onChange={() => toggleExclude(email)}
                                                         />
                                                         <span>{user.first_name} {user.last_name}</span>
-                                                        <span style="color: #666; font-size: 12px">{email}</span>
+                                                        <span style="color: #94a3b8; font-size: 12px">{email}</span>
                                                     </label>
                                                 );
                                             }}
@@ -234,7 +234,7 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
                             <button
                                 type="button"
                                 class="action-btn"
-                                style="flex: 1; background: #444; color: #fff"
+                                style="flex: 1"
                                 onClick={p.onClose}
                             >
                                 Cancel

@@ -25,7 +25,7 @@ export function MoveVolumeModal(props: MoveVolumeModalProps) {
 
             <div class="config-row">
               <span class="config-label">Current Volume</span>
-              <span style="color: var(--text-muted, #888); font-size: 14px;">
+              <span style="color: #94a3b8; font-size: 14px;">
                 {props.server.volume ? `/mnt/${props.server.volume}` : 'default mount'}
               </span>
             </div>
@@ -35,7 +35,8 @@ export function MoveVolumeModal(props: MoveVolumeModalProps) {
               <select
                 value={selectedVolume()}
                 onChange={(e) => setSelectedVolume(e.currentTarget.value)}
-                style="flex: 1; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color, #ccc); background: var(--input-bg, #fff); color: #000; font-size: 14px;"
+                class="modal-input"
+                style="flex: 1"
               >
                 <For each={availableVolumes()}>
                   {(vol) => <option value={vol}>/mnt/{vol}</option>}
@@ -45,7 +46,7 @@ export function MoveVolumeModal(props: MoveVolumeModalProps) {
 
           </div>
 
-          <div style="margin-top: 16px; padding: 10px 12px; background: #7c2d1220; border: 1px solid #dc262640; border-radius: 6px; font-size: 13px; color: #dc2626;">
+          <div style="margin-top: 16px; padding: 10px 12px; background: rgba(239, 68, 68, 0.08); border-left: 4px solid rgba(239, 68, 68, 0.3); border-radius: 6px; font-size: 13px; color: #f87171;">
             The server will be <strong>stopped</strong>, its data copied to the new volume, then <strong>restarted</strong>. This may take several minutes depending on data size.
           </div>
 

@@ -76,16 +76,16 @@ export function ConfigureCategoriesModal(props: ConfigureCategoriesModalProps) {
           <h2>Configure Categories</h2>
           <button class="modal-close" onClick={() => props.onClose()}>✕</button>
         </div>
-        <div style="display: flex; border-bottom: 1px solid #e0e0e0; margin-bottom: 16px">
+        <div style="display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px">
           <button
             type="button"
             onClick={() => setTab('create')}
-            style={`flex: 1; padding: 10px; border: none; background: none; cursor: pointer; font-weight: 600; border-bottom: 2px solid ${tab() === 'create' ? '#0d9488' : 'transparent'}; color: ${tab() === 'create' ? '#0d9488' : '#666'}`}
+            style={`flex: 1; padding: 10px; border: none; background: none; cursor: pointer; font-weight: 600; border-bottom: 2px solid ${tab() === 'create' ? '#0d9488' : 'transparent'}; color: ${tab() === 'create' ? '#0d9488' : '#94a3b8'}`}
           >Create</button>
           <button
             type="button"
             onClick={() => setTab('edit')}
-            style={`flex: 1; padding: 10px; border: none; background: none; cursor: pointer; font-weight: 600; border-bottom: 2px solid ${tab() === 'edit' ? '#0d9488' : 'transparent'}; color: ${tab() === 'edit' ? '#0d9488' : '#666'}`}
+            style={`flex: 1; padding: 10px; border: none; background: none; cursor: pointer; font-weight: 600; border-bottom: 2px solid ${tab() === 'edit' ? '#0d9488' : 'transparent'}; color: ${tab() === 'edit' ? '#0d9488' : '#94a3b8'}`}
           >Edit / Delete</button>
         </div>
         <div class="modal-body">
@@ -106,7 +106,7 @@ export function ConfigureCategoriesModal(props: ConfigureCategoriesModalProps) {
                 <button
                   type="button"
                   class="action-btn"
-                  style="flex: 1; background: #444; color: #fff"
+                  style="flex: 1"
                   onClick={() => props.onClose()}
                 >Cancel</button>
                 <button
@@ -121,17 +121,17 @@ export function ConfigureCategoriesModal(props: ConfigureCategoriesModalProps) {
           </Show>
           <Show when={tab() === 'edit'}>
             <Show when={props.categories.length === 0}>
-              <p style="color: #888; text-align: center; padding: 16px 0">No categories yet.</p>
+              <p style="color: #94a3b8; text-align: center; padding: 16px 0">No categories yet.</p>
             </Show>
             <div style="display: flex; flex-direction: column; gap: 8px">
               <For each={props.categories}>{(cat) => (
-                <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #f9f9f9; border-radius: 6px; border: 1px solid #e0e0e0">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: rgba(255, 255, 255, 0.06); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1)">
                   <Show
                     when={editingName() === cat.name}
                     fallback={
                       <>
-                        <span style="flex: 1; font-weight: 500; color: #2c3e50">{cat.name}</span>
-                        <span style="color: #888; font-size: 12px">{cat.servers.length} server{cat.servers.length !== 1 ? 's' : ''}</span>
+                        <span style="flex: 1; font-weight: 500; color: #e2e8f0">{cat.name}</span>
+                        <span style="color: #94a3b8; font-size: 12px">{cat.servers.length} server{cat.servers.length !== 1 ? 's' : ''}</span>
                         <button
                           type="button"
                           class="action-btn"
@@ -140,8 +140,8 @@ export function ConfigureCategoriesModal(props: ConfigureCategoriesModalProps) {
                         >Rename</button>
                         <button
                           type="button"
-                          class="action-btn"
-                          style="padding: 4px 10px; margin: 0; background: #e74c3c; color: white; border-color: #e74c3c"
+                          class="action-btn danger"
+                          style="padding: 4px 10px; margin: 0"
                           disabled={deletingName() === cat.name}
                           onClick={() => handleDelete(cat.name)}
                         >{deletingName() === cat.name ? '…' : 'Delete'}</button>
@@ -170,7 +170,7 @@ export function ConfigureCategoriesModal(props: ConfigureCategoriesModalProps) {
                     <button
                       type="button"
                       class="action-btn"
-                      style="padding: 4px 10px; margin: 0; background: #444; color: white"
+                      style="padding: 4px 10px; margin: 0"
                       onClick={() => setEditingName(null)}
                     >Cancel</button>
                   </Show>

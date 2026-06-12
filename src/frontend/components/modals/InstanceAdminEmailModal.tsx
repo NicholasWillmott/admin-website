@@ -38,7 +38,7 @@ export function InstanceAdminEmailModal(p: InstanceAdminEmailModalProps) {
                 </div>
                 <div class="modal-body">
                     <div style="display: flex; flex-direction: column; gap: 16px">
-                        <p style="color: #aaa; font-size: 13px; margin: 0">
+                        <p style="color: #94a3b8; font-size: 13px; margin: 0">
                             Select which instances to send admin reports to. Each report goes to that instance's admin users.
                         </p>
 
@@ -46,7 +46,7 @@ export function InstanceAdminEmailModal(p: InstanceAdminEmailModalProps) {
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
                                 <p style="font-weight: 600; color: #fff">
                                     Instances
-                                    <span style="font-weight: 400; color: #aaa; margin-left: 6px; font-size: 13px">
+                                    <span style="font-weight: 400; color: #94a3b8; margin-left: 6px; font-size: 13px">
                                         (uncheck to exclude)
                                     </span>
                                 </p>
@@ -65,18 +65,18 @@ export function InstanceAdminEmailModal(p: InstanceAdminEmailModalProps) {
                             </div>
                             <div style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
                                 {(p.servers ?? []).length === 0
-                                    ? <p style="color: #666; font-size: 13px">No instances found.</p>
+                                    ? <p style="color: #94a3b8; font-size: 13px">No instances found.</p>
                                     : (
                                         <For each={p.servers ?? []}>
                                             {(server) => (
-                                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc">
+                                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1">
                                                     <input
                                                         type="checkbox"
                                                         checked={!excluded().has(server.id)}
                                                         onChange={() => toggle(server.id)}
                                                     />
                                                     <span>{server.label}</span>
-                                                    <span style="color: #666; font-size: 12px">({server.id})</span>
+                                                    <span style="color: #94a3b8; font-size: 12px">({server.id})</span>
                                                 </label>
                                             )}
                                         </For>
@@ -89,7 +89,7 @@ export function InstanceAdminEmailModal(p: InstanceAdminEmailModalProps) {
                             <button
                                 type="button"
                                 class="action-btn"
-                                style="flex: 1; background: #444; color: #fff"
+                                style="flex: 1"
                                 onClick={p.onClose}
                             >
                                 Cancel

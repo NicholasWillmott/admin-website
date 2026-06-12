@@ -191,7 +191,7 @@ function ServerChart(p: { server: Server; counts: number[] }) {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
                 <div>
                     <span style="font-weight: 600; color: #fff; font-size: 14px">{p.server.label}</span>
-                    <span style="color: #888; font-size: 12px; margin-left: 10px">
+                    <span style="color: #94a3b8; font-size: 12px; margin-left: 10px">
                         peak {peak()} · {total()} total sessions
                     </span>
                 </div>
@@ -337,7 +337,7 @@ export function CountryActivityModal(p: CountryActivityModalProps) {
                 <div class="modal-header">
                     <div>
                         <h2 style="margin: 0">Daily Activity by Country</h2>
-                        <p style="color: #888; font-size: 13px; margin: 2px 0 0">
+                        <p style="color: #94a3b8; font-size: 13px; margin: 2px 0 0">
                             Unique sign-ins per day (Clerk sessions) · {fromLabel} – {toLabel}
                         </p>
                     </div>
@@ -351,7 +351,7 @@ export function CountryActivityModal(p: CountryActivityModalProps) {
                                 <button
                                     type="button"
                                     class="action-btn"
-                                    style="flex: 1; background: #444; color: #fff"
+                                    style="flex: 1"
                                     onClick={p.onClose}
                                 >Cancel</button>
                                 <button
@@ -368,13 +368,13 @@ export function CountryActivityModal(p: CountryActivityModalProps) {
 
                         <Show when={loadState() === 'loading'}>
                             <div style="display: flex; flex-direction: column; gap: 8px">
-                                <p style="color: #aaa; font-size: 13px">{progress().phase}…</p>
-                                <div style="background: #333; border-radius: 4px; height: 6px; overflow: hidden">
+                                <p style="color: #94a3b8; font-size: 13px">{progress().phase}…</p>
+                                <div style="background: rgba(255, 255, 255, 0.08); border-radius: 999px; height: 6px; overflow: hidden">
                                     <div
-                                        style={`background: #4caf82; height: 100%; width: ${progress().total > 0 ? Math.round((progress().done / progress().total) * 100) : 0}%; transition: width 0.2s`}
+                                        style={`background: #22c55e; height: 100%; width: ${progress().total > 0 ? Math.round((progress().done / progress().total) * 100) : 0}%; transition: width 0.2s`}
                                     />
                                 </div>
-                                <p style="color: #666; font-size: 12px">{progress().done} / {progress().total}</p>
+                                <p style="color: #94a3b8; font-size: 12px">{progress().done} / {progress().total}</p>
                             </div>
                         </Show>
 
@@ -402,7 +402,7 @@ export function CountryActivityModal(p: CountryActivityModalProps) {
                                 )}
                             </For>
                             {charts().length === 0 && (
-                                <p style="color: #666; font-size: 13px">No matching country servers found.</p>
+                                <p style="color: #94a3b8; font-size: 13px">No matching country servers found.</p>
                             )}
                         </Show>
 

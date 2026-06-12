@@ -217,7 +217,7 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                                     onInput={(e) => setFromDate(e.currentTarget.value)}
                                     disabled={loadState() === 'loading'}
                                 />
-                                <span style="color: #aaa">to</span>
+                                <span style="color: #94a3b8">to</span>
                                 <input
                                     type="date"
                                     class="version-input"
@@ -250,7 +250,7 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                             <div style="max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
                                 <For each={p.servers ?? []}>
                                     {(server) => (
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc">
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedInstances().has(server.id)}
@@ -258,7 +258,7 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                                                 disabled={loadState() === 'loading'}
                                             />
                                             {server.label}
-                                            <span style="color: #666; font-size: 12px">({server.id})</span>
+                                            <span style="color: #94a3b8; font-size: 12px">({server.id})</span>
                                         </label>
                                     )}
                                 </For>
@@ -269,20 +269,20 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                         <Show when={loadState() !== 'done'}>
                             <Show when={loadState() === 'loading'}>
                                 <div style="display: flex; flex-direction: column; gap: 8px">
-                                    <p style="color: #aaa; font-size: 13px">{progress().phase}…</p>
-                                    <div style="background: #333; border-radius: 4px; height: 6px; overflow: hidden">
+                                    <p style="color: #94a3b8; font-size: 13px">{progress().phase}…</p>
+                                    <div style="background: rgba(255, 255, 255, 0.08); border-radius: 999px; height: 6px; overflow: hidden">
                                         <div
-                                            style={`background: #4caf82; height: 100%; width: ${progress().total > 0 ? Math.round((progress().done / progress().total) * 100) : 0}%; transition: width 0.2s`}
+                                            style={`background: #22c55e; height: 100%; width: ${progress().total > 0 ? Math.round((progress().done / progress().total) * 100) : 0}%; transition: width 0.2s`}
                                         />
                                     </div>
-                                    <p style="color: #666; font-size: 12px">{progress().done} / {progress().total}</p>
+                                    <p style="color: #94a3b8; font-size: 12px">{progress().done} / {progress().total}</p>
                                 </div>
                             </Show>
                             <div style="display: flex; gap: 8px">
                                 <button
                                     type="button"
                                     class="action-btn"
-                                    style="flex: 1; background: #444; color: #fff"
+                                    style="flex: 1"
                                     onClick={p.onClose}
                                     disabled={loadState() === 'loading'}
                                 >Cancel</button>
@@ -304,7 +304,7 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
                                     <p style="font-weight: 600; color: #fff">
                                         Active Users
-                                        <span style="font-weight: 400; color: #aaa; margin-left: 6px; font-size: 13px">
+                                        <span style="font-weight: 400; color: #94a3b8; margin-left: 6px; font-size: 13px">
                                             ({activeUsers().length} found — uncheck to exclude)
                                         </span>
                                     </p>
@@ -312,20 +312,20 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                                 </div>
                                 <div style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
                                     {activeUsers().length === 0
-                                        ? <p style="color: #666; font-size: 13px">No active users found for the selected criteria.</p>
+                                        ? <p style="color: #94a3b8; font-size: 13px">No active users found for the selected criteria.</p>
                                         : (
                                             <For each={activeUsers()}>
                                                 {(user) => {
                                                     const email = getPrimaryEmail(user);
                                                     return (
-                                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc">
+                                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={!excludedEmails().has(email)}
                                                                 onChange={() => toggleExclude(email)}
                                                             />
                                                             <span>{user.first_name} {user.last_name}</span>
-                                                            <span style="color: #666; font-size: 12px">{email}</span>
+                                                            <span style="color: #94a3b8; font-size: 12px">{email}</span>
                                                         </label>
                                                     );
                                                 }}
@@ -338,7 +338,7 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                                 <button
                                     type="button"
                                     class="action-btn"
-                                    style="flex: 1; background: #444; color: #fff"
+                                    style="flex: 1"
                                     onClick={p.onClose}
                                 >Cancel</button>
                                 <button

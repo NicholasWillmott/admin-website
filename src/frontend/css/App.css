@@ -505,18 +505,8 @@ h1 {
   color: white;
 }
 
-.badge.calendar {
-  background: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
-  color: white;
-}
-
-.badge.access {
-  background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
-  color: white;
-}
-
 /* Server-card flag chips — quiet tinted tags. Scoped to .flags so the
-   gradient .badge styles above keep working in the Users view. */
+   gradient .badge style above keeps working in the Users view. */
 .flags .badge {
   padding: 4px 10px;
   border-radius: 6px;
@@ -723,6 +713,28 @@ h1 {
 
 .action-btn.danger:hover:not(:disabled) {
   transform: translateY(-2px) scale(1.05);
+}
+
+/* Standard dark form input for modal config rows */
+.modal-input {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  font-size: 14px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+
+.modal-input option {
+  background: #1a2e22;
+  color: #cbd5e1;
 }
 
 /* Collapsed-card status row: pill on the left, version chip on the right */
@@ -1579,7 +1591,7 @@ h1 {
 
 .delete-btn {
   padding: 8px 16px;
-  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -1587,17 +1599,17 @@ h1 {
   font-size: 13px;
   font-weight: 600;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
 }
 
 .delete-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
 .delete-btn:active {
   transform: translateY(0);
-  box-shadow: 0 1px 4px rgba(231, 76, 60, 0.3);
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.3);
 }
 
 /* Server Versions Modal */
@@ -4542,7 +4554,6 @@ h1 {
 .active-instance-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
   padding: 0.25rem 0.7rem;
   background: rgba(34, 197, 94, 0.12);
   border: 1px solid rgba(34, 197, 94, 0.4);
@@ -4550,16 +4561,6 @@ h1 {
   font-size: 0.8rem;
   color: #4ade80;
   cursor: default;
-}
-
-.active-instance-chip::before {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
 }
 
 .active-instances-loading {

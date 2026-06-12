@@ -254,7 +254,7 @@ export function CreateServerModal(props: CreateServerModalProps) {
                 <p style="color: #dc3545; font-size: 12px; margin: 4px 0 0">{subdomainError()}</p>
               )}
               <Show when={checking()}>
-                <p style="color: #aaa; font-size: 12px; margin: 4px 0 0">Checking availability…</p>
+                <p style="color: #94a3b8; font-size: 12px; margin: 4px 0 0">Checking availability…</p>
               </Show>
               <Show when={!checking() && hasConflicts()}>
                 <For each={Object.entries(conflicts()!) as [keyof ServerConflicts, boolean][]}>
@@ -322,7 +322,7 @@ export function CreateServerModal(props: CreateServerModalProps) {
                 <button
                   type="button"
                   class="action-btn"
-                  style="flex: 1; background: #444; color: #fff"
+                  style="flex: 1"
                   onClick={() => props.onClose()}
                 >
                   Cancel

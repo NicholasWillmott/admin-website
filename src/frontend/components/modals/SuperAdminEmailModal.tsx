@@ -39,7 +39,7 @@ export function SuperAdminEmailModal(p: SuperAdminEmailModalProps) {
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
                                 <p style="font-weight: 600; color: #fff">
                                     Super Admins
-                                    <span style="font-weight: 400; color: #aaa; margin-left: 6px; font-size: 13px">
+                                    <span style="font-weight: 400; color: #94a3b8; margin-left: 6px; font-size: 13px">
                                         (uncheck to exclude)
                                     </span>
                                 </p>
@@ -51,7 +51,7 @@ export function SuperAdminEmailModal(p: SuperAdminEmailModalProps) {
                             <div style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
                                 <For each={p.emails}>
                                     {(email) => (
-                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ccc">
+                                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cbd5e1">
                                             <input
                                                 type="checkbox"
                                                 checked={!excluded().has(email)}
@@ -68,7 +68,7 @@ export function SuperAdminEmailModal(p: SuperAdminEmailModalProps) {
                             <button
                                 type="button"
                                 class="action-btn"
-                                style="flex: 1; background: #444; color: #fff"
+                                style="flex: 1"
                                 onClick={p.onClose}
                             >
                                 Cancel

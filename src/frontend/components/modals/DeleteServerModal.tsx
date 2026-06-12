@@ -127,15 +127,15 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
                 <button
                   type="button"
                   class="action-btn"
-                  style="flex: 1; background: #444; color: #fff"
+                  style="flex: 1"
                   onClick={() => props.onClose()}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  class="action-btn"
-                  style="flex: 1; background: #dc2626"
+                  class="action-btn danger"
+                  style="flex: 1"
                   onClick={() => setPhase('confirm')}
                   disabled={inputValue() !== expectedText}
                 >
@@ -153,15 +153,15 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
                 <button
                   type="button"
                   class="action-btn"
-                  style="flex: 1; background: #444; color: #fff"
+                  style="flex: 1"
                   onClick={() => setPhase('input')}
                 >
                   Go Back
                 </button>
                 <button
                   type="button"
-                  class="action-btn"
-                  style="flex: 1; background: #dc2626"
+                  class="action-btn danger"
+                  style="flex: 1"
                   onClick={handleDelete}
                 >
                   Yes, Delete Permanently

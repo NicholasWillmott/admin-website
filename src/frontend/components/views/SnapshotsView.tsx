@@ -228,8 +228,8 @@ export function SnapshotsView(props: SnapshotsViewProps) {
                     </button>
                     <button
                       type="button"
-                      class="action-btn"
-                      style="flex: 1; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white"
+                      class="action-btn danger"
+                      style="flex: 1"
                       onClick={() => {
                         props.onDeleteSnapshot(snapshot().id);
                         setConfirmDelete(null);
