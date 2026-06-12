@@ -348,19 +348,25 @@ router.get("/:id/logs", async (c) => {
     }
 
     const command = `docker logs ${serverId}`;
+    const inspectCommand = `docker inspect -f '{{.Id}}' ${serverId}`;
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, logs: '', error: "Command not allowed" });
+    if (!isCommandAllowed(command) || !isCommandAllowed(inspectCommand)) {
+        return c.json({ success: false, logs: '', containerId: null, error: "Command not allowed" });
     }
 
     try {
+        // Container ID lets the frontend tell a freshly restarted container apart
+        // from the old one (wb restart removes and recreates the container).
+        const inspectResult = await executeCommand(getDropletIp(), inspectCommand);
+        const containerId = inspectResult.success ? inspectResult.stdout.trim() : null;
+
         const result = await executeCommand(getDropletIp(), command);
         if (!result.success) {
-            return c.json({ success: false, logs: '', error: result.stderr });
+            return c.json({ success: false, logs: '', containerId, error: result.stderr });
         }
-        return c.json({ success: true, logs: result.stdout, error: '' });
+        return c.json({ success: true, logs: result.stdout, containerId, error: '' });
     } catch (error) {
-        return c.json({ success: false, logs: '', error: String(error) });
+        return c.json({ success: false, logs: '', containerId: null, error: String(error) });
     }
 });
 

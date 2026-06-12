@@ -212,8 +212,22 @@ export function ServersView(props: ServersViewProps) {
     await downloadEntireBackup(serverId, folder, token);
   };
 
-  // poll server logs until startup message is found
-  const pollServerLogsForStartup = async (serverId: string) => {
+  // Current container ID for a server, or null if it has none (stopped/mid-restart).
+  const fetchContainerId = async (serverId: string): Promise<string | null> => {
+    try {
+      const token = await getToken();
+      const result = await fetchServerLogs(serverId, token);
+      return result?.containerId ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  // poll server logs until startup message is found.
+  // wb restart removes and recreates the container, so a new container ID is the
+  // proof the restart actually ran — the old container's logs already contain the
+  // startup line and would otherwise match immediately.
+  const pollServerLogsForStartup = async (serverId: string, baselineContainerId: string | null) => {
     const maxAttempts = 400;
     let attempts = 0;
 
@@ -222,7 +236,12 @@ export function ServersView(props: ServersViewProps) {
       try {
         const token = await getToken();
         const result = await fetchServerLogs(serverId, token);
-        if (result?.success && result.logs.includes('Listening on http://0.0.0.0:8000/')) {
+        if (
+          result?.success &&
+          result.containerId &&
+          result.containerId !== baselineContainerId &&
+          result.logs.includes('Listening on http://0.0.0.0:8000/')
+        ) {
           return true;
         }
         if (attempts >= maxAttempts) {
@@ -248,9 +267,10 @@ export function ServersView(props: ServersViewProps) {
     setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'pending' }));
     try {
       const token = await getToken();
+      const baselineContainerId = await fetchContainerId(serverId);
       const result = await restartServerApi(serverId, token);
       if (result.success) {
-        const isOnline = await pollServerLogsForStartup(serverId);
+        const isOnline = await pollServerLogsForStartup(serverId, baselineContainerId);
         if (isOnline) {
           setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'online' }));
           addToast(`Server ${serverId} restarted successfully and is now online.`, "success");
@@ -277,6 +297,7 @@ export function ServersView(props: ServersViewProps) {
     });
     try {
       const token = await getToken();
+      const baselineContainerIds = await Promise.all(serverIds.map(id => fetchContainerId(id)));
       const result = await bulkRestartServerVersionApi(serverIds, token);
       if (!result.success) {
         serverIds.forEach(id => setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' })));
@@ -284,8 +305,8 @@ export function ServersView(props: ServersViewProps) {
         return;
       }
       // Poll all servers in parallel
-      await Promise.all(serverIds.map(async (id) => {
-        const isOnline = await pollServerLogsForStartup(id);
+      await Promise.all(serverIds.map(async (id, index) => {
+        const isOnline = await pollServerLogsForStartup(id, baselineContainerIds[index]);
         if (isOnline) {
           setServerRestartStatuses(prev => ({ ...prev, [id]: 'online' }));
           addToast(`Server ${id} restarted successfully and is now online.`, "success");
