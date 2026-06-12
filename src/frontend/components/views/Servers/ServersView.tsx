@@ -279,6 +279,9 @@ export function ServersView(props: ServersViewProps) {
           setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'idle' }));
           addToast(`Server ${serverId} restart command sent, but failed to detect online status.`, "error");
         }
+        // True-up the optimistic version mutation: if the restart failed, the
+        // list would otherwise keep showing a version that never went live.
+        props.refetchServers();
       } else {
         setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'idle' }));
         addToast(`Failed to restart server ${serverId}: ${result.error}`, "error");
@@ -316,6 +319,9 @@ export function ServersView(props: ServersViewProps) {
         }
       }));
       props.refetchStatuses();
+      // True-up the optimistic version mutation: any server whose restart
+      // failed would otherwise keep showing a version that never went live.
+      props.refetchServers();
     } catch (error) {
       serverIds.forEach(id => {
         setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));

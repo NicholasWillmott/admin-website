@@ -22,6 +22,7 @@ export function SnapshotsView(props: SnapshotsViewProps) {
   const [pickerOpen, setPickerOpen] = createSignal(false);
   const [selectedVolume, setSelectedVolume] = createSignal('');
   const [snapshotName, setSnapshotName] = createSignal('');
+  const [confirmDelete, setConfirmDelete] = createSignal<Snapshot | null>(null);
 
   const defaultName = () => {
     const vol = selectedVolume();
@@ -124,7 +125,7 @@ export function SnapshotsView(props: SnapshotsViewProps) {
                         <button
                           type="button"
                           class="delete-btn"
-                          onClick={() => props.onDeleteSnapshot(snapshot.id)}
+                          onClick={() => setConfirmDelete(snapshot)}
                         >
                           Delete
                         </button>
@@ -201,6 +202,47 @@ export function SnapshotsView(props: SnapshotsViewProps) {
             </div>
           </div>
         </div>
+      </Show>
+
+      <Show when={confirmDelete()}>
+        {(snapshot) => (
+          <div class="modal-overlay" onClick={() => setConfirmDelete(null)}>
+            <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 420px">
+              <div class="modal-header">
+                <h2>Delete Snapshot</h2>
+                <button class="modal-close" onClick={() => setConfirmDelete(null)}>✕</button>
+              </div>
+              <div class="modal-body">
+                <div class="docker-pull-form">
+                  <p style="color: #f87171; margin-bottom: 4px">
+                    This will permanently delete the snapshot <strong>{snapshot().name}</strong> ({snapshot().size_gigabytes} GB, created {formatDate(snapshot().created_at)}). This cannot be undone.
+                  </p>
+                  <div style="display: flex; gap: 8px; margin-top: 16px">
+                    <button
+                      type="button"
+                      class="action-btn"
+                      style="flex: 1; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); color: #cbd5e1"
+                      onClick={() => setConfirmDelete(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      class="action-btn"
+                      style="flex: 1; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white"
+                      onClick={() => {
+                        props.onDeleteSnapshot(snapshot().id);
+                        setConfirmDelete(null);
+                      }}
+                    >
+                      Delete Snapshot
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </Show>
     </div>
   );

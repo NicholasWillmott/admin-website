@@ -145,6 +145,7 @@ export async function downloadBackupFile(serverId: string, folder: string, file:
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+    addToast(`Download started: ${file}`, "success");
   } catch (error) {
     addToast(`Error downloading file: ${error}`, "error");
   }
@@ -171,6 +172,7 @@ export async function downloadEntireBackup(serverId: string, folder: string, tok
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+    addToast(`Download started: ${serverId}_${folder}.tar.gz`, "success");
   } catch (error) {
     addToast(`Error downloading entire backup: ${error}`, "error");
   }

@@ -1,6 +1,7 @@
 import { For, Show, createResource, createSignal } from 'solid-js';
 import type { Server, PgStatStatementsOrderBy, PgStatStatement } from '../../types.ts';
 import { fetchServerPgStatStatements, resetServerPgStatStatements } from '../../services.ts';
+import { addToast } from '../../stores/toastStore.ts';
 
 interface PgStatStatementsViewProps {
   servers: Server[] | undefined;
@@ -127,6 +128,8 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
                   const token = await props.getToken();
                   await resetServerPgStatStatements(serverId(), token);
                   await refetch();
+                } catch (error) {
+                  addToast(`Failed to reset pg_stat_statements: ${error}`, "error");
                 } finally {
                   setResetting(false);
                 }
