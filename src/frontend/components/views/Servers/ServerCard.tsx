@@ -36,8 +36,18 @@ interface ServerCardProps {
 export function ServerCard(props: ServerCardProps) {
   const [selectedVersion, setSelectedVersion] = createSignal(props.server.serverVersion);
 
+  const statusKey = () => {
+    if (props.restartStatus === 'pending') return 'pending';
+    if (props.isLoading) return 'loading';
+    return props.status?.running ? 'online' : 'offline';
+  };
+  const statusLabel = () => {
+    const labels = { pending: 'Pending', loading: 'Loading…', online: 'Online', offline: 'Offline' };
+    return labels[statusKey()];
+  };
+
   return (
-    <div class={`server-card ${props.isExpanded ? 'expanded' : ''} ${props.isSelected ? 'selected' : ''} ${props.server.mode === 'central' ? 'central' : ''}`} onClick={() => props.onToggle()}>
+    <div class={`server-card card-${statusKey()} ${props.isExpanded ? 'expanded' : ''} ${props.isSelected ? 'selected' : ''} ${props.server.mode === 'central' ? 'central' : ''}`} onClick={() => props.onToggle()}>
       {/*Collapsed View*/}
       <div class={`card-header ${props.multiSelectMode ? 'has-checkbox' : ''}`}>
         {props.multiSelectMode && (
@@ -90,24 +100,16 @@ export function ServerCard(props: ServerCardProps) {
         </div>
         <span class="expand-icon">{props.isExpanded ? '▼' : '▶'}</span>
       </div>
-      <p><strong>ID:</strong> {props.server.id}</p>
-      <p><strong>Server Version:</strong> {props.server.serverVersion}</p>
-      {props.server.adminVersion && <p><strong>Admin Version:</strong> {props.server.adminVersion}</p>}
-      <p>
-        <strong>Status:</strong>{' '}
-        {(() => {
-          if (props.restartStatus === 'pending') {
-            return <span class="status-pending">Pending</span>;
-          }
-          if (props.isLoading) {
-            return <span class="status-loading">Loading...</span>;
-          }
-          return (
-            <span class={props.status?.running ? "status-online" : "status-offline"}>
-              {props.status?.running ? "Online" : "Offline"}
-            </span>
-          );
-        })()}
+      <div class="card-status-row">
+        <span class={`status-pill status-${statusKey()}`}>
+          <span class="status-pill-dot" />
+          {statusLabel()}
+        </span>
+        <span class="version-chip">v{props.server.serverVersion}</span>
+      </div>
+      <p class="card-meta">
+        {props.server.id}
+        {props.server.adminVersion && <span class="card-meta-sep"> · admin {props.server.adminVersion}</span>}
       </p>
       <div class="flags">
         {props.server.french && <span class="badge">French</span>}
@@ -118,8 +120,6 @@ export function ServerCard(props: ServerCardProps) {
       {/* Expanded view */}
       <Show when={props.isExpanded}>
         <div class="expanded-content" onClick={(e) => e.stopPropagation()}>
-          <hr/>
-
           {/* Version Control */}
           <div class="control-section">
             <h3>Version Control</h3>
@@ -257,15 +257,13 @@ export function ServerCard(props: ServerCardProps) {
             <button class="action-btn" onClick={() => props.onConfig(props.server.id)}>Configuration</button>
             <button
               class="action-btn"
-              style="background: #2563eb"
               onClick={() => props.onMoveVolume(props.server.id)}
               disabled={props.isLocked || props.sshOperationInProgress}
             >
               Move Volume
             </button>
             <button
-              class="action-btn"
-              style="background: #dc2626"
+              class="action-btn danger"
               onClick={() => props.onDelete(props.server.id)}
               disabled={props.isLocked || props.sshOperationInProgress}
             >
