@@ -292,7 +292,7 @@ export function AiUsageView(props: AiUsageViewProps) {
                 <For each={userRows()}>
                   {(user) => (
                     <tr>
-                      <td class="ai-usage-user-email" style="padding-left: 16px !important">{user.email}</td>
+                      <td class="ai-usage-user-email ai-usage-td-flush">{user.email}</td>
                       <td class="ai-usage-num">{user.requests.toLocaleString()}</td>
                       <td class="ai-usage-num">{formatTokens(user.inputTokens)}</td>
                       <td class="ai-usage-num">{formatTokens(user.outputTokens)}</td>
@@ -342,14 +342,14 @@ export function AiUsageView(props: AiUsageViewProps) {
                     const pct = () => limit() !== null ? Math.min(100, (tokensUsed() / limit()!) * 100) : null;
                     return (
                       <tr>
-                        <td class="ai-usage-instance" style="padding-left: 16px">{server.label}</td>
+                        <td class="ai-usage-instance">{server.label}</td>
                         <td class="ai-usage-num">{tokensUsed().toLocaleString()}</td>
                         <td class="ai-usage-num">{limit() !== null ? limit()!.toLocaleString() : 'Not set'}</td>
                         <td class="ai-usage-num" style="min-width: 160px">
-                          <Show when={pct() !== null} fallback={<span style="color: var(--text-muted)">—</span>}>
+                          <Show when={pct() !== null} fallback={<span style="color: #64748b">—</span>}>
                             <div style="display: flex; align-items: center; gap: 8px">
-                              <div style="flex: 1; background: var(--bg-secondary); border-radius: 4px; height: 8px; overflow: hidden">
-                                <div style={`width: ${pct()}%; height: 100%; background: ${pct()! >= 90 ? 'var(--color-error, #e53e3e)' : pct()! >= 70 ? 'var(--color-warning, #d69e2e)' : 'var(--color-success, #38a169)'}; border-radius: 4px`} />
+                              <div style="flex: 1; background: rgba(255, 255, 255, 0.08); border-radius: 999px; height: 8px; overflow: hidden">
+                                <div style={`width: ${pct()}%; height: 100%; background: ${pct()! >= 90 ? '#ef4444' : pct()! >= 75 ? '#f59e0b' : '#22c55e'}; border-radius: 999px`} />
                               </div>
                               <span style="font-size: 12px; white-space: nowrap">{pct()!.toFixed(1)}%</span>
                             </div>
@@ -388,10 +388,14 @@ export function AiUsageView(props: AiUsageViewProps) {
                         <For each={allHits()}>
                           {(hit) => (
                             <tr>
-                              <td class="ai-usage-num" style="text-align: left; padding-left: 16px">{hit.hit_date}</td>
-                              <td class="ai-usage-instance" style="padding-left: 16px">{hit.serverLabel}</td>
-                              <td class="ai-usage-num" style="text-align: left; padding-left: 16px">{hit.limit_type === 'daily_user' ? 'Daily (user)' : 'Weekly (country)'}</td>
-                              <td class="ai-usage-user-email" style="padding-left: 16px">{hit.limit_type === 'weekly_instance' ? '—' : hit.user_email}</td>
+                              <td class="ai-usage-num ai-usage-td-left">{hit.hit_date}</td>
+                              <td class="ai-usage-instance">{hit.serverLabel}</td>
+                              <td class="ai-usage-td-left">
+                                <span class={`limit-hit-pill ${hit.limit_type === 'daily_user' ? 'daily' : 'weekly'}`}>
+                                  {hit.limit_type === 'daily_user' ? 'Daily (user)' : 'Weekly (country)'}
+                                </span>
+                              </td>
+                              <td class="ai-usage-user-email ai-usage-td-flush">{hit.limit_type === 'weekly_instance' ? '—' : hit.user_email}</td>
                             </tr>
                           )}
                         </For>

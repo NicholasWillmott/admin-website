@@ -41,6 +41,13 @@ export function SnapshotsView(props: SnapshotsViewProps) {
     return null;
   };
 
+  const rotationType = (name: string): 'daily' | 'weekly' | 'monthly' | null => {
+    if (name.includes('-daily-')) return 'daily';
+    if (name.includes('-weekly-')) return 'weekly';
+    if (name.includes('-monthly-')) return 'monthly';
+    return null;
+  };
+
   createEffect(() => {
     if (pickerOpen() && !selectedVolume() && props.volumes.length > 0) {
       setSelectedVolume(props.volumes[0]);
@@ -74,6 +81,7 @@ export function SnapshotsView(props: SnapshotsViewProps) {
     <div class="snapshots-container">
       <div class="snapshots-content">
         <div class="snapshots-header">
+          <h2 class="snapshots-title">Volume Snapshots</h2>
           <button
             class="system-btn snapshot"
             onClick={() => setPickerOpen(true)}
@@ -118,7 +126,12 @@ export function SnapshotsView(props: SnapshotsViewProps) {
                 <For each={sortedSnapshots()}>
                   {(snapshot) => (
                     <tr>
-                      <td class="snapshot-name">{snapshot.name}</td>
+                      <td class="snapshot-name">
+                        {snapshot.name}
+                        {rotationType(snapshot.name) && (
+                          <span class={`snapshot-pill ${rotationType(snapshot.name)}`}>{rotationType(snapshot.name)}</span>
+                        )}
+                      </td>
                       <td class="snapshot-date">{formatDate(snapshot.created_at)}</td>
                       <td class="snapshot-size">{snapshot.size_gigabytes} GB</td>
                       <td class="snapshot-actions">

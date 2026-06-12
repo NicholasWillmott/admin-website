@@ -16,6 +16,14 @@ function formatMs(n: number | null | undefined): string {
   return `${n.toFixed(2)}ms`;
 }
 
+// Threshold tint for latency cells: amber ≥ 500ms, red ≥ 2s
+function latencyClass(ms: number | null | undefined): string {
+  if (ms == null) return '';
+  if (ms >= 2000) return 'pgss-very-slow';
+  if (ms >= 500) return 'pgss-slow';
+  return '';
+}
+
 function formatNum(s: string | number): string {
   const n = typeof s === 'string' ? Number(s) : s;
   if (!Number.isFinite(n)) return String(s);
@@ -200,8 +208,8 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
                     >
                       <td class="pgss-db">{s.datname ?? '—'}</td>
                       <td class="pgss-num">{formatNum(s.calls)}</td>
-                      <td class="pgss-num">{formatMs(s.mean_exec_time_ms)}</td>
-                      <td class="pgss-num">{formatMs(s.max_exec_time_ms)}</td>
+                      <td class={`pgss-num ${latencyClass(s.mean_exec_time_ms)}`}>{formatMs(s.mean_exec_time_ms)}</td>
+                      <td class={`pgss-num ${latencyClass(s.max_exec_time_ms)}`}>{formatMs(s.max_exec_time_ms)}</td>
                       <td class="pgss-num pgss-total">{formatMs(s.total_exec_time_ms)}</td>
                       <td class="pgss-num">{formatNum(s.rows)}</td>
                       <td class="pgss-query">

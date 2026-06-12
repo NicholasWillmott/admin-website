@@ -76,11 +76,20 @@ export function VolumeUsageView(props: VolumeUsageViewProps) {
                 usedPercent() >= 90 ? '#ef4444' :
                 usedPercent() >= 75 ? '#f59e0b' :
                 '#22c55e';
+              const usageStatus = () =>
+                usedPercent() >= 90 ? 'critical' :
+                usedPercent() >= 75 ? 'warning' :
+                'ok';
 
               return (
                 <div class="volume-block">
                   <div class="volume-block-header">
-                    <div class="volume-block-name">/mnt/{volumeName}</div>
+                    <div class="volume-block-name">
+                      /mnt/{volumeName}
+                      <Show when={df()}>
+                        <span class={`volume-status-pill ${usageStatus()}`}>{usageStatus()}</span>
+                      </Show>
+                    </div>
                     <Show when={df()}>
                       <div class="volume-block-stats">
                         <span class="volume-stat">{df()!.usedGB} GB used</span>

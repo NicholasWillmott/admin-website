@@ -262,7 +262,11 @@ export function UserLogsView(props: UserLogsViewProps) {
                                                 <td class="logs-td-server">{serverLabel(log.serverId)}</td>
                                                 <td class="logs-td-email">{log.user_email}</td>
                                                 <td class="logs-td-endpoint">{log.endpoint}</td>
-                                                <td class="logs-td-result">{log.endpoint_result}</td>
+                                                <td class="logs-td-result">
+                                                    <span class={`logs-result-pill ${log.endpoint_result === 'success' ? 'success' : log.endpoint_result === 'error' ? 'error' : 'neutral'}`}>
+                                                        {log.endpoint_result}
+                                                    </span>
+                                                </td>
                                                 <td class="logs-td-project">{log.project_id ?? '—'}</td>
                                                 <td class="ai-usage-num">{log.count.toLocaleString()}</td>
                                             </tr>

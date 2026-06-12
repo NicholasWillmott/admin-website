@@ -287,7 +287,7 @@ export function Users(p: UsersProps) {
                         <div class="users-header-controls">
                             {instanceLoading() && <div class="spinner spinner-sm"></div>}
                             {exporting() && (
-                                <span style={{ color: 'rgba(255,255,255,0.6)', 'font-size': '12px' }}>
+                                <span style={{ color: '#94a3b8', 'font-size': '12px' }}>
                                     Exporting {exportProgress().done}/{exportProgress().total}
                                 </span>
                             )}
@@ -324,7 +324,7 @@ export function Users(p: UsersProps) {
                                 </div>
                             </div>
                             {languageReportStats() && (
-                                <span style={{ color: 'rgba(255,255,255,0.6)', 'font-size': '12px' }}>
+                                <span style={{ color: '#94a3b8', 'font-size': '12px' }}>
                                     FR: {languageReportStats()!.french} · EN: {languageReportStats()!.english} · Both: {languageReportStats()!.both} · Neither: {languageReportStats()!.neither}
                                     {languageReportStats()!.newEmailsAdded > 0 && ` · +${languageReportStats()!.newEmailsAdded} new`}
                                 </span>
@@ -421,7 +421,7 @@ export function Users(p: UsersProps) {
                                                 <td class="user-date">{formatUnixDate(user.last_sign_in_at)}</td>
                                                 <td class="user-opt-in">
                                                     <span class={user.unsafe_metadata.emailOptIn === true ? 'opt-in-yes' : 'opt-in-no'}>
-                                                        {user.unsafe_metadata.emailOptIn === true ? '✓' : '✗'}
+                                                        {user.unsafe_metadata.emailOptIn === true ? 'Yes' : 'No'}
                                                     </span>
                                                 </td>
                                                 <td>

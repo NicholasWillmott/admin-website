@@ -41,7 +41,7 @@ export function RecentSignupsCard(p: RecentSignupsCardProps) {
 
             <div class="recent-signups-list">
                 <For each={recent()} fallback={
-                    <p style={{ color: '#bbb', 'font-size': '13px', margin: '12px 0' }}>No users found</p>
+                    <p style={{ color: '#94a3b8', 'font-size': '13px', margin: '12px 0' }}>No users found</p>
                 }>
                     {(user) => (
                         <div class="recent-signup-row">
