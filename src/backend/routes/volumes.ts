@@ -129,6 +129,23 @@ router.get("/usage", async (c) => {
   });
 });
 
+// Grow the ext4 filesystem to fill the (just-resized) block device, using the
+// DO by-id device path (confirmed working for these volumes). Logs the result so
+// a failure here is visible instead of silently swallowed.
+async function expandFilesystem(dropletIp: string, volumeName: string): Promise<void> {
+  const fsCmd = `resize2fs /dev/disk/by-id/scsi-0DO_Volume_${volumeName}`;
+  if (!isCommandAllowed(fsCmd)) {
+    console.error(`[volumes/resize] resize2fs command not allowed: ${fsCmd}`);
+    return;
+  }
+  const fsRes = await executeCommand(dropletIp, fsCmd);
+  if (fsRes.success) {
+    console.log(`[volumes/resize] resize2fs ok for "${volumeName}": ${fsRes.stdout.trim()}`);
+  } else {
+    console.error(`[volumes/resize] resize2fs failed for "${volumeName}": code=${fsRes.code} stdout="${fsRes.stdout.trim()}" stderr="${fsRes.stderr.trim()}"`);
+  }
+}
+
 // POST /api/volumes/resize
 // Called internally by platform server containers via X-Internal-Key header,
 // or by Clerk-authenticated admins. Triggers a DigitalOcean volume resize,
@@ -152,6 +169,15 @@ router.post("/resize", async (c) => {
   }
   if (!targetSizeGB || targetSizeGB <= 0) {
     return c.json({ success: false, error: "Missing or invalid targetSizeGB" }, 400);
+  }
+
+  // Clamp the requested size to a configurable ceiling so a mis-measurement or
+  // runaway trigger loop can't grow the volume (and the bill) without bound.
+  const maxSizeRaw = Number(Deno.env.get("MAX_VOLUME_SIZE_GB"));
+  const maxSizeGB = Number.isFinite(maxSizeRaw) && maxSizeRaw > 0 ? Math.floor(maxSizeRaw) : 2000;
+  if (targetSizeGB > maxSizeGB) {
+    console.warn(`[volumes/resize] target ${targetSizeGB}GB exceeds cap ${maxSizeGB}GB for "${volumeName}"; clamping to cap`);
+    targetSizeGB = maxSizeGB;
   }
 
   const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
@@ -183,6 +209,24 @@ router.post("/resize", async (c) => {
     return c.json({ success: true, message: "Volume already at target size, no resize needed" });
   }
 
+  // Don't stack resizes: if one is already in progress, report that and stop so
+  // repeated triggers (e.g. every module run while the disk is full) don't create
+  // duplicate DO actions and duplicate notifications.
+  const actionsRes = await fetch(
+    `https://api.digitalocean.com/v2/volumes/${volumeId}/actions`,
+    { headers: { "Authorization": `Bearer ${doToken}` } },
+  ).catch(() => null);
+  if (actionsRes?.ok) {
+    const actionsData = await actionsRes.json();
+    const inProgress = (actionsData.actions ?? []).some(
+      (a: { type?: string; status?: string }) => a.type === "resize" && a.status === "in-progress",
+    );
+    if (inProgress) {
+      console.log(`[volumes/resize] resize already in progress for "${volumeName}", skipping`);
+      return c.json({ success: true, message: "Volume resize already in progress" });
+    }
+  }
+
   // Trigger the block-device resize via DO API
   const resizeRes = await fetch(`https://api.digitalocean.com/v2/volumes/${volumeId}/actions`, {
     method: "POST",
@@ -194,13 +238,17 @@ router.post("/resize", async (c) => {
   }).catch(() => null);
   if (!resizeRes?.ok) {
     const err = await resizeRes?.json().catch(() => ({})) ?? {};
-    return c.json({ success: false, error: (err as { message?: string }).message || "Failed to trigger resize" }, 500);
+    const msg = (err as { message?: string }).message || "Failed to trigger resize";
+    console.error(`[volumes/resize] DO resize request failed for "${volumeName}": HTTP ${resizeRes?.status} ${JSON.stringify(err)}`);
+    return c.json({ success: false, error: msg }, 500);
   }
   const resizeData = await resizeRes.json();
   const actionId = resizeData.action?.id as number | undefined;
   if (!actionId) {
+    console.error(`[volumes/resize] no action id returned for "${volumeName}": ${JSON.stringify(resizeData)}`);
     return c.json({ success: false, error: "No action ID returned from resize request" }, 500);
   }
+  console.log(`[volumes/resize] DO resize action ${actionId} created for "${volumeName}" (${currentSizeGB}GB -> ${targetSizeGB}GB)`);
 
   // Poll for completion in background, then expand the filesystem
   (async () => {
@@ -211,19 +259,24 @@ router.post("/resize", async (c) => {
           `https://api.digitalocean.com/v2/volumes/${volumeId}/actions/${actionId}`,
           { headers: { "Authorization": `Bearer ${doToken}` } },
         ).catch(() => null);
-        if (!poll?.ok) break;
-        const pollData = await poll.json();
-        if (pollData.action?.status === "completed") {
-          const fsCmd = `resize2fs /dev/disk/by-id/scsi-0DO_Volume_${volumeName}`;
-          if (isCommandAllowed(fsCmd)) {
-            await executeCommand(dropletIp, fsCmd);
-          }
+        if (!poll?.ok) {
+          console.error(`[volumes/resize] action ${actionId} poll failed: HTTP ${poll?.status}`);
           break;
         }
-        if (pollData.action?.status === "errored") break;
+        const pollData = await poll.json();
+        const status = pollData.action?.status;
+        if (status === "completed") {
+          console.log(`[volumes/resize] DO action ${actionId} completed for "${volumeName}"; expanding filesystem`);
+          await expandFilesystem(dropletIp, volumeName);
+          break;
+        }
+        if (status === "errored") {
+          console.error(`[volumes/resize] DO action ${actionId} errored for "${volumeName}": ${JSON.stringify(pollData.action)}`);
+          break;
+        }
       }
-    } catch {
-      // background task — ignore errors
+    } catch (e) {
+      console.error(`[volumes/resize] background poll error for "${volumeName}": ${e}`);
     }
   })();
 
