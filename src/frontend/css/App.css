@@ -263,6 +263,16 @@ h1 {
   border-top-color: #4ade80;
 }
 
+/* Central cards keep their gold top accent even when online, so the
+   online green never overrides the central identity colour. */
+.server-card.central.card-online {
+  border-top-color: #b8860b;
+}
+
+.server-card.central.card-online:hover {
+  border-top-color: #d4a017;
+}
+
 .server-card.card-pending {
   border-top-color: #ffc107;
 }
