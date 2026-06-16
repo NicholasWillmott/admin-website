@@ -212,6 +212,46 @@ h1 {
   box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.2);
 }
 
+/* Central cards use a gold accent in place of the standard teal so the
+   platform's central servers read as distinct in the grid. These rules
+   recolour the remaining teal accents inside a central card to gold;
+   semantic status colours (online/offline/warning) are left untouched. */
+.server-card.central .expand-icon,
+.server-card.central .card-header a:hover,
+.server-card.central .card-header a:hover h2 {
+  color: #b8860b;
+}
+
+.server-card.central .version-chip {
+  color: #e8c66a;
+}
+
+.server-card.central .select-checkbox:hover {
+  border-color: #b8860b;
+}
+
+.server-card.central .select-checkbox.checked {
+  background: #b8860b;
+  border-color: #b8860b;
+}
+
+.server-card.central .version-select:focus {
+  border-color: #b8860b;
+}
+
+.server-card.central .update-btn {
+  background: linear-gradient(135deg, #b8860b 0%, #8a6508 100%);
+}
+
+.server-card.central .stat-item {
+  border-left-color: #b8860b;
+}
+
+.server-card.central .action-btn:hover {
+  border-color: #b8860b;
+  color: #e8c66a;
+}
+
 /* Status-driven top accent — the card colour reflects live server status,
    so unhealthy servers stand out when scanning the grid. Placed after the
    .central rules on purpose: status wins over the gold central accent. */
