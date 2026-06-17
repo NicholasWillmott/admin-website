@@ -121,7 +121,9 @@ export function ActiveUsersExportModal(p: ActiveUsersExportModalProps) {
         }
 
         const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
+        // Prepend a UTF-8 BOM so Excel reads accented characters (e.g. Sénégal, République)
+        // as UTF-8 instead of falling back to Windows-1252 and producing mojibake.
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
