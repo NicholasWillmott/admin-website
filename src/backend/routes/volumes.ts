@@ -239,7 +239,8 @@ router.post("/resize", async (c) => {
   if (!resizeRes?.ok) {
     const err = await resizeRes?.json().catch(() => ({})) ?? {};
     const msg = (err as { message?: string }).message || "Failed to trigger resize";
-    console.error(`[volumes/resize] DO resize request failed for "${volumeName}": HTTP ${resizeRes?.status} ${JSON.stringify(err)}`);
+    const tokenFp = doToken ? `len=${doToken.length} …${doToken.slice(-4)}` : "MISSING";
+    console.error(`[volumes/resize] DO resize request failed for "${volumeName}": HTTP ${resizeRes?.status} ${JSON.stringify(err)} (DO token ${tokenFp})`);
     return c.json({ success: false, error: msg }, 500);
   }
   const resizeData = await resizeRes.json();
