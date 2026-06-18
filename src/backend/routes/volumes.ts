@@ -241,7 +241,14 @@ router.post("/resize", async (c) => {
     const msg = (err as { message?: string }).message || "Failed to trigger resize";
     const tokenFp = doToken ? `len=${doToken.length} …${doToken.slice(-4)}` : "MISSING";
     console.error(`[volumes/resize] DO resize request failed for "${volumeName}": HTTP ${resizeRes?.status} ${JSON.stringify(err)} (DO token ${tokenFp})`);
-    return c.json({ success: false, error: msg }, 500);
+    // Echo the DO status, error body and token fingerprint in the response so the
+    // detail also surfaces in the calling platform server's logs, not only here.
+    return c.json({
+      success: false,
+      error: `${msg} (DO HTTP ${resizeRes?.status}, token ${tokenFp})`,
+      doStatus: resizeRes?.status,
+      doError: err,
+    }, 500);
   }
   const resizeData = await resizeRes.json();
   const actionId = resizeData.action?.id as number | undefined;
