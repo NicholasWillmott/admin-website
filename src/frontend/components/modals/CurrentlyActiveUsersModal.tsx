@@ -1,10 +1,10 @@
 import { createMemo, For, Show } from 'solid-js';
-import type { ClerkUser, Server, ServerUserLogs } from '../../types.ts';
+import type { ClerkUser, Server, ServerStatuses } from '../../types.ts';
 
 interface CurrentlyActiveUsersModalProps {
     users: ClerkUser[] | undefined;
     servers: Server[] | undefined;
-    userLogs: ServerUserLogs | undefined;
+    statuses: ServerStatuses | undefined;
     hUsers: string[];
     onClose: () => void;
 }
@@ -18,7 +18,10 @@ function timeAgo(timestamp: string): string {
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return 'just now';
     if (mins === 1) return '1 min ago';
-    return `${mins} mins ago`;
+    if (mins < 60) return `${mins} mins ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours === 1) return '1 hour ago';
+    return `${hours} hours ago`;
 }
 
 interface ActiveUser {
@@ -32,25 +35,23 @@ export function CurrentlyActiveUsersModal(p: CurrentlyActiveUsersModalProps) {
     const hUserSet = createMemo(() => new Set(p.hUsers));
 
     const activeUsers = createMemo((): ActiveUser[] => {
-        if (!p.userLogs) return [];
+        if (!p.statuses) return [];
         const thirtyMinsAgo = Date.now() - 30 * 60 * 1000;
-        // Track most recent activity per email
         const emailMap = new Map<string, { lastSeen: string; serverIds: Set<string> }>();
 
-        for (const [serverId, logs] of Object.entries(p.userLogs)) {
-            for (const log of logs) {
-                if (log.endpoint !== 'getCurrentUser') continue;
-                if (hUserSet().has(log.user_email)) continue;
-                const ts = new Date(log.timestamp).getTime();
-                if (ts < thirtyMinsAgo) continue;
+        for (const [serverId, status] of Object.entries(p.statuses)) {
+            const log = status?.lastUserLog;
+            if (!log) continue;
+            if (hUserSet().has(log.userEmail)) continue;
+            const ts = new Date(log.timestamp).getTime();
+            if (ts < thirtyMinsAgo) continue;
 
-                const existing = emailMap.get(log.user_email);
-                if (existing) {
-                    if (log.timestamp > existing.lastSeen) existing.lastSeen = log.timestamp;
-                    existing.serverIds.add(serverId);
-                } else {
-                    emailMap.set(log.user_email, { lastSeen: log.timestamp, serverIds: new Set([serverId]) });
-                }
+            const existing = emailMap.get(log.userEmail);
+            if (existing) {
+                if (log.timestamp > existing.lastSeen) existing.lastSeen = log.timestamp;
+                existing.serverIds.add(serverId);
+            } else {
+                emailMap.set(log.userEmail, { lastSeen: log.timestamp, serverIds: new Set([serverId]) });
             }
         }
 
@@ -85,8 +86,8 @@ export function CurrentlyActiveUsersModal(p: CurrentlyActiveUsersModalProps) {
                         Users active in the last 30 minutes ({activeUsers().length} online)
                     </p>
                     <Show
-                        when={p.userLogs}
-                        fallback={<p style="color: #94a3b8">Loading user logs...</p>}
+                        when={p.statuses}
+                        fallback={<p style="color: #94a3b8">Loading...</p>}
                     >
                         <Show
                             when={activeUsers().length > 0}
