@@ -1,10 +1,11 @@
 import { createMemo, For, Show } from 'solid-js';
-import type { ClerkUser, Server, ServerStatuses } from '../../types.ts';
+import type { ClerkUser, Server, ServerStatuses, ServerUserLogs } from '../../types.ts';
 
 interface CurrentlyActiveUsersModalProps {
     users: ClerkUser[] | undefined;
     servers: Server[] | undefined;
     statuses: ServerStatuses | undefined;
+    userLogs: ServerUserLogs | undefined;
     hUsers: string[];
     onClose: () => void;
 }
@@ -35,23 +36,37 @@ export function CurrentlyActiveUsersModal(p: CurrentlyActiveUsersModalProps) {
     const hUserSet = createMemo(() => new Set(p.hUsers));
 
     const activeUsers = createMemo((): ActiveUser[] => {
-        if (!p.statuses) return [];
         const thirtyMinsAgo = Date.now() - 30 * 60 * 1000;
         const emailMap = new Map<string, { lastSeen: string; serverIds: Set<string> }>();
 
-        for (const [serverId, status] of Object.entries(p.statuses)) {
-            const log = status?.lastUserLog;
-            if (!log) continue;
-            if (hUserSet().has(log.userEmail)) continue;
-            const ts = new Date(log.timestamp).getTime();
-            if (ts < thirtyMinsAgo) continue;
-
-            const existing = emailMap.get(log.userEmail);
+        const addEntry = (email: string, timestamp: string, serverId: string) => {
+            if (hUserSet().has(email)) return;
+            if (new Date(timestamp).getTime() < thirtyMinsAgo) return;
+            const existing = emailMap.get(email);
             if (existing) {
-                if (log.timestamp > existing.lastSeen) existing.lastSeen = log.timestamp;
+                if (timestamp > existing.lastSeen) existing.lastSeen = timestamp;
                 existing.serverIds.add(serverId);
             } else {
-                emailMap.set(log.userEmail, { lastSeen: log.timestamp, serverIds: new Set([serverId]) });
+                emailMap.set(email, { lastSeen: timestamp, serverIds: new Set([serverId]) });
+            }
+        };
+
+        // Primary source: user_logs has all users with full timestamps
+        if (p.userLogs) {
+            for (const [serverId, logs] of Object.entries(p.userLogs)) {
+                for (const log of logs) {
+                    if (log.endpoint !== 'getCurrentUser') continue;
+                    addEntry(log.user_email, log.timestamp, serverId);
+                }
+            }
+        }
+
+        // Secondary source: statuses.lastUserLog is real-time (refreshes every 60s)
+        // but only has the single most recent user per server
+        if (p.statuses) {
+            for (const [serverId, status] of Object.entries(p.statuses)) {
+                const log = status?.lastUserLog;
+                if (log) addEntry(log.userEmail, log.timestamp, serverId);
             }
         }
 
@@ -86,7 +101,7 @@ export function CurrentlyActiveUsersModal(p: CurrentlyActiveUsersModalProps) {
                         Users active in the last 30 minutes ({activeUsers().length} online)
                     </p>
                     <Show
-                        when={p.statuses}
+                        when={p.statuses || p.userLogs}
                         fallback={<p style="color: #94a3b8">Loading...</p>}
                     >
                         <Show
