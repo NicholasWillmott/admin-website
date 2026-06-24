@@ -14,6 +14,7 @@ import { ServerVersionsModal } from './components/modals/ServerVersionsModal.tsx
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
 import { ConfigureCategoriesModal } from './components/modals/CreateCategoryModal.tsx';
 import { IndicatorsExportModal } from './components/modals/IndicatorsExportModal.tsx';
+import { CurrentlyActiveUsersModal } from './components/modals/CurrentlyActiveUsersModal.tsx';
 import type { ViewType } from './types.ts';
 import {
   fetchServerCardData,
@@ -150,6 +151,9 @@ function App() {
 
   // track indicators export modal
   const [indicatorsExportModalOpen, setIndicatorsExportModalOpen] = createSignal<boolean>(false);
+
+  // track currently active users modal
+  const [activeUsersModalOpen, setActiveUsersModalOpen] = createSignal<boolean>(false);
 
   // track which servers I have multi selected
   const [multiSelectMode, setMultiSelectMode] = createSignal(false);
@@ -429,6 +433,7 @@ function App() {
               { label: 'Docker Pull', iconPath: 'M12 4v10m0 0l-4-4m4 4l4-4M5 19h14', onClick: () => setDockerPullModalOpen(true) },
               { label: 'Server Versions', iconPath: 'M4 4h6l10 10-6 6L4 10V4zM8 8h.01', onClick: () => setServerVersionsModalOpen(true) },
               { label: 'Export Indicators', iconPath: 'M12 15V3m0 0L8 7m4-4l4 4M4 15v4h16v-4', onClick: () => setIndicatorsExportModalOpen(true) },
+              { label: 'Active Users', iconPath: 'M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M20 8v6M23 11h-6', onClick: () => { setUserLogsRequested(true); setActiveUsersModalOpen(true); } },
             ]}
           />
         </Show>
@@ -636,6 +641,17 @@ function App() {
             onUpdated={() => refetchDynamicCategories()}
             getToken={getToken}
             categories={categories() || []}
+          />
+        )}
+
+        {/* Currently Active Users Modal */}
+        {activeUsersModalOpen() && (
+          <CurrentlyActiveUsersModal
+            users={clerkUsers()}
+            servers={servers()}
+            userLogs={allServerUserLogs()}
+            hUsers={hUsers() ?? []}
+            onClose={() => setActiveUsersModalOpen(false)}
           />
         )}
       </SignedIn>
