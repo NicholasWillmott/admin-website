@@ -6,7 +6,6 @@ interface CurrentlyActiveUsersModalProps {
     servers: Server[] | undefined;
     statuses: ServerStatuses | undefined;
     userLogs: ServerUserLogs | undefined;
-    hUsers: string[];
     onClose: () => void;
 }
 
@@ -33,14 +32,11 @@ interface ActiveUser {
 }
 
 export function CurrentlyActiveUsersModal(p: CurrentlyActiveUsersModalProps) {
-    const hUserSet = createMemo(() => new Set(p.hUsers));
-
     const activeUsers = createMemo((): ActiveUser[] => {
         const thirtyMinsAgo = Date.now() - 30 * 60 * 1000;
         const emailMap = new Map<string, { lastSeen: string; serverIds: Set<string> }>();
 
         const addEntry = (email: string, timestamp: string, serverId: string) => {
-            if (hUserSet().has(email)) return;
             if (new Date(timestamp).getTime() < thirtyMinsAgo) return;
             const existing = emailMap.get(email);
             if (existing) {

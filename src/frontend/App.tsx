@@ -651,7 +651,6 @@ function App() {
             servers={servers()}
             statuses={statuses()}
             userLogs={allServerUserLogs()}
-            hUsers={hUsers() ?? []}
             onClose={() => setActiveUsersModalOpen(false)}
           />
         )}
