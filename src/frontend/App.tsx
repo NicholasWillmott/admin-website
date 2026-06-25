@@ -15,6 +15,7 @@ import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
 import { ConfigureCategoriesModal } from './components/modals/CreateCategoryModal.tsx';
 import { IndicatorsExportModal } from './components/modals/IndicatorsExportModal.tsx';
 import { CurrentlyActiveUsersModal } from './components/modals/CurrentlyActiveUsersModal.tsx';
+import { AllServersActivityModal } from './components/modals/AllServersActivityModal.tsx';
 import type { ViewType } from './types.ts';
 import {
   fetchServerCardData,
@@ -154,6 +155,9 @@ function App() {
 
   // track currently active users modal
   const [activeUsersModalOpen, setActiveUsersModalOpen] = createSignal<boolean>(false);
+
+  // track server activity modal
+  const [serverActivityModalOpen, setServerActivityModalOpen] = createSignal<boolean>(false);
 
   // track which servers I have multi selected
   const [multiSelectMode, setMultiSelectMode] = createSignal(false);
@@ -434,6 +438,7 @@ function App() {
               { label: 'Server Versions', iconPath: 'M4 4h6l10 10-6 6L4 10V4zM8 8h.01', onClick: () => setServerVersionsModalOpen(true) },
               { label: 'Export Indicators', iconPath: 'M12 15V3m0 0L8 7m4-4l4 4M4 15v4h16v-4', onClick: () => setIndicatorsExportModalOpen(true) },
               { label: 'Active Users', iconPath: 'M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M20 8v6M23 11h-6', onClick: () => { setUserLogsRequested(true); setActiveUsersModalOpen(true); } },
+              { label: 'Server Activity', iconPath: 'M4 5h16v6H4zM4 13h16v6H4zM7 8h.01M7 16h.01', onClick: () => setServerActivityModalOpen(true) },
             ]}
           />
         </Show>
@@ -652,6 +657,15 @@ function App() {
             statuses={statuses()}
             userLogs={allServerUserLogs()}
             onClose={() => setActiveUsersModalOpen(false)}
+          />
+        )}
+
+        {/* Server Activity Modal */}
+        {serverActivityModalOpen() && (
+          <AllServersActivityModal
+            servers={servers()}
+            statuses={statuses()}
+            onClose={() => setServerActivityModalOpen(false)}
           />
         )}
       </SignedIn>
