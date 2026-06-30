@@ -489,7 +489,7 @@ export function ServersView(props: ServersViewProps) {
 
   const handleSaveConfig = async (
     serverId: string,
-    changes: { french?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string; category?: string },
+    changes: { french?: boolean; portuguese?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string; category?: string },
   ) => {
     if (props.sshOperationInProgress()) {
       addToast('Another SSH operation is in progress. Please wait.', 'info');
@@ -498,8 +498,8 @@ export function ServersView(props: ServersViewProps) {
     props.setSshOperationInProgress(true);
     try {
       const token = await getToken();
-      if (changes.french !== undefined) {
-        const r = await updateServerLanguageApi(serverId, changes.french, token);
+      if (changes.french !== undefined || changes.portuguese !== undefined) {
+        const r = await updateServerLanguageApi(serverId, changes.french ?? false, changes.portuguese ?? false, token);
         if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
       }
       if (changes.ethiopian !== undefined) {

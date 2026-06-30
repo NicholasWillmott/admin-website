@@ -113,6 +113,7 @@ export function ServerCard(props: ServerCardProps) {
       </p>
       <div class="flags">
         {props.server.french && <span class="badge">French</span>}
+        {props.server.portuguese && <span class="badge">Portuguese</span>}
         {props.server.ethiopian && <span class="badge calendar">Ethiopian</span>}
         {props.server.openAccess && <span class="badge access">Open Access</span>}
       </div>

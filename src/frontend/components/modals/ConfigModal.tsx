@@ -2,7 +2,15 @@ import { createSignal, For } from 'solid-js';
 import type { Server } from '../../types.ts';
 import type { ServerCategory } from '../../services.ts';
 
-type ConfigChanges = { french?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string; category?: string };
+type ConfigChanges = { french?: boolean; portuguese?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string; category?: string };
+
+type Language = 'english' | 'french' | 'portuguese';
+
+function serverLanguage(server: Server): Language {
+  if (server.portuguese) return 'portuguese';
+  if (server.french) return 'french';
+  return 'english';
+}
 
 interface ConfigModalProps {
   server: Server;
@@ -14,14 +22,14 @@ interface ConfigModalProps {
 }
 
 export function ConfigModal(props: ConfigModalProps) {
-  const [french, setFrench] = createSignal(props.server.french ?? false);
+  const [language, setLanguage] = createSignal<Language>(serverLanguage(props.server));
   const [ethiopian, setEthiopian] = createSignal(props.server.ethiopian ?? false);
   const [openAccess, setOpenAccess] = createSignal(props.server.openAccess ?? false);
   const [label, setLabel] = createSignal(props.server.label);
   const [category, setCategory] = createSignal(props.currentCategory);
 
   const hasChanges = () =>
-    french() !== (props.server.french ?? false) ||
+    language() !== serverLanguage(props.server) ||
     ethiopian() !== (props.server.ethiopian ?? false) ||
     openAccess() !== (props.server.openAccess ?? false) ||
     label() !== props.server.label ||
@@ -29,7 +37,11 @@ export function ConfigModal(props: ConfigModalProps) {
 
   const handleSave = async () => {
     const changes: ConfigChanges = {};
-    if (french() !== (props.server.french ?? false)) changes.french = french();
+    if (language() !== serverLanguage(props.server)) {
+      // Language is mutually exclusive — always send both flags together.
+      changes.french = language() === 'french';
+      changes.portuguese = language() === 'portuguese';
+    }
     if (ethiopian() !== (props.server.ethiopian ?? false)) changes.ethiopian = ethiopian();
     if (openAccess() !== (props.server.openAccess ?? false)) changes.openAccess = openAccess();
     if (label() !== props.server.label) changes.label = label();
@@ -63,17 +75,24 @@ export function ConfigModal(props: ConfigModalProps) {
               <div class="config-toggle-group">
                 <button
                   type="button"
-                  class={`config-toggle-btn ${!french() ? 'active' : ''}`}
-                  onClick={() => setFrench(false)}
+                  class={`config-toggle-btn ${language() === 'english' ? 'active' : ''}`}
+                  onClick={() => setLanguage('english')}
                 >
                   English
                 </button>
                 <button
                   type="button"
-                  class={`config-toggle-btn ${french() ? 'active' : ''}`}
-                  onClick={() => setFrench(true)}
+                  class={`config-toggle-btn ${language() === 'french' ? 'active' : ''}`}
+                  onClick={() => setLanguage('french')}
                 >
                   French
+                </button>
+                <button
+                  type="button"
+                  class={`config-toggle-btn ${language() === 'portuguese' ? 'active' : ''}`}
+                  onClick={() => setLanguage('portuguese')}
+                >
+                  Portuguese
                 </button>
               </div>
             </div>

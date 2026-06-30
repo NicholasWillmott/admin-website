@@ -63,7 +63,7 @@ export function CreateServerModal(props: CreateServerModalProps) {
   const [subdomain, setSubdomain] = createSignal('');
   const [category, setCategory] = createSignal('');
   const [volume, setVolume] = createSignal('');
-  const [french, setFrench] = createSignal(false);
+  const [language, setLanguage] = createSignal<'english' | 'french' | 'portuguese'>('english');
   const [ethiopian, setEthiopian] = createSignal(false);
   const [openAccess, setOpenAccess] = createSignal(false);
   const [steps, setSteps] = createSignal<Step[]>(INITIAL_STEPS.map(s => ({ ...s })));
@@ -175,8 +175,8 @@ export function CreateServerModal(props: CreateServerModalProps) {
     if (!ok6) { setFinished(true); return; }
 
     const ok7 = await runStep(6, async () => {
-      if (french()) {
-        const r = await updateServerLanguageApi(sub, true, token);
+      if (language() !== 'english') {
+        const r = await updateServerLanguageApi(sub, language() === 'french', language() === 'portuguese', token);
         if (!r.success) return r;
       }
       if (ethiopian()) {
@@ -298,8 +298,9 @@ export function CreateServerModal(props: CreateServerModalProps) {
                 <div class="config-row">
                   <span class="config-label">Language</span>
                   <div class="config-toggle-group">
-                    <button type="button" class={`config-toggle-btn ${!french() ? 'active' : ''}`} onClick={() => setFrench(false)}>English</button>
-                    <button type="button" class={`config-toggle-btn ${french() ? 'active' : ''}`} onClick={() => setFrench(true)}>French</button>
+                    <button type="button" class={`config-toggle-btn ${language() === 'english' ? 'active' : ''}`} onClick={() => setLanguage('english')}>English</button>
+                    <button type="button" class={`config-toggle-btn ${language() === 'french' ? 'active' : ''}`} onClick={() => setLanguage('french')}>French</button>
+                    <button type="button" class={`config-toggle-btn ${language() === 'portuguese' ? 'active' : ''}`} onClick={() => setLanguage('portuguese')}>Portuguese</button>
                   </div>
                 </div>
                 <div class="config-row">

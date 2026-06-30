@@ -325,7 +325,7 @@ export function Users(p: UsersProps) {
                             </div>
                             {languageReportStats() && (
                                 <span style={{ color: '#94a3b8', 'font-size': '12px' }}>
-                                    FR: {languageReportStats()!.french} · EN: {languageReportStats()!.english} · Both: {languageReportStats()!.both} · Neither: {languageReportStats()!.neither}
+                                    FR: {languageReportStats()!.french} · PT: {languageReportStats()!.portuguese} · EN: {languageReportStats()!.english} · Multi: {languageReportStats()!.multiple} · Neither: {languageReportStats()!.neither}
                                     {languageReportStats()!.newEmailsAdded > 0 && ` · +${languageReportStats()!.newEmailsAdded} new`}
                                 </span>
                             )}

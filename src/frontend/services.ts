@@ -390,11 +390,11 @@ export async function unlockServerApi(serverId: string, token: string | null): P
   }
 }
 
-export async function updateServerLanguageApi(serverId: string, french: boolean, token: string | null): Promise<{ success: boolean; error?: string }> {
+export async function updateServerLanguageApi(serverId: string, french: boolean, portuguese: boolean, token: string | null): Promise<{ success: boolean; error?: string }> {
   const response = await fetch(`${API_BASE}/api/servers/update/language`, {
     method: 'POST',
     headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ serverId, french }),
+    body: JSON.stringify({ serverId, french, portuguese }),
   });
   return await response.json();
 }
@@ -788,8 +788,9 @@ export async function exportIndicatorsCsvApi(serverIds: string[], token: string 
 
 export interface LanguageReportStats {
   french: number;
+  portuguese: number;
   english: number;
-  both: number;
+  multiple: number;
   neither: number;
   newEmailsAdded: number;
   totalTracked: number;

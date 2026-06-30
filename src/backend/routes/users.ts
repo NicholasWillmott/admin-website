@@ -91,19 +91,23 @@ router.post("/language-report", async (c) => {
 
     // Fetch all servers
     const serversResp = await fetch("https://central.fastr-analytics.org/servers.json");
-    const servers: { id: string; french?: boolean }[] = await serversResp.json();
+    type ServerLangFlags = { id: string; french?: boolean; portuguese?: boolean };
+    const servers: ServerLangFlags[] = await serversResp.json();
+    const serverLanguage = (s: ServerLangFlags): Language =>
+        s.portuguese ? "portuguese" : s.french ? "french" : "english";
 
     // Fetch server users in parallel (up to 8 concurrent)
-    const serverInfo = new Map<string, { isFrench: boolean; users: Set<string> }>();
+    type Language = "french" | "portuguese" | "english";
+    const serverInfo = new Map<string, { language: Language; users: Set<string> }>();
     const CONCURRENCY = 8;
     const queue = [...servers];
-    async function fetchServer(s: { id: string; french?: boolean }) {
+    async function fetchServer(s: ServerLangFlags) {
         try {
             const r = await fetch(`https://${s.id}.fastr-analytics.org/health_check`, { signal: AbortSignal.timeout(15000) });
             if (!r.ok) return;
             const data = await r.json();
             const users = new Set<string>((data.serverUsers ?? []).map((u: string) => u.toLowerCase()));
-            serverInfo.set(s.id, { isFrench: s.french ?? false, users });
+            serverInfo.set(s.id, { language: serverLanguage(s), users });
         } catch { /* skip offline servers */ }
     }
     const workers: Promise<void>[] = [];
@@ -114,31 +118,40 @@ router.post("/language-report", async (c) => {
     for (let i = 0; i < Math.min(CONCURRENCY, queue.length); i++) workers.push(worker());
     await Promise.all(workers);
 
-    // Categorise
-    type Cat = "french-only" | "english-only" | "both" | "neither";
-    const cols: Record<Cat, string[]> = { "french-only": [], "english-only": [], both: [], neither: [] };
-    const detail: string[] = ["email,category,french_servers,english_servers,not_on_any_server"];
+    // Categorise. Language is mutually exclusive per server, so a user lands in a
+    // single-language bucket, "multiple" if they span more than one language, or
+    // "neither" if they're on no server.
+    type Cat = "french-only" | "portuguese-only" | "english-only" | "multiple" | "neither";
+    const cols: Record<Cat, string[]> = { "french-only": [], "portuguese-only": [], "english-only": [], multiple: [], neither: [] };
+    const detail: string[] = ["email,category,french_servers,portuguese_servers,english_servers,not_on_any_server"];
+
+    const serversForLanguage = (email: string, language: Language) =>
+        [...serverInfo.entries()].filter(([, v]) => v.language === language && v.users.has(email)).map(([id]) => id).sort();
 
     for (const email of allEmails) {
-        const fr = [...serverInfo.entries()].filter(([, v]) => v.isFrench && v.users.has(email)).map(([id]) => id).sort();
-        const en = [...serverInfo.entries()].filter(([, v]) => !v.isFrench && v.users.has(email)).map(([id]) => id).sort();
+        const fr = serversForLanguage(email, "french");
+        const pt = serversForLanguage(email, "portuguese");
+        const en = serversForLanguage(email, "english");
+        const present = [fr, pt, en].filter((s) => s.length > 0).length;
         let cat: Cat;
-        if (fr.length && en.length) cat = "both";
+        if (present > 1) cat = "multiple";
         else if (fr.length) cat = "french-only";
+        else if (pt.length) cat = "portuguese-only";
         else if (en.length) cat = "english-only";
         else cat = "neither";
         cols[cat].push(email);
-        detail.push(`${email},${cat},"${fr.join(",")}","${en.join(",")}",${cat === "neither" ? "yes" : ""}`);
+        detail.push(`${email},${cat},"${fr.join(",")}","${pt.join(",")}","${en.join(",")}",${cat === "neither" ? "yes" : ""}`);
     }
 
-    // Build four-column CSV
-    const maxRows = Math.max(cols["french-only"].length, cols["english-only"].length, cols.both.length, cols.neither.length);
-    const fourCol = ["french_servers,english_servers,both,neither"];
+    // Build column CSV (one column per category)
+    const maxRows = Math.max(...Object.values(cols).map((c) => c.length));
+    const fourCol = ["french_servers,portuguese_servers,english_servers,multiple,neither"];
     for (let i = 0; i < maxRows; i++) {
         fourCol.push([
             cols["french-only"][i] ?? "",
+            cols["portuguese-only"][i] ?? "",
             cols["english-only"][i] ?? "",
-            cols.both[i] ?? "",
+            cols.multiple[i] ?? "",
             cols.neither[i] ?? "",
         ].join(","));
     }
@@ -152,8 +165,9 @@ router.post("/language-report", async (c) => {
         detail: detail.join("\n"),
         stats: {
             french: cols["french-only"].length,
+            portuguese: cols["portuguese-only"].length,
             english: cols["english-only"].length,
-            both: cols.both.length,
+            multiple: cols.multiple.length,
             neither: cols.neither.length,
             newEmailsAdded: added.length,
             totalTracked: allEmails.length,

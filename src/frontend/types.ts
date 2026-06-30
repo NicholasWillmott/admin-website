@@ -6,6 +6,7 @@ export interface Server {
   instanceDir?: string;
   adminVersion?: string;
   french?: boolean;
+  portuguese?: boolean;
   ethiopian?: boolean;
   openAccess?: boolean;
   volume?: string;

@@ -260,22 +260,40 @@ router.post("/update/language", async (c) => {
     const authError = await requireAdmin(c);
     if (authError) return authError;
 
-    const body = await c.req.json<{ serverId: string, french: boolean }>();
+    const body = await c.req.json<{ serverId: string, french: boolean, portuguese?: boolean }>();
     const serverId: string = body.serverId;
     const french: boolean = body.french;
+    const portuguese: boolean = body.portuguese ?? false;
 
-    const command = `wb c update ${serverId} --french ${french}`
+    // Language is mutually exclusive (English / French / Portuguese), so always
+    // set both flags to keep them coherent — at most one can be true.
+    const commands = [
+        `wb c update ${serverId} --french ${french}`,
+        `wb c update ${serverId} --portuguese ${portuguese}`,
+    ];
 
-    if (!isCommandAllowed(command)) {
+    if (commands.some((command) => !isCommandAllowed(command))) {
         return c.json({ error: "command not allowed" }, 403);
     }
 
     try {
-        const result = await executeCommand(getDropletIp(), command);
+        const ip = getDropletIp();
+        const results = [];
+        for (const command of commands) {
+            const result = await executeCommand(ip, command);
+            results.push(result);
+            if (!result.success) {
+                return c.json({
+                    success: false,
+                    message: result.stdout,
+                    error: result.stderr,
+                });
+            }
+        }
         return c.json({
-            success: result.success,
-            message: result.stdout,
-            error: result.stderr,
+            success: true,
+            message: results.map((r) => r.stdout).join("\n"),
+            error: results.map((r) => r.stderr).join("\n"),
         });
     } catch (error) {
         return c.json({ error: String(error) }, 500);
