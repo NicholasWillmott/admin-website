@@ -9,6 +9,7 @@ import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { AiUsageView } from './components/views/AiUsageView.tsx';
 import { PgStatStatementsView } from './components/views/PgStatStatementsView.tsx';
 import { HistoryView } from './components/views/HistoryView.tsx';
+import { AccessLogView } from './components/views/AccessLogView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { ServerVersionsModal } from './components/modals/ServerVersionsModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
@@ -48,6 +49,8 @@ import {
   fetchHUsers,
   fetchAllServerUserLogsAggregate,
   fetchAllServerUserLogsAll,
+  recordSiteAccess,
+  fetchAccessLogs,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -273,6 +276,28 @@ function App() {
 
   const { user: currentUser } = useUser();
   const isAdmin = () => currentUser()?.publicMetadata?.isAdmin === true;
+  const SUPER_USER_EMAIL = "nick@usefuldata.com.au";
+  const isSuperUser = () =>
+    currentUser()?.primaryEmailAddress?.emailAddress?.toLowerCase() === SUPER_USER_EMAIL;
+
+  // Record a site visit once the user is signed in as an admin. The latch keeps
+  // it to a single entry per page load (createEffect re-runs as Clerk resolves).
+  let accessRecorded = false;
+  createEffect(() => {
+    if (!accessRecorded && currentUser() && isAdmin()) {
+      accessRecorded = true;
+      getToken().then(token => recordSiteAccess(token));
+    }
+  });
+
+  // Access log entries — lazy: only fetches when the super user opens the tab.
+  const [accessLogs, { refetch: refetchAccessLogs }] = createResource(
+    () => activeView() === "accessLog" && isSuperUser() ? true : null,
+    async () => {
+      const token = await getToken();
+      return fetchAccessLogs(token);
+    }
+  );
 
   // delete snapshot of volume
   const deleteVolumeSnapshot = async (snapshotId: string) => {
@@ -433,6 +458,7 @@ function App() {
           <Sidebar
             activeView={activeView}
             onSelect={setActiveView}
+            isSuperUser={isSuperUser}
             actions={[
               { label: 'Docker Pull', iconPath: 'M12 4v10m0 0l-4-4m4 4l4-4M5 19h14', onClick: () => setDockerPullModalOpen(true) },
               { label: 'Server Versions', iconPath: 'M4 4h6l10 10-6 6L4 10V4zM8 8h.01', onClick: () => setServerVersionsModalOpen(true) },
@@ -563,6 +589,15 @@ function App() {
               aggregateLoading={aggregateLogs.loading}
               rawLogs={allRawUserLogs()}
               rawLoading={allRawUserLogs.loading}
+            />
+          </Show>
+
+          <Show when={activeView() === "accessLog" && isSuperUser()}>
+            <AccessLogView
+              entries={accessLogs()}
+              loading={accessLogs.loading}
+              error={accessLogs.error}
+              onRefetch={refetchAccessLogs}
             />
           </Show>
 

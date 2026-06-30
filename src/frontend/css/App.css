@@ -6063,3 +6063,104 @@ h1 {
   font-size: 0.8125rem;
   color: #94a3b8;
 }
+
+/* ── Site Access Log ─────────────────────────────────────────── */
+.access-log-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.access-log-search {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 14px;
+  padding: 8px 12px;
+  min-width: 240px;
+}
+
+.access-log-search::placeholder {
+  color: #64748b;
+}
+
+.access-log-search:focus {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+  outline: none;
+}
+
+.access-log-stats {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.access-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.access-log-table thead tr {
+  background: rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.access-log-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  padding: 12px 16px;
+}
+
+.access-log-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.access-log-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.access-log-email {
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.access-log-time {
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.access-log-ua {
+  color: #94a3b8;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.access-log-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.access-log-page-info {
+  font-size: 13px;
+  color: #94a3b8;
+}

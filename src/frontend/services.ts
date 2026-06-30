@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits, AccessLogEntry } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -121,6 +121,34 @@ export async function dockerPull(version: string, token: string | null, type: 's
   } catch (error) {
     console.error(`failed to pull version ${version}:`, error);
     return null;
+  }
+}
+
+// Record a single site visit. Best-effort: failures are logged, not surfaced.
+export async function recordSiteAccess(token: string | null): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/api/access-log`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+    });
+  } catch (error) {
+    console.error('Failed to record site access:', error);
+  }
+}
+
+// Read the admin access log. Backend restricts this to the super user; a 403
+// simply yields an empty list here.
+export async function fetchAccessLogs(token: string | null): Promise<AccessLogEntry[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/access-log`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.entries || [];
+  } catch (error) {
+    console.error('Failed to fetch access logs:', error);
+    return [];
   }
 }
 

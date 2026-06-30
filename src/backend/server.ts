@@ -20,6 +20,7 @@ import volumesRouter from "./routes/volumes.ts";
 import emailsRouter from "./routes/emails.ts";
 import changelogRouter from "./routes/changelog.ts";
 import indicatorsRouter from "./routes/indicators.ts";
+import accessLogRouter from "./routes/accessLog.ts";
 const app = new Hono();
 
 app.use("*", cors({
@@ -50,6 +51,7 @@ app.route("/api/volumes", volumesRouter);
 app.route("/api/emails", emailsRouter);
 app.route("/api/changelog", changelogRouter);
 app.route("/api/servers", indicatorsRouter);
+app.route("/api/access-log", accessLogRouter);
 const PORT = parseInt(Deno.env.get("PORT") || "3001");
 console.log(`Server running on http://localhost:${PORT}`);
 Deno.serve({ port: PORT }, app.fetch);

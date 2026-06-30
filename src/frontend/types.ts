@@ -193,7 +193,14 @@ export interface ChangelogVersion {
   types: ChangelogTypeGroup[];
 }
 
-export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs";
+export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs" | "accessLog";
+
+export interface AccessLogEntry {
+  email: string;
+  userId: string;
+  timestamp: string;
+  userAgent: string;
+}
 
 export interface PgStatStatement {
   datname: string | null;
