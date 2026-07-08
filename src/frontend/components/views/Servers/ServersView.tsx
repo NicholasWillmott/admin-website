@@ -8,6 +8,7 @@ import { BackupsModal } from '../../modals/BackupsModal.tsx';
 import { ServerMultiSelectModal } from '../../modals/ServerMultiSelectModal.tsx';
 import { DeleteServerModal } from '../../modals/DeleteServerModal.tsx';
 import { ConfigModal } from '../../modals/ConfigModal.tsx';
+import { RestartConfigModal } from '../../modals/RestartConfigModal.tsx';
 import { MoveVolumeModal } from '../../modals/MoveVolumeModal.tsx';
 import type { Server, ServerRestartStatus, BackupInfo, HealthCheckResponse, ServerUserLogs } from '../../../types.ts';
 import type { ServerCategory } from '../../../services.ts';
@@ -74,6 +75,9 @@ export function ServersView(props: ServersViewProps) {
 
   // track config modal
   const [configModalServerId, setConfigModalServerId] = createSignal<string | null>(null);
+
+  // track the "restart to apply config" prompt shown after a successful config save
+  const [restartPromptServerId, setRestartPromptServerId] = createSignal<string | null>(null);
 
   // track move volume modal
   const [moveVolumeModalId, setMoveVolumeModalId] = createSignal<string | null>(null);
@@ -522,6 +526,8 @@ export function ServersView(props: ServersViewProps) {
       props.mutate(props.servers()?.map(s => s.id === serverId ? { ...s, ...changes } : s));
       addToast('Configuration saved', 'success');
       setConfigModalServerId(null);
+      // Config changes only take effect on restart — prompt the user to do it now.
+      setRestartPromptServerId(serverId);
     } catch (error) {
       addToast(`Error: ${error}`, 'error');
     } finally {
@@ -710,6 +716,19 @@ export function ServersView(props: ServersViewProps) {
           currentCategory={(props.categories() || []).find(c => c.servers.includes(configModalServerId()!))?.name ?? ''}
           onClose={() => setConfigModalServerId(null)}
           onSave={handleSaveConfig}
+        />
+      )}
+
+      {/* Restart-to-apply-config prompt (shown after a successful config save) */}
+      {restartPromptServerId() && (
+        <RestartConfigModal
+          serverLabel={props.servers()?.find(s => s.id === restartPromptServerId())?.label ?? restartPromptServerId()!}
+          onRestartNow={() => {
+            const id = restartPromptServerId()!;
+            setRestartPromptServerId(null);
+            restartServer(id);
+          }}
+          onClose={() => setRestartPromptServerId(null)}
         />
       )}
 
