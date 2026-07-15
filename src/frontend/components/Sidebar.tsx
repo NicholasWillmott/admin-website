@@ -64,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'pgStatements', label: 'Postgres Statements', iconPath: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5' },
       { id: 'moduleEditor', label: 'Module Definitions', iconPath: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
       { id: 'changelog', label: 'History', iconPath: 'M12 8v4l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18' },
+      { id: 'siteAdmins', label: 'Site Admins', iconPath: 'M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3zM9.5 12l2 2 4-4' },
     ],
   },
 ];

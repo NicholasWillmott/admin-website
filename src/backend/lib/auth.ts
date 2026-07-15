@@ -36,6 +36,12 @@ function getIsAdmin(userId: string): Promise<boolean> {
   return promise;
 }
 
+// Called when this app itself changes a user's admin flag (routes/admins.ts) so the
+// change applies immediately instead of after ADMIN_CACHE_TTL_MS.
+export function invalidateAdminStatus(userId: string) {
+  adminStatusCache.delete(userId);
+}
+
 async function fetchIsAdminFromClerk(userId: string): Promise<boolean> {
   const clerkSecretKey = Deno.env.get("CLERK_SECRET_KEY");
   const response = await fetch(`https://api.clerk.com/v1/users/${userId}`, {

@@ -10,6 +10,7 @@ import { AiUsageView } from './components/views/AiUsageView.tsx';
 import { PgStatStatementsView } from './components/views/PgStatStatementsView.tsx';
 import { HistoryView } from './components/views/HistoryView.tsx';
 import { AccessLogView } from './components/views/AccessLogView.tsx';
+import { SiteAdminsView } from './components/views/SiteAdminsView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { ServerVersionsModal } from './components/modals/ServerVersionsModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
@@ -51,6 +52,7 @@ import {
   fetchAllServerUserLogsAll,
   recordSiteAccess,
   fetchAccessLogs,
+  getSiteAdminsApi,
 } from './services.ts';
 import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
@@ -296,6 +298,15 @@ function App() {
     async () => {
       const token = await getToken();
       return fetchAccessLogs(token);
+    }
+  );
+
+  // Site admins (people with access to this dashboard) — lazy: only fetches when the tab is opened.
+  const [siteAdmins, { refetch: refetchSiteAdmins }] = createResource(
+    () => activeView() === "siteAdmins" ? true : null,
+    async () => {
+      const token = await getToken();
+      return getSiteAdminsApi(token);
     }
   );
 
@@ -630,6 +641,18 @@ function App() {
                 const token = await getToken();
                 return fetchServerStatus(serverId, token);
               }}
+            />
+          </Show>
+
+          <Show when={activeView() === "siteAdmins"}>
+            <SiteAdminsView
+              data={siteAdmins()}
+              loading={siteAdmins.loading}
+              onRefetch={refetchSiteAdmins}
+              allUsers={clerkUsers()}
+              isSuperUser={isSuperUser}
+              superUserEmail={SUPER_USER_EMAIL}
+              getToken={getToken}
             />
           </Show>
 

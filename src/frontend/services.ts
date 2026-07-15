@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits, AccessLogEntry } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits, AccessLogEntry, SiteAdminsData } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -339,6 +339,50 @@ export async function getUserSessionsApi(userId: string, token: string | null, s
     console.error(`Failed to fetch sessions for user ${userId}:`, error);
     return [];
   }
+}
+
+export async function getSiteAdminsApi(token: string | null): Promise<SiteAdminsData | null> {
+  try {
+    const response = await fetch(`${API_BASE}/api/admins`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch site admins:", error);
+    return null;
+  }
+}
+
+async function postAdminAction(path: string, body: Record<string, string> | null, token: string | null): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE}/api/admins${path}`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) return { success: false, error: data?.error || `Request failed (${response.status})` };
+    return data ?? { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+export function grantAdminApi(userId: string, token: string | null) {
+  return postAdminAction('/grant', { userId }, token);
+}
+
+export function revokeAdminApi(userId: string, token: string | null) {
+  return postAdminAction('/revoke', { userId }, token);
+}
+
+export function inviteAdminApi(email: string, token: string | null) {
+  return postAdminAction('/invite', { email }, token);
+}
+
+export function revokeAdminInviteApi(invitationId: string, token: string | null) {
+  return postAdminAction(`/invitations/${encodeURIComponent(invitationId)}/revoke`, null, token);
 }
 
 export async function getUserActivityApi(serverId: string, email: string, token: string | null): Promise<string[]> {

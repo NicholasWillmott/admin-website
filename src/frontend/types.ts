@@ -194,7 +194,20 @@ export interface ChangelogVersion {
   types: ChangelogTypeGroup[];
 }
 
-export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs" | "accessLog";
+export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs" | "accessLog" | "siteAdmins";
+
+export interface ClerkInvitation {
+  id: string;
+  email_address: string;
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
+  created_at: number; // Unix ms
+  updated_at: number; // Unix ms
+}
+
+export interface SiteAdminsData {
+  admins: ClerkUser[];
+  invitations: ClerkInvitation[];
+}
 
 export interface AccessLogEntry {
   email: string;
