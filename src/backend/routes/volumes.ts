@@ -196,7 +196,15 @@ router.post("/resize", async (c) => {
     { headers: { "Authorization": `Bearer ${doToken}` } },
   ).catch(() => null);
   if (!lookup?.ok) {
-    return c.json({ success: false, error: `Failed to look up volume "${volumeName}"` }, 500);
+    const err = await lookup?.json().catch(() => ({})) ?? {};
+    const tokenFp = `len=${doToken.length} …${doToken.slice(-4)}`;
+    console.error(`[volumes/resize] DO volume lookup failed for "${volumeName}": HTTP ${lookup?.status} ${JSON.stringify(err)} (DO token ${tokenFp})`);
+    return c.json({
+      success: false,
+      error: `Failed to look up volume "${volumeName}" (DO HTTP ${lookup?.status ?? "network error"}, token ${tokenFp})`,
+      doStatus: lookup?.status,
+      doError: err,
+    }, 500);
   }
   const lookupData = await lookup.json();
   const volume = lookupData.volumes?.[0];
