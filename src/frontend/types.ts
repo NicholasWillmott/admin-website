@@ -194,7 +194,27 @@ export interface ChangelogVersion {
   types: ChangelogTypeGroup[];
 }
 
-export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs" | "accessLog" | "siteAdmins";
+export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs" | "accessLog" | "siteAdmins" | "whatsNew";
+
+export type WhatsNewImagePosition = "top" | "bottom" | "left" | "right";
+
+export interface WhatsNewPage {
+  title?: string;
+  body: string; // markdown, rendered by the platform client
+  imageUrl?: string;
+  imagePosition?: WhatsNewImagePosition; // default "top"
+}
+
+export interface WhatsNewPost {
+  id: string;
+  version: string; // platform version this post is tied to, e.g. "1.62.0"
+  title: string;
+  pages: WhatsNewPage[];
+  adminsOnly: boolean;
+  published: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface ClerkInvitation {
   id: string;

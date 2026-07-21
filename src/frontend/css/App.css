@@ -6164,3 +6164,344 @@ h1 {
   font-size: 13px;
   color: #94a3b8;
 }
+
+/* ─── What's New view ─────────────────────────────────────────────────── */
+
+.whats-new-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.whats-new-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.whats-new-empty,
+.whats-new-placeholder {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 20px 24px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.whats-new-hint {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.whats-new-list-item {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 14px 16px;
+  text-align: left;
+  cursor: pointer;
+  color: #cbd5e1;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.whats-new-list-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: #0d9488;
+}
+
+.whats-new-list-item.active {
+  border-color: #0d9488;
+  background: rgba(13, 148, 136, 0.08);
+}
+
+.whats-new-list-item-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.whats-new-list-item-title {
+  color: #e2e8f0;
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whats-new-version {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: #5eead4;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.whats-new-list-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.whats-new-list-item-date {
+  color: #94a3b8;
+  margin-left: auto;
+}
+
+.whats-new-status {
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.whats-new-status.published {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.whats-new-status.draft {
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+}
+
+.whats-new-status.admins {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+}
+
+.whats-new-editor {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.whats-new-fields {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.whats-new-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+.whats-new-field .modal-input {
+  width: 100%;
+}
+
+.whats-new-version-input {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: #5eead4;
+  width: 120px;
+}
+
+.whats-new-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e1;
+  font-size: 14px;
+  cursor: pointer;
+  padding-bottom: 8px;
+}
+
+.whats-new-check input {
+  accent-color: #0d9488;
+}
+
+.whats-new-page-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+
+.whats-new-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.whats-new-page-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+}
+
+.whats-new-page-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.whats-new-page-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.whats-new-page-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.whats-new-body-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 140px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.whats-new-field input[type="file"] {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.whats-new-image-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.whats-new-thumb {
+  max-width: 160px;
+  max-height: 100px;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.whats-new-image-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.whats-new-pos-toggle {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.whats-new-pos-toggle button {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.whats-new-pos-toggle button.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.whats-new-uploading {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.whats-new-preview {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.whats-new-preview-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+  margin-bottom: 12px;
+}
+
+.whats-new-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.whats-new-preview-body.preview-row {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.whats-new-preview-img {
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  object-fit: contain;
+}
+
+.whats-new-preview-img.full {
+  width: 100%;
+}
+
+.whats-new-preview-img.side {
+  width: 40%;
+  flex-shrink: 0;
+}
+
+.whats-new-preview-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.whats-new-preview-title {
+  color: #e2e8f0;
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.whats-new-preview-md {
+  white-space: pre-wrap;
+  color: #cbd5e1;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+.whats-new-editor-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (max-width: 1200px) {
+  .whats-new-layout {
+    grid-template-columns: 1fr;
+  }
+  .whats-new-page-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits, AccessLogEntry, SiteAdminsData } from './types.ts';
+import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits, AccessLogEntry, SiteAdminsData, WhatsNewPost } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -859,3 +859,56 @@ export async function generateLanguageReportApi(token: string | null): Promise<L
   }
 }
 
+
+// ─── What's New posts ───────────────────────────────────────────────────────
+
+export async function fetchWhatsNewPostsAdminApi(token: string | null): Promise<WhatsNewPost[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/whats-new/admin/posts`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.posts ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createWhatsNewPostApi(post: Omit<WhatsNewPost, 'id' | 'createdAt' | 'updatedAt'>, token: string | null): Promise<{ success: boolean; post?: WhatsNewPost; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/whats-new/admin/posts`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(post),
+  });
+  return await response.json();
+}
+
+export async function updateWhatsNewPostApi(id: string, post: Omit<WhatsNewPost, 'id' | 'createdAt' | 'updatedAt'>, token: string | null): Promise<{ success: boolean; post?: WhatsNewPost; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/whats-new/admin/posts/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(post),
+  });
+  return await response.json();
+}
+
+export async function deleteWhatsNewPostApi(id: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/whats-new/admin/posts/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(token),
+  });
+  return await response.json();
+}
+
+export async function uploadWhatsNewImageApi(file: File, token: string | null): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  // No Content-Type header — the browser sets the multipart boundary
+  const response = await fetch(`${API_BASE}/api/whats-new/admin/upload`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: formData,
+  });
+  return await response.json();
+}

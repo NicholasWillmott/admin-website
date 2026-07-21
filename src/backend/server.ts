@@ -22,6 +22,7 @@ import changelogRouter from "./routes/changelog.ts";
 import indicatorsRouter from "./routes/indicators.ts";
 import accessLogRouter from "./routes/accessLog.ts";
 import adminsRouter from "./routes/admins.ts";
+import whatsNewRouter from "./routes/whatsnew.ts";
 const app = new Hono();
 
 app.use("*", cors({
@@ -54,6 +55,7 @@ app.route("/api/changelog", changelogRouter);
 app.route("/api/servers", indicatorsRouter);
 app.route("/api/access-log", accessLogRouter);
 app.route("/api/admins", adminsRouter);
+app.route("/api/whats-new", whatsNewRouter);
 const PORT = parseInt(Deno.env.get("PORT") || "3001");
 console.log(`Server running on http://localhost:${PORT}`);
 Deno.serve({ port: PORT }, app.fetch);

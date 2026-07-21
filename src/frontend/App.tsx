@@ -11,6 +11,7 @@ import { PgStatStatementsView } from './components/views/PgStatStatementsView.ts
 import { HistoryView } from './components/views/HistoryView.tsx';
 import { AccessLogView } from './components/views/AccessLogView.tsx';
 import { SiteAdminsView } from './components/views/SiteAdminsView.tsx';
+import { WhatsNewView } from './components/views/WhatsNewView.tsx';
 import { DockerPullModal } from './components/modals/DockerPullModal.tsx';
 import { ServerVersionsModal } from './components/modals/ServerVersionsModal.tsx';
 import { CreateServerModal } from './components/modals/CreateServerModal.tsx';
@@ -653,6 +654,10 @@ function App() {
               superUserEmail={SUPER_USER_EMAIL}
               getToken={getToken}
             />
+          </Show>
+
+          <Show when={activeView() === "whatsNew"}>
+            <WhatsNewView getToken={getToken} />
           </Show>
 
         </Show>
