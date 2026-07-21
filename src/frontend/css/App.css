@@ -6354,10 +6354,9 @@ h1 {
 }
 
 .whats-new-page-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  align-items: start;
 }
 
 .whats-new-page-inputs {
@@ -6453,6 +6452,14 @@ h1 {
    the admin theme. */
 
 .wn-modal {
+  /* Actual platform dimensions: ModalContainer width="lg" is
+     min(800px, 100vw - 6rem) with max-h-[80vh] and internal content scroll */
+  width: min(800px, calc(100vw - 6rem));
+  max-width: 100%;
+  max-height: 80vh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
   background: #ffffff;
   color: #2a2a2a;
   border: 1px solid #cacaca;
@@ -6465,6 +6472,7 @@ h1 {
 }
 
 .wn-modal-header {
+  flex-shrink: 0;
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid #cacaca;
   font-size: 1.25rem;
@@ -6477,6 +6485,8 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .wn-modal-page-title {
@@ -6510,6 +6520,7 @@ h1 {
 }
 
 .wn-modal-footer {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -6717,9 +6728,6 @@ h1 {
 
 @media (max-width: 1200px) {
   .whats-new-layout {
-    grid-template-columns: 1fr;
-  }
-  .whats-new-page-grid {
     grid-template-columns: 1fr;
   }
 }
