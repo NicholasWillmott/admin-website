@@ -35,6 +35,12 @@ function emptyPage(): WhatsNewPage {
   return { body: '' };
 }
 
+// Effective image width %: platform default is full width on top/bottom, 40% beside text
+export function imageWidthOf(page: WhatsNewPage): number {
+  if (page.imageWidth !== undefined) return page.imageWidth;
+  return page.imagePosition === 'left' || page.imagePosition === 'right' ? 40 : 100;
+}
+
 export function WhatsNewView(props: WhatsNewViewProps) {
   const [posts, setPosts] = createSignal<WhatsNewPost[]>([]);
   const [loading, setLoading] = createSignal(true);
@@ -344,9 +350,20 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                         )}
                                       </For>
                                     </div>
+                                    <label class="whats-new-size-label">
+                                      Size: {imageWidthOf(page())}%
+                                      <input
+                                        type="range"
+                                        min="10"
+                                        max="100"
+                                        step="5"
+                                        value={imageWidthOf(page())}
+                                        onInput={(e) => updatePage(idx, { imageWidth: Number(e.currentTarget.value) })}
+                                      />
+                                    </label>
                                     <button
                                       class="system-btn"
-                                      onClick={() => updatePage(idx, { imageUrl: undefined, imagePosition: undefined })}
+                                      onClick={() => updatePage(idx, { imageUrl: undefined, imagePosition: undefined, imageWidth: undefined })}
                                     >Remove image</button>
                                   </div>
                                 </div>
@@ -363,6 +380,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                               page={page()}
                               pageIndex={idx}
                               pageCount={d().pages.length}
+                              onImageWidthChange={(w) => updatePage(idx, { imageWidth: w })}
                             />
                           </div>
                         </div>

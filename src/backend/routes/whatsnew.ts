@@ -32,6 +32,7 @@ interface WhatsNewPage {
   body: string;
   imageUrl?: string;
   imagePosition?: WhatsNewImagePosition;
+  imageWidth?: number; // % of content width, 10-100
 }
 
 interface WhatsNewPost {
@@ -87,11 +88,19 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
     }
     if (page.imageUrl !== undefined && typeof page.imageUrl !== "string") return { error: "Invalid image URL" };
     if (page.title !== undefined && typeof page.title !== "string") return { error: "Invalid page title" };
+    if (
+      page.imageWidth !== undefined &&
+      (typeof page.imageWidth !== "number" || !Number.isFinite(page.imageWidth) ||
+        page.imageWidth < 10 || page.imageWidth > 100)
+    ) {
+      return { error: "Image width must be between 10 and 100" };
+    }
     pages.push({
       ...(page.title?.trim() ? { title: page.title.trim() } : {}),
       body: page.body,
       ...(page.imageUrl ? { imageUrl: page.imageUrl } : {}),
       ...(page.imageUrl && page.imagePosition ? { imagePosition: page.imagePosition } : {}),
+      ...(page.imageUrl && page.imageWidth !== undefined ? { imageWidth: Math.round(page.imageWidth) } : {}),
     });
   }
   return { post: { title, version, pages, adminsOnly: b.adminsOnly === true, published: b.published === true } };

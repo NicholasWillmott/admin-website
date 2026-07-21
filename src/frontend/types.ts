@@ -203,6 +203,7 @@ export interface WhatsNewPage {
   body: string; // markdown, rendered by the platform client
   imageUrl?: string;
   imagePosition?: WhatsNewImagePosition; // default "top"
+  imageWidth?: number; // % of content width, 10-100; default 100 top/bottom, 40 left/right
 }
 
 export interface WhatsNewPost {
