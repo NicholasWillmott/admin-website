@@ -29,7 +29,6 @@ interface ServerCardProps {
   onToggleSelect: (id: string) => void;
   onDelete: (serverId: string) => void;
   onConfig: (serverId: string) => void;
-  onMoveVolume: (serverId: string) => void;
   onActivityDotClick: (serverId: string) => void;
 }
 
@@ -256,13 +255,6 @@ export function ServerCard(props: ServerCardProps) {
             <button class="action-btn" onClick={() => props.onViewBackups(props.server.id)}>View Backups</button>
             <button class="action-btn" onClick={() => props.onViewLogs(props.server.id)}>View Logs</button>
             <button class="action-btn" onClick={() => props.onConfig(props.server.id)}>Configuration</button>
-            <button
-              class="action-btn"
-              onClick={() => props.onMoveVolume(props.server.id)}
-              disabled={props.isLocked || props.sshOperationInProgress}
-            >
-              Move Volume
-            </button>
             <button
               class="action-btn danger"
               onClick={() => props.onDelete(props.server.id)}

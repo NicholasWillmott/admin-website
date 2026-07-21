@@ -9,7 +9,6 @@ import { ServerMultiSelectModal } from '../../modals/ServerMultiSelectModal.tsx'
 import { DeleteServerModal } from '../../modals/DeleteServerModal.tsx';
 import { ConfigModal } from '../../modals/ConfigModal.tsx';
 import { RestartConfigModal } from '../../modals/RestartConfigModal.tsx';
-import { MoveVolumeModal } from '../../modals/MoveVolumeModal.tsx';
 import type { Server, ServerRestartStatus, BackupInfo, HealthCheckResponse, ServerUserLogs } from '../../../types.ts';
 import type { ServerCategory } from '../../../services.ts';
 import {
@@ -31,7 +30,6 @@ import {
   updateServerOpenAccessApi,
   updateServerLabelApi,
   assignServerCategoryApi,
-  moveServerVolumeApi,
 } from '../../../services.ts';
 import { addToast } from '../../../stores/toastStore.ts';
 
@@ -52,7 +50,6 @@ interface ServersViewProps {
   onRequestUserLogs: () => void;
   serverVersions: Accessor<string[] | undefined>;
   centralVersions: Accessor<string[] | undefined>;
-  volumes: Accessor<string[] | undefined>;
   lockedServers: Accessor<Set<string>>;
   onToggleLock: (serverId: string) => void;
   sshOperationInProgress: Accessor<boolean>;
@@ -79,8 +76,6 @@ export function ServersView(props: ServersViewProps) {
   // track the "restart to apply config" prompt shown after a successful config save
   const [restartPromptServerId, setRestartPromptServerId] = createSignal<string | null>(null);
 
-  // track move volume modal
-  const [moveVolumeModalId, setMoveVolumeModalId] = createSignal<string | null>(null);
 
   // track which server's activity modal to show
   const [activityModalServerId, setActivityModalServerId] = createSignal<string | null>(null);
@@ -535,22 +530,6 @@ export function ServersView(props: ServersViewProps) {
     }
   };
 
-  const handleMoveVolume = async (serverId: string, newVolume: string) => {
-    props.setSshOperationInProgress(true);
-    try {
-      const token = await getToken();
-      const result = await moveServerVolumeApi(serverId, newVolume, token);
-      if (!result.success) { addToast(`Move failed: ${result.error}`, 'error'); return; }
-      await props.refetchServers();
-      addToast(`${serverId} moved to /mnt/${newVolume}`, 'success');
-      setMoveVolumeModalId(null);
-    } catch (error) {
-      addToast(`Move failed: ${error}`, 'error');
-    } finally {
-      props.setSshOperationInProgress(false);
-    }
-  };
-
   return (
     <>
       {(props.serversLoading || props.categoriesLoading) && <h2 class="loading-text">Loading...</h2>}
@@ -636,7 +615,6 @@ export function ServersView(props: ServersViewProps) {
                             }}
                             onDelete={(id) => setDeleteServerModalId(id)}
                             onConfig={(id) => setConfigModalServerId(id)}
-                            onMoveVolume={(id) => setMoveVolumeModalId(id)}
                             onActivityDotClick={(id) => { props.onRequestUserLogs(); setActivityModalServerId(id); }}
                           />
                         )}
@@ -732,16 +710,6 @@ export function ServersView(props: ServersViewProps) {
         />
       )}
 
-      {/* Move Volume Modal */}
-      {moveVolumeModalId() && (
-        <MoveVolumeModal
-          server={props.servers()!.find(s => s.id === moveVolumeModalId())!}
-          volumes={props.volumes() ?? []}
-          inProgress={props.sshOperationInProgress()}
-          onClose={() => setMoveVolumeModalId(null)}
-          onConfirm={handleMoveVolume}
-        />
-      )}
     </>
   );
 }

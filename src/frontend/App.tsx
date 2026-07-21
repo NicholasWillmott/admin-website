@@ -534,7 +534,6 @@ function App() {
               onRequestUserLogs={() => setUserLogsRequested(true)}
               serverVersions={serverVersions}
               centralVersions={centralVersions}
-              volumes={volumes}
               lockedServers={lockedServers}
               onToggleLock={toggleLock}
               sshOperationInProgress={sshOperationInProgress}
