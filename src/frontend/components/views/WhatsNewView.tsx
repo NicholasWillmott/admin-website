@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onMount } from 'solid-js';
+import { For, Index, Show, createSignal, onMount } from 'solid-js';
 import type { WhatsNewImagePosition, WhatsNewPage, WhatsNewPost } from '../../types.ts';
 import { formatDate } from '../../utils.ts';
 import {
@@ -120,6 +120,10 @@ export function WhatsNewView(props: WhatsNewViewProps) {
 
   async function handleUpload(idx: number, file: File | undefined) {
     if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      addToast('File too large (max 10MB)', 'error');
+      return;
+    }
     setUploadingPage(idx);
     const token = await props.getToken();
     const result = await uploadWhatsNewImageApi(file, token);
@@ -275,15 +279,17 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                     </label>
                   </div>
 
-                  <For each={d().pages}>
+                  {/* Index (not For): items are recreated on every keystroke, so
+                      identity-keyed For would remount the card and drop focus */}
+                  <Index each={d().pages}>
                     {(page, idx) => (
                       <div class="whats-new-page-card">
                         <div class="whats-new-page-header">
-                          <span class="whats-new-page-label">Page {idx() + 1} of {d().pages.length}</span>
+                          <span class="whats-new-page-label">Page {idx + 1} of {d().pages.length}</span>
                           <div class="whats-new-page-actions">
-                            <button class="system-btn" disabled={idx() === 0} onClick={() => movePage(idx(), -1)}>↑</button>
-                            <button class="system-btn" disabled={idx() === d().pages.length - 1} onClick={() => movePage(idx(), 1)}>↓</button>
-                            <button class="system-btn" disabled={d().pages.length === 1} onClick={() => removePage(idx())}>Delete page</button>
+                            <button class="system-btn" disabled={idx === 0} onClick={() => movePage(idx, -1)}>↑</button>
+                            <button class="system-btn" disabled={idx === d().pages.length - 1} onClick={() => movePage(idx, 1)}>↓</button>
+                            <button class="system-btn" disabled={d().pages.length === 1} onClick={() => removePage(idx)}>Delete page</button>
                           </div>
                         </div>
                         <div class="whats-new-page-grid">
@@ -293,8 +299,8 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                               <input
                                 class="modal-input"
                                 type="text"
-                                value={page.title ?? ''}
-                                onInput={(e) => updatePage(idx(), { title: e.currentTarget.value || undefined })}
+                                value={page().title ?? ''}
+                                onInput={(e) => updatePage(idx, { title: e.currentTarget.value || undefined })}
                               />
                             </div>
                             <div class="whats-new-field">
@@ -303,48 +309,48 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                 class="modal-input whats-new-body-input"
                                 rows={8}
                                 placeholder={'Describe the change...\n\n- Bullet points work\n- **Bold** and *italic* too'}
-                                value={page.body}
-                                onInput={(e) => updatePage(idx(), { body: e.currentTarget.value })}
+                                value={page().body}
+                                onInput={(e) => updatePage(idx, { body: e.currentTarget.value })}
                               />
                             </div>
                             <div class="whats-new-field">
                               <label>Image / GIF (optional)</label>
                               <Show
-                                when={page.imageUrl}
+                                when={page().imageUrl}
                                 fallback={
                                   <input
                                     type="file"
                                     accept="image/png,image/jpeg,image/gif,image/webp"
-                                    disabled={uploadingPage() === idx()}
+                                    disabled={uploadingPage() === idx}
                                     onChange={(e) => {
-                                      handleUpload(idx(), e.currentTarget.files?.[0]);
+                                      handleUpload(idx, e.currentTarget.files?.[0]);
                                       e.currentTarget.value = '';
                                     }}
                                   />
                                 }
                               >
                                 <div class="whats-new-image-row">
-                                  <img class="whats-new-thumb" src={page.imageUrl} alt="" />
+                                  <img class="whats-new-thumb" src={page().imageUrl} alt="" />
                                   <div class="whats-new-image-controls">
                                     <div class="whats-new-pos-toggle">
                                       <For each={IMAGE_POSITIONS}>
                                         {(pos) => (
                                           <button
                                             type="button"
-                                            class={(page.imagePosition ?? 'top') === pos.value ? 'active' : ''}
-                                            onClick={() => updatePage(idx(), { imagePosition: pos.value })}
+                                            class={(page().imagePosition ?? 'top') === pos.value ? 'active' : ''}
+                                            onClick={() => updatePage(idx, { imagePosition: pos.value })}
                                           >{pos.label}</button>
                                         )}
                                       </For>
                                     </div>
                                     <button
                                       class="system-btn"
-                                      onClick={() => updatePage(idx(), { imageUrl: undefined, imagePosition: undefined })}
+                                      onClick={() => updatePage(idx, { imageUrl: undefined, imagePosition: undefined })}
                                     >Remove image</button>
                                   </div>
                                 </div>
                               </Show>
-                              <Show when={uploadingPage() === idx()}>
+                              <Show when={uploadingPage() === idx}>
                                 <span class="whats-new-uploading">Uploading…</span>
                               </Show>
                             </div>
@@ -354,33 +360,33 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                             <div
                               class="whats-new-preview-body"
                               classList={{
-                                'preview-row': page.imageUrl !== undefined && (page.imagePosition === 'left' || page.imagePosition === 'right'),
+                                'preview-row': page().imageUrl !== undefined && (page().imagePosition === 'left' || page().imagePosition === 'right'),
                               }}
                             >
-                              <Show when={page.imageUrl && (page.imagePosition ?? 'top') === 'top'}>
-                                <img class="whats-new-preview-img full" src={page.imageUrl} alt="" />
+                              <Show when={page().imageUrl && (page().imagePosition ?? 'top') === 'top'}>
+                                <img class="whats-new-preview-img full" src={page().imageUrl} alt="" />
                               </Show>
-                              <Show when={page.imageUrl && page.imagePosition === 'left'}>
-                                <img class="whats-new-preview-img side" src={page.imageUrl} alt="" />
+                              <Show when={page().imageUrl && page().imagePosition === 'left'}>
+                                <img class="whats-new-preview-img side" src={page().imageUrl} alt="" />
                               </Show>
                               <div class="whats-new-preview-text">
-                                <Show when={page.title}>
-                                  <div class="whats-new-preview-title">{page.title}</div>
+                                <Show when={page().title}>
+                                  <div class="whats-new-preview-title">{page().title}</div>
                                 </Show>
-                                <div class="whats-new-preview-md">{page.body || 'Page text will appear here'}</div>
+                                <div class="whats-new-preview-md">{page().body || 'Page text will appear here'}</div>
                               </div>
-                              <Show when={page.imageUrl && page.imagePosition === 'right'}>
-                                <img class="whats-new-preview-img side" src={page.imageUrl} alt="" />
+                              <Show when={page().imageUrl && page().imagePosition === 'right'}>
+                                <img class="whats-new-preview-img side" src={page().imageUrl} alt="" />
                               </Show>
-                              <Show when={page.imageUrl && page.imagePosition === 'bottom'}>
-                                <img class="whats-new-preview-img full" src={page.imageUrl} alt="" />
+                              <Show when={page().imageUrl && page().imagePosition === 'bottom'}>
+                                <img class="whats-new-preview-img full" src={page().imageUrl} alt="" />
                               </Show>
                             </div>
                           </div>
                         </div>
                       </div>
                     )}
-                  </For>
+                  </Index>
 
                   <div class="whats-new-editor-footer">
                     <button class="system-btn" onClick={addPage}>Add page</button>
