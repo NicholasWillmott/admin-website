@@ -10,6 +10,7 @@ import {
   uploadWhatsNewImageApi,
 } from '../../services.ts';
 import { addToast } from '../../stores/toastStore.ts';
+import { WhatsNewPreview } from './WhatsNewPreview.tsx';
 
 interface WhatsNewViewProps {
   getToken: () => Promise<string | null>;
@@ -356,32 +357,13 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                             </div>
                           </div>
                           <div class="whats-new-preview">
-                            <div class="whats-new-preview-label">Preview (renders as markdown in the platform)</div>
-                            <div
-                              class="whats-new-preview-body"
-                              classList={{
-                                'preview-row': page().imageUrl !== undefined && (page().imagePosition === 'left' || page().imagePosition === 'right'),
-                              }}
-                            >
-                              <Show when={page().imageUrl && (page().imagePosition ?? 'top') === 'top'}>
-                                <img class="whats-new-preview-img full" src={page().imageUrl} alt="" />
-                              </Show>
-                              <Show when={page().imageUrl && page().imagePosition === 'left'}>
-                                <img class="whats-new-preview-img side" src={page().imageUrl} alt="" />
-                              </Show>
-                              <div class="whats-new-preview-text">
-                                <Show when={page().title}>
-                                  <div class="whats-new-preview-title">{page().title}</div>
-                                </Show>
-                                <div class="whats-new-preview-md">{page().body || 'Page text will appear here'}</div>
-                              </div>
-                              <Show when={page().imageUrl && page().imagePosition === 'right'}>
-                                <img class="whats-new-preview-img side" src={page().imageUrl} alt="" />
-                              </Show>
-                              <Show when={page().imageUrl && page().imagePosition === 'bottom'}>
-                                <img class="whats-new-preview-img full" src={page().imageUrl} alt="" />
-                              </Show>
-                            </div>
+                            <div class="whats-new-preview-label">Preview (as it appears in the platform)</div>
+                            <WhatsNewPreview
+                              postTitle={d().title}
+                              page={page()}
+                              pageIndex={idx}
+                              pageCount={d().pages.length}
+                            />
                           </div>
                         </div>
                       </div>
