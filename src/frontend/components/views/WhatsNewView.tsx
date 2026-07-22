@@ -1,5 +1,5 @@
 import { For, Index, Show, createSignal, onMount } from 'solid-js';
-import type { WhatsNewImagePosition, WhatsNewPage, WhatsNewPost } from '../../types.ts';
+import type { WhatsNewImagePosition, WhatsNewLanguage, WhatsNewPage, WhatsNewPost, WhatsNewText } from '../../types.ts';
 import { formatDate } from '../../utils.ts';
 import {
   createWhatsNewPostApi,
@@ -17,7 +17,7 @@ interface WhatsNewViewProps {
 }
 
 interface DraftPost {
-  title: string;
+  title: WhatsNewText;
   version: string;
   adminsOnly: boolean;
   published: boolean;
@@ -31,8 +31,23 @@ const IMAGE_POSITIONS: { value: WhatsNewImagePosition; label: string }[] = [
   { value: 'right', label: 'Right' },
 ];
 
+const LANGUAGES: { value: WhatsNewLanguage; label: string }[] = [
+  { value: 'en', label: 'English' },
+  { value: 'fr', label: 'Français' },
+  { value: 'pt', label: 'Português' },
+];
+
 function emptyPage(): WhatsNewPage {
-  return { body: '' };
+  return { body: { en: '' } };
+}
+
+// Strips empty fr/pt so the platform falls back to English. Bodies keep
+// leading/trailing whitespace (meaningful in markdown); titles are trimmed.
+function cleanText(t: WhatsNewText, trim: boolean): WhatsNewText {
+  const out: WhatsNewText = { en: trim ? t.en.trim() : t.en };
+  if (t.fr?.trim()) out.fr = t.fr;
+  if (t.pt?.trim()) out.pt = t.pt;
+  return out;
 }
 
 // Effective image width %: platform default is full width on top/bottom, 40% beside text
@@ -49,6 +64,17 @@ export function WhatsNewView(props: WhatsNewViewProps) {
   const [draft, setDraft] = createSignal<DraftPost | null>(null);
   const [saving, setSaving] = createSignal(false);
   const [uploadingPage, setUploadingPage] = createSignal<number | null>(null);
+  const [editLang, setEditLang] = createSignal<WhatsNewLanguage>('en');
+
+  const langText = (t: WhatsNewText | undefined): string => t?.[editLang()] ?? '';
+  const setLangText = (t: WhatsNewText | undefined, value: string): WhatsNewText =>
+    ({ en: '', ...(t ?? {}), [editLang()]: value });
+  // A language "has content" when the post title or any page body is written in it
+  const langHasContent = (lang: WhatsNewLanguage): boolean => {
+    const d = draft();
+    if (!d) return false;
+    return !!d.title[lang]?.trim() || d.pages.some(p => !!p.body[lang]?.trim());
+  };
 
   async function refetch() {
     setLoading(true);
@@ -67,18 +93,22 @@ export function WhatsNewView(props: WhatsNewViewProps) {
   function selectPost(post: WhatsNewPost) {
     setSelectedId(post.id);
     setDraft({
-      title: post.title,
+      title: { ...post.title },
       version: post.version,
       adminsOnly: post.adminsOnly,
       published: post.published,
-      pages: post.pages.map(p => ({ ...p })),
+      pages: post.pages.map(p => ({
+        ...p,
+        ...(p.title ? { title: { ...p.title } } : {}),
+        body: { ...p.body },
+      })),
     });
   }
 
   function newPost() {
     setSelectedId('new');
     setDraft({
-      title: '',
+      title: { en: '' },
       version: latestVersion(),
       adminsOnly: false,
       published: false,
@@ -110,7 +140,8 @@ export function WhatsNewView(props: WhatsNewViewProps) {
   function removePage(idx: number) {
     const d = draft();
     if (!d) return;
-    if (d.pages[idx].body.trim() && !confirm('Delete this page and its content?')) return;
+    const hasContent = LANGUAGES.some(l => !!d.pages[idx].body[l.value]?.trim());
+    if (hasContent && !confirm('Delete this page and its content?')) return;
     setDraft({ ...d, pages: d.pages.filter((_, i) => i !== idx) });
   }
 
@@ -146,14 +177,38 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     const d = draft();
     const id = selectedId();
     if (!d || !id) return;
-    if (!d.title.trim()) return addToast('Title is required', 'error');
+    if (!d.title.en.trim()) {
+      setEditLang('en');
+      return addToast('Title needs an English version (other languages fall back to it)', 'error');
+    }
     if (!/^\d+\.\d+\.\d+$/.test(d.version.trim())) return addToast('Version must be in the form 1.62.0', 'error');
     if (d.pages.length === 0) return addToast('At least one page is required', 'error');
-    if (d.pages.some(p => !p.body.trim())) return addToast('Every page needs body text', 'error');
+    if (d.pages.some(p => !p.body.en.trim())) {
+      setEditLang('en');
+      return addToast('Every page needs English body text (other languages fall back to it)', 'error');
+    }
+    if (d.pages.some(p => p.title && !p.title.en.trim() && (p.title.fr?.trim() || p.title.pt?.trim()))) {
+      setEditLang('en');
+      return addToast('Page headings need an English version (other languages fall back to it)', 'error');
+    }
 
     setSaving(true);
     const token = await props.getToken();
-    const payload = { ...d, title: d.title.trim(), version: d.version.trim() };
+    const payload = {
+      ...d,
+      title: cleanText(d.title, true),
+      version: d.version.trim(),
+      pages: d.pages.map(p => {
+        const page: WhatsNewPage = {
+          body: cleanText(p.body, false),
+          ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}),
+          ...(p.imageUrl && p.imagePosition ? { imagePosition: p.imagePosition } : {}),
+          ...(p.imageUrl && p.imageWidth !== undefined ? { imageWidth: p.imageWidth } : {}),
+        };
+        if (p.title?.en.trim()) page.title = cleanText(p.title, true);
+        return page;
+      }),
+    };
     const result = id === 'new'
       ? await createWhatsNewPostApi(payload, token)
       : await updateWhatsNewPostApi(id, payload, token);
@@ -171,7 +226,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     const id = selectedId();
     const d = draft();
     if (!id || id === 'new' || !d) return;
-    if (!confirm(`Delete the post "${d.title}" and its uploaded images?`)) return;
+    if (!confirm(`Delete the post "${d.title.en}" and its uploaded images?`)) return;
     const token = await props.getToken();
     const result = await deleteWhatsNewPostApi(id, token);
     if (result.success) {
@@ -215,7 +270,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                     onClick={() => selectPost(post)}
                   >
                     <div class="whats-new-list-item-top">
-                      <span class="whats-new-list-item-title">{post.title}</span>
+                      <span class="whats-new-list-item-title">{post.title.en}</span>
                       <span class="whats-new-version">v{post.version}</span>
                     </div>
                     <div class="whats-new-list-item-meta">
@@ -253,9 +308,9 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                       <input
                         class="modal-input"
                         type="text"
-                        placeholder="e.g. New in FASTR"
-                        value={d().title}
-                        onInput={(e) => updateDraft({ title: e.currentTarget.value })}
+                        placeholder={editLang() === 'en' ? 'e.g. New in FASTR' : d().title.en || 'e.g. New in FASTR'}
+                        value={langText(d().title)}
+                        onInput={(e) => updateDraft({ title: setLangText(d().title, e.currentTarget.value) })}
                       />
                     </div>
                     <div class="whats-new-field">
@@ -286,6 +341,26 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                     </label>
                   </div>
 
+                  <div class="whats-new-lang-row">
+                    <div class="whats-new-pos-toggle">
+                      <For each={LANGUAGES}>
+                        {(lang) => (
+                          <button
+                            type="button"
+                            class={editLang() === lang.value ? 'active' : ''}
+                            onClick={() => setEditLang(lang.value)}
+                          >
+                            {lang.label}
+                            {langHasContent(lang.value) ? ' ✓' : ''}
+                          </button>
+                        )}
+                      </For>
+                    </div>
+                    <span class="whats-new-lang-hint">
+                      Text fields edit the selected language. French/Portuguese fall back to English when left empty.
+                    </span>
+                  </div>
+
                   {/* Index (not For): items are recreated on every keystroke, so
                       identity-keyed For would remount the card and drop focus */}
                   <Index each={d().pages}>
@@ -306,8 +381,9 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                               <input
                                 class="modal-input"
                                 type="text"
-                                value={page().title ?? ''}
-                                onInput={(e) => updatePage(idx, { title: e.currentTarget.value || undefined })}
+                                placeholder={editLang() !== 'en' ? page().title?.en ?? '' : ''}
+                                value={langText(page().title)}
+                                onInput={(e) => updatePage(idx, { title: setLangText(page().title, e.currentTarget.value) })}
                               />
                             </div>
                             <div class="whats-new-field">
@@ -315,9 +391,13 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                               <textarea
                                 class="modal-input whats-new-body-input"
                                 rows={8}
-                                placeholder={'Describe the change...\n\n- Bullet points work\n- **Bold** and *italic* too'}
-                                value={page().body}
-                                onInput={(e) => updatePage(idx, { body: e.currentTarget.value })}
+                                placeholder={
+                                  editLang() !== 'en' && page().body.en
+                                    ? page().body.en
+                                    : 'Describe the change...\n\n- Bullet points work\n- **Bold** and *italic* too'
+                                }
+                                value={langText(page().body)}
+                                onInput={(e) => updatePage(idx, { body: setLangText(page().body, e.currentTarget.value) })}
                               />
                             </div>
                             <div class="whats-new-field">
@@ -380,6 +460,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                               page={page()}
                               pageIndex={idx}
                               pageCount={d().pages.length}
+                              lang={editLang()}
                               onImageWidthChange={(w) => updatePage(idx, { imageWidth: w })}
                             />
                           </div>

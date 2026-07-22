@@ -6428,6 +6428,18 @@ h1 {
   font-size: 12px;
 }
 
+.whats-new-lang-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.whats-new-lang-hint {
+  color: #64748b;
+  font-size: 12px;
+}
+
 .whats-new-size-label {
   display: flex;
   align-items: center;
@@ -6650,6 +6662,11 @@ h1 {
 
 .wn-modal-btn.disabled {
   opacity: 0.4;
+}
+
+.wn-modal-btn svg {
+  width: 1.25em;
+  height: 1.25em;
 }
 
 /* Markdown body — mirrors panther's MARKDOWN_BASE_STYLES with the

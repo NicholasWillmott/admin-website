@@ -198,9 +198,18 @@ export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "vol
 
 export type WhatsNewImagePosition = "top" | "bottom" | "left" | "right";
 
+export type WhatsNewLanguage = "en" | "fr" | "pt";
+
+// English required; fr/pt fall back to English in the platform when absent
+export interface WhatsNewText {
+  en: string;
+  fr?: string;
+  pt?: string;
+}
+
 export interface WhatsNewPage {
-  title?: string;
-  body: string; // markdown, rendered by the platform client
+  title?: WhatsNewText;
+  body: WhatsNewText; // markdown, rendered by the platform client
   imageUrl?: string;
   imagePosition?: WhatsNewImagePosition; // default "top"
   imageWidth?: number; // % of content width, 10-100; default 100 top/bottom, 40 left/right
@@ -209,7 +218,7 @@ export interface WhatsNewPage {
 export interface WhatsNewPost {
   id: string;
   version: string; // platform version this post is tied to, e.g. "1.62.0"
-  title: string;
+  title: WhatsNewText;
   pages: WhatsNewPage[];
   adminsOnly: boolean;
   published: boolean;

@@ -1,6 +1,6 @@
 import MarkdownIt from 'markdown-it';
 import { Index, Show, createMemo, createSignal } from 'solid-js';
-import type { WhatsNewPage } from '../../types.ts';
+import type { WhatsNewLanguage, WhatsNewPage, WhatsNewText } from '../../types.ts';
 
 // Mirrors the platform's markdown-it configuration exactly
 // (platform/panther/_105_markdown/parser.ts createMarkdownIt): html stays
@@ -14,10 +14,11 @@ const md = new MarkdownIt({
 md.disable('replacements', true);
 
 interface WhatsNewPreviewProps {
-  postTitle: string;
+  postTitle: WhatsNewText;
   page: WhatsNewPage;
   pageIndex: number;
   pageCount: number;
+  lang: WhatsNewLanguage;
   onImageWidthChange?: (width: number) => void;
 }
 
@@ -26,7 +27,12 @@ interface WhatsNewPreviewProps {
 // by dragging its corner handle; the resulting width % is written back to the
 // draft, so the slider and the real platform render stay in sync.
 export function WhatsNewPreview(props: WhatsNewPreviewProps) {
-  const rendered = createMemo(() => md.render(props.page.body || ''));
+  // Same resolution the platform applies: selected language, English fallback
+  const txt = (t: WhatsNewText | undefined): string => {
+    const v = t?.[props.lang];
+    return v?.trim() ? v : (t?.en ?? '');
+  };
+  const rendered = createMemo(() => md.render(txt(props.page.body)));
   const pos = () => props.page.imagePosition ?? 'top';
   const sideBySide = () => !!props.page.imageUrl && (pos() === 'left' || pos() === 'right');
   const isLast = () => props.pageIndex === props.pageCount - 1;
@@ -84,10 +90,10 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
 
   return (
     <div class="wn-modal">
-      <div class="wn-modal-header">{props.postTitle || 'Post title'}</div>
+      <div class="wn-modal-header">{txt(props.postTitle) || 'Post title'}</div>
       <div class="wn-modal-content">
-        <Show when={props.page.title}>
-          <div class="wn-modal-page-title">{props.page.title}</div>
+        <Show when={txt(props.page.title)}>
+          <div class="wn-modal-page-title">{txt(props.page.title)}</div>
         </Show>
         <div ref={bodyRef} class={sideBySide() ? 'wn-modal-body row' : 'wn-modal-body'}>
           <Show when={props.page.imageUrl && (pos() === 'top' || pos() === 'left')}>
@@ -100,8 +106,8 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
         </div>
       </div>
       <div class="wn-modal-footer">
-        <Show when={multiPage()}>
-          <span class="wn-modal-btn neutral" classList={{ disabled: props.pageIndex === 0 }}>Back</span>
+        <Show when={multiPage() && !isLast()}>
+          <span class="wn-modal-btn neutral">Skip</span>
         </Show>
         <div class="wn-modal-footer-right">
           <Show when={multiPage()}>
@@ -110,8 +116,21 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
                 {(_, i) => <div class="wn-modal-dot" classList={{ active: i === props.pageIndex }} />}
               </Index>
             </div>
+            <span class="wn-modal-btn neutral" classList={{ disabled: props.pageIndex === 0 }}>
+              {/* panther chevronLeft (Phosphor, MIT) */}
+              <svg viewBox="0 0 256 256" fill="currentColor">
+                <path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z" />
+              </svg>
+            </span>
           </Show>
-          <span class="wn-modal-btn primary">{isLast() ? 'Done' : 'Next'}</span>
+          <Show when={multiPage() && !isLast()} fallback={<span class="wn-modal-btn primary">Done</span>}>
+            <span class="wn-modal-btn primary">
+              {/* panther chevronRight (Phosphor, MIT) */}
+              <svg viewBox="0 0 256 256" fill="currentColor">
+                <path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z" />
+              </svg>
+            </span>
+          </Show>
         </div>
       </div>
     </div>

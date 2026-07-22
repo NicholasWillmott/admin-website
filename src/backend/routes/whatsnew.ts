@@ -27,9 +27,16 @@ const IMAGE_CONTENT_TYPES: Record<string, string> = {
 const IMAGE_POSITIONS = ["top", "bottom", "left", "right"] as const;
 type WhatsNewImagePosition = (typeof IMAGE_POSITIONS)[number];
 
+// English required; fr/pt fall back to English in the platform when absent
+interface WhatsNewText {
+  en: string;
+  fr?: string;
+  pt?: string;
+}
+
 interface WhatsNewPage {
-  title?: string;
-  body: string;
+  title?: WhatsNewText;
+  body: WhatsNewText;
   imageUrl?: string;
   imagePosition?: WhatsNewImagePosition;
   imageWidth?: number; // % of content width, 10-100
@@ -38,7 +45,7 @@ interface WhatsNewPage {
 interface WhatsNewPost {
   id: string;
   version: string;
-  title: string;
+  title: WhatsNewText;
   pages: WhatsNewPage[];
   adminsOnly: boolean;
   published: boolean;
@@ -46,10 +53,28 @@ interface WhatsNewPost {
   updatedAt: string;
 }
 
+// Posts stored before the multi-language change have plain-string text fields
+function normalizeText(v: unknown): WhatsNewText {
+  return typeof v === "string" ? { en: v } : (v as WhatsNewText);
+}
+
+function normalizePost(p: WhatsNewPost): WhatsNewPost {
+  return {
+    ...p,
+    title: normalizeText(p.title),
+    pages: p.pages.map((page) => ({
+      ...page,
+      ...(page.title !== undefined ? { title: normalizeText(page.title) } : {}),
+      body: normalizeText(page.body),
+    })),
+  };
+}
+
 async function readPosts(): Promise<WhatsNewPost[]> {
   try {
     const text = await Deno.readTextFile(POSTS_FILE);
-    return JSON.parse(text).posts ?? [];
+    const posts: WhatsNewPost[] = JSON.parse(text).posts ?? [];
+    return posts.map(normalizePost);
   } catch {
     return [];
   }
@@ -70,11 +95,46 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+// Validates a {en, fr?, pt?} text field. English is required when
+// `required`, or when any other language is present (it is the fallback).
+// Returns the cleaned text, null when the field is entirely empty, or an
+// error. Bodies are not trimmed (leading whitespace is meaningful markdown).
+function cleanText(
+  v: unknown,
+  label: string,
+  opts: { required: boolean; trim: boolean },
+): { text: WhatsNewText | null } | { error: string } {
+  const raw = typeof v === "string" ? { en: v } : v;
+  if (raw === undefined || raw === null) {
+    return opts.required ? { error: `${label} is required` } : { text: null };
+  }
+  const t = raw as Partial<WhatsNewText>;
+  if (typeof t !== "object") return { error: `Invalid ${label}` };
+  for (const lang of ["en", "fr", "pt"] as const) {
+    if (t[lang] !== undefined && typeof t[lang] !== "string") return { error: `Invalid ${label}` };
+  }
+  const en = opts.trim ? t.en?.trim() : t.en;
+  const fr = opts.trim ? t.fr?.trim() : t.fr;
+  const pt = opts.trim ? t.pt?.trim() : t.pt;
+  if (!en?.trim()) {
+    if (fr?.trim() || pt?.trim()) return { error: `${label} needs an English version (it is the fallback)` };
+    return opts.required ? { error: `${label} is required` } : { text: null };
+  }
+  return {
+    text: {
+      en,
+      ...(fr?.trim() ? { fr } : {}),
+      ...(pt?.trim() ? { pt } : {}),
+    },
+  };
+}
+
 function validatePostInput(body: unknown): { error: string } | { post: Omit<WhatsNewPost, "id" | "createdAt" | "updatedAt"> } {
   const b = body as Partial<WhatsNewPost> | null;
   if (!b || typeof b !== "object") return { error: "Invalid body" };
-  const title = typeof b.title === "string" ? b.title.trim() : "";
-  if (!title) return { error: "Title is required" };
+  const titleResult = cleanText(b.title, "Title", { required: true, trim: true });
+  if ("error" in titleResult) return titleResult;
+  const title = titleResult.text!;
   const version = typeof b.version === "string" ? b.version.trim() : "";
   if (!/^\d+\.\d+\.\d+$/.test(version)) return { error: "Version must be in the form 1.62.0" };
   if (!Array.isArray(b.pages) || b.pages.length === 0) return { error: "At least one page is required" };
@@ -82,12 +142,14 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
   for (const raw of b.pages) {
     const page = raw as Partial<WhatsNewPage> | null;
     if (!page || typeof page !== "object") return { error: "Invalid page" };
-    if (typeof page.body !== "string" || !page.body.trim()) return { error: "Every page needs body text" };
+    const bodyResult = cleanText(page.body, "Page body", { required: true, trim: false });
+    if ("error" in bodyResult) return bodyResult;
+    const titleRes = cleanText(page.title, "Page heading", { required: false, trim: true });
+    if ("error" in titleRes) return titleRes;
     if (page.imagePosition !== undefined && !IMAGE_POSITIONS.includes(page.imagePosition)) {
       return { error: "Invalid image position" };
     }
     if (page.imageUrl !== undefined && typeof page.imageUrl !== "string") return { error: "Invalid image URL" };
-    if (page.title !== undefined && typeof page.title !== "string") return { error: "Invalid page title" };
     if (
       page.imageWidth !== undefined &&
       (typeof page.imageWidth !== "number" || !Number.isFinite(page.imageWidth) ||
@@ -96,8 +158,8 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
       return { error: "Image width must be between 10 and 100" };
     }
     pages.push({
-      ...(page.title?.trim() ? { title: page.title.trim() } : {}),
-      body: page.body,
+      ...(titleRes.text ? { title: titleRes.text } : {}),
+      body: bodyResult.text!,
       ...(page.imageUrl ? { imageUrl: page.imageUrl } : {}),
       ...(page.imageUrl && page.imagePosition ? { imagePosition: page.imagePosition } : {}),
       ...(page.imageUrl && page.imageWidth !== undefined ? { imageWidth: Math.round(page.imageWidth) } : {}),
