@@ -92,17 +92,21 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
     <div class="wn-modal">
       <div class="wn-modal-header">{txt(props.postTitle) || 'Post title'}</div>
       <div class="wn-modal-content">
-        <Show when={txt(props.page.title)}>
-          <div class="wn-modal-page-title">{txt(props.page.title)}</div>
-        </Show>
-        <div ref={bodyRef} class={sideBySide() ? 'wn-modal-body row' : 'wn-modal-body'}>
-          <Show when={props.page.imageUrl && (pos() === 'top' || pos() === 'left')}>
-            {img(pos() === 'left')}
+        {/* Mirrors the platform's fixed-height page region: the modal stays
+            the same size on every page; long pages scroll inside */}
+        <div class="wn-modal-page-region">
+          <Show when={txt(props.page.title)}>
+            <div class="wn-modal-page-title">{txt(props.page.title)}</div>
           </Show>
-          <div class="wn-md" innerHTML={rendered()} />
-          <Show when={props.page.imageUrl && (pos() === 'bottom' || pos() === 'right')}>
-            {img(pos() === 'right')}
-          </Show>
+          <div ref={bodyRef} class={sideBySide() ? 'wn-modal-body row' : 'wn-modal-body'}>
+            <Show when={props.page.imageUrl && (pos() === 'top' || pos() === 'left')}>
+              {img(pos() === 'left')}
+            </Show>
+            <div class="wn-md" innerHTML={rendered()} />
+            <Show when={props.page.imageUrl && (pos() === 'bottom' || pos() === 'right')}>
+              {img(pos() === 'right')}
+            </Show>
+          </div>
         </div>
       </div>
       <div class="wn-modal-footer">

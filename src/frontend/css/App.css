@@ -6514,6 +6514,14 @@ h1 {
   overflow-y: auto;
 }
 
+.wn-modal-page-region {
+  height: min(600px, 60vh);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .wn-modal-page-title {
   font-size: 1.125rem;
   font-weight: 700;
