@@ -6353,10 +6353,141 @@ h1 {
   gap: 8px;
 }
 
-.whats-new-page-grid {
+/* Wide variant for the What's New view: room for page fields + the 800px
+   actual-size preview side by side on large screens */
+.whats-new-wide {
+  max-width: 1700px;
+}
+
+.whats-new-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+}
+
+.whats-new-section-gap {
+  margin-top: 8px;
+}
+
+.whats-new-page-tabs {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.whats-new-page-tabs button {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: #94a3b8;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.whats-new-page-tabs button:hover:not(:disabled) {
+  border-color: #0d9488;
+  color: #5eead4;
+}
+
+.whats-new-page-tabs button.active {
+  background: rgba(13, 148, 136, 0.12);
+  border-color: #0d9488;
+  color: #5eead4;
+  font-weight: 600;
+}
+
+.whats-new-page-tabs button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Fields left, actual-size preview right; the preview wraps below when the
+   window can't fit 800px beside the fields (it never shrinks) */
+.whats-new-editor-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.whats-new-page-fields {
+  flex: 1 1 420px;
+  min-width: 360px;
+}
+
+.whats-new-editor-grid .whats-new-preview {
+  flex: 0 1 800px;
+  min-width: 0;
+}
+
+.whats-new-md-toolbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.whats-new-md-toolbar button {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 12px;
+  padding: 4px 10px;
+  min-width: 30px;
+  cursor: pointer;
+}
+
+.whats-new-md-toolbar button:hover {
+  border-color: #0d9488;
+  color: #5eead4;
+}
+
+.whats-new-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.whats-new-image-picker {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.whats-new-image-pick {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.whats-new-image-pick:hover {
+  border-color: #0d9488;
+}
+
+.whats-new-image-pick img {
+  width: 100%;
+  height: 72px;
+  object-fit: contain;
+  display: block;
+}
+
+.whats-new-save-dirty {
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.5);
 }
 
 .whats-new-page-inputs {

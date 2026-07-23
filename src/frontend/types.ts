@@ -225,7 +225,6 @@ export interface WhatsNewPage {
   title?: WhatsNewText;
   body: WhatsNewText; // markdown, rendered by the platform client
   imageUrl?: string; // required for image presets
-  imageAlt?: WhatsNewText; // screen-reader description of the image
   layoutPreset: WhatsNewLayoutPreset;
 }
 

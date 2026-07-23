@@ -42,7 +42,7 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
       class={layout().row ? 'wn-img-wrap side' : 'wn-img-wrap full'}
       style={{ width: `${layout().widthPct}%` }}
     >
-      <img class="wn-modal-img" src={props.page.imageUrl} alt={txt(props.page.imageAlt)} />
+      <img class="wn-modal-img" src={props.page.imageUrl} alt="" />
     </div>
   );
 
@@ -68,7 +68,7 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
           }
         >
           <div class="wn-modal-page-region cover">
-            <img class="wn-cover-img" src={props.page.imageUrl} alt={txt(props.page.imageAlt)} />
+            <img class="wn-cover-img" src={props.page.imageUrl} alt="" />
             <div class="wn-cover-overlay">
               <Show when={txt(props.page.title)}>
                 <div class="wn-cover-title">{txt(props.page.title)}</div>

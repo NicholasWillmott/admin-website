@@ -928,6 +928,26 @@ export async function uploadWhatsNewImageApi(file: File, token: string | null): 
   });
 }
 
+export interface WhatsNewImageInfo {
+  filename: string;
+  url: string;
+  size: number;
+  mtime: string;
+}
+
+export async function fetchWhatsNewImagesApi(token: string | null): Promise<WhatsNewImageInfo[]> {
+  try {
+    const response = await fetch(`${API_BASE}/api/whats-new/admin/images`, {
+      headers: getAuthHeaders(token),
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.images ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export interface WhatsNewEventRow {
   serverId: string;
   userEmail: string;

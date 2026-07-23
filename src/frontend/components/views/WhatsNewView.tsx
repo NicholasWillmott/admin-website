@@ -1,4 +1,4 @@
-import { For, Index, Show, createSignal, onMount } from 'solid-js';
+import { For, Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { WHATS_NEW_LAYOUTS } from '../../types.ts';
 import type { WhatsNewLanguage, WhatsNewLayoutPreset, WhatsNewPage, WhatsNewPost, WhatsNewText } from '../../types.ts';
 import { formatDate } from '../../utils.ts';
@@ -7,11 +7,12 @@ import {
   deleteWhatsNewPostApi,
   fetchChangelogViewApi,
   fetchWhatsNewEventLogsApi,
+  fetchWhatsNewImagesApi,
   fetchWhatsNewPostsAdminApi,
   updateWhatsNewPostApi,
   uploadWhatsNewImageApi,
 } from '../../services.ts';
-import type { WhatsNewEventRow } from '../../services.ts';
+import type { WhatsNewEventRow, WhatsNewImageInfo } from '../../services.ts';
 import { addToast } from '../../stores/toastStore.ts';
 import { WhatsNewPreview } from './WhatsNewPreview.tsx';
 
@@ -27,6 +28,19 @@ interface DraftPost {
   publishAt: string; // datetime-local input value; '' = publish immediately
   pages: WhatsNewPage[];
 }
+
+const MAX_PAGES = 20;
+
+type MdAction = 'bold' | 'italic' | 'heading' | 'bullet' | 'numbered' | 'link';
+
+const MD_BUTTONS: { action: MdAction; label: string; title: string }[] = [
+  { action: 'bold', label: 'B', title: 'Bold' },
+  { action: 'italic', label: 'I', title: 'Italic' },
+  { action: 'heading', label: 'H', title: 'Heading' },
+  { action: 'bullet', label: '•', title: 'Bullet list' },
+  { action: 'numbered', label: '1.', title: 'Numbered list' },
+  { action: 'link', label: 'Link', title: 'Insert link' },
+];
 
 function isoToLocalInput(iso: string | undefined): string {
   if (!iso) return '';
@@ -50,7 +64,6 @@ function copyPages(pages: WhatsNewPage[]): WhatsNewPage[] {
   return pages.map(p => ({
     ...p,
     ...(p.title ? { title: { ...p.title } } : {}),
-    ...(p.imageAlt ? { imageAlt: { ...p.imageAlt } } : {}),
     body: { ...p.body },
   }));
 }
@@ -72,6 +85,15 @@ const LANGUAGES: { value: WhatsNewLanguage; label: string }[] = [
 
 function emptyPage(): WhatsNewPage {
   return { body: { en: '' }, layoutPreset: 'textOnly' };
+}
+
+// Strips empty fr/pt so the platform falls back to English. Bodies keep
+// leading/trailing whitespace (meaningful in markdown); titles are trimmed.
+function cleanText(t: WhatsNewText, trim: boolean): WhatsNewText {
+  const out: WhatsNewText = { en: trim ? t.en.trim() : t.en };
+  if (t.fr?.trim()) out.fr = t.fr;
+  if (t.pt?.trim()) out.pt = t.pt;
+  return out;
 }
 
 // Mini layout diagram for a preset card: shaded block = image, bars = text
@@ -107,25 +129,32 @@ function PresetDiagram(p: { preset: WhatsNewLayoutPreset }) {
   );
 }
 
-// Strips empty fr/pt so the platform falls back to English. Bodies keep
-// leading/trailing whitespace (meaningful in markdown); titles are trimmed.
-function cleanText(t: WhatsNewText, trim: boolean): WhatsNewText {
-  const out: WhatsNewText = { en: trim ? t.en.trim() : t.en };
-  if (t.fr?.trim()) out.fr = t.fr;
-  if (t.pt?.trim()) out.pt = t.pt;
-  return out;
-}
-
 export function WhatsNewView(props: WhatsNewViewProps) {
   const [posts, setPosts] = createSignal<WhatsNewPost[]>([]);
   const [loading, setLoading] = createSignal(true);
-  const [latestVersion, setLatestVersion] = createSignal('');
+  const [versions, setVersions] = createSignal<string[]>([]);
   const [selectedId, setSelectedId] = createSignal<string | 'new' | null>(null);
   const [draft, setDraft] = createSignal<DraftPost | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = createSignal<string | null>(null);
   const [saving, setSaving] = createSignal(false);
   const [uploadingPage, setUploadingPage] = createSignal<number | null>(null);
   const [editLang, setEditLang] = createSignal<WhatsNewLanguage>('en');
   const [eventRows, setEventRows] = createSignal<WhatsNewEventRow[]>([]);
+  const [activePage, setActivePage] = createSignal(0);
+  const [pickerOpen, setPickerOpen] = createSignal(false);
+  const [pickerImages, setPickerImages] = createSignal<WhatsNewImageInfo[]>([]);
+
+  let bodyTextareaRef: HTMLTextAreaElement | undefined;
+
+  const latestVersion = () => versions()[0] ?? '';
+  const activePageData = () => draft()?.pages[activePage()];
+
+  const isDirty = () => {
+    const d = draft();
+    if (!d) return false;
+    return JSON.stringify(d) !== savedSnapshot();
+  };
+  const confirmDiscard = () => !isDirty() || confirm('Discard unsaved changes?');
 
   const langText = (t: WhatsNewText | undefined): string => t?.[editLang()] ?? '';
   const setLangText = (t: WhatsNewText | undefined, value: string): WhatsNewText =>
@@ -154,36 +183,58 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     setLoading(false);
   }
 
+  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if (isDirty()) e.preventDefault();
+  };
+
   onMount(async () => {
+    window.addEventListener('beforeunload', handleBeforeUnload);
     await refetch();
     const token = await props.getToken();
     fetchWhatsNewEventLogsApi(token).then(setEventRows);
     const changelog = await fetchChangelogViewApi(token);
-    setLatestVersion(changelog.versions[0]?.version ?? '');
+    setVersions(changelog.versions.slice(0, 10).map(v => v.version));
   });
 
-  function selectPost(post: WhatsNewPost) {
-    setSelectedId(post.id);
-    setDraft({
+  onCleanup(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+  });
+
+  function draftOf(post: WhatsNewPost): DraftPost {
+    return {
       title: { ...post.title },
       version: post.version,
       adminsOnly: post.adminsOnly,
       published: post.published,
       publishAt: isoToLocalInput(post.publishAt),
       pages: copyPages(post.pages),
-    });
+    };
+  }
+
+  function selectPost(post: WhatsNewPost) {
+    const d = draftOf(post);
+    setSelectedId(post.id);
+    setDraft(d);
+    setSavedSnapshot(JSON.stringify(d));
+    setActivePage(0);
+    setPickerOpen(false);
   }
 
   function newPost() {
-    setSelectedId('new');
-    setDraft({
+    if (!confirmDiscard()) return;
+    const d: DraftPost = {
       title: { en: '' },
       version: latestVersion(),
       adminsOnly: false,
       published: false,
       publishAt: '',
       pages: [emptyPage()],
-    });
+    };
+    setSelectedId('new');
+    setDraft(d);
+    setSavedSnapshot(JSON.stringify(d));
+    setActivePage(0);
+    setPickerOpen(false);
   }
 
   // Start the next release's post from the current one; shares image files
@@ -200,12 +251,16 @@ export function WhatsNewView(props: WhatsNewViewProps) {
       publishAt: '',
       pages: copyPages(d.pages),
     });
+    setSavedSnapshot(null); // a duplicate is unsaved by definition
+    setActivePage(0);
     addToast('Duplicated as a new draft — save to keep it', 'success');
   }
 
   function closeEditor() {
+    if (!confirmDiscard()) return;
     setSelectedId(null);
     setDraft(null);
+    setSavedSnapshot(null);
   }
 
   function updateDraft(patch: Partial<DraftPost>) {
@@ -221,7 +276,11 @@ export function WhatsNewView(props: WhatsNewViewProps) {
   }
 
   function addPage() {
-    setDraft(d => (d ? { ...d, pages: [...d.pages, emptyPage()] } : d));
+    const d = draft();
+    if (!d || d.pages.length >= MAX_PAGES) return;
+    setDraft({ ...d, pages: [...d.pages, emptyPage()] });
+    setActivePage(d.pages.length);
+    setPickerOpen(false);
   }
 
   function removePage(idx: number) {
@@ -230,6 +289,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     const hasContent = LANGUAGES.some(l => !!d.pages[idx].body[l.value]?.trim());
     if (hasContent && !confirm('Delete this page and its content?')) return;
     setDraft({ ...d, pages: d.pages.filter((_, i) => i !== idx) });
+    setActivePage(Math.max(0, Math.min(activePage(), d.pages.length - 2)));
   }
 
   function movePage(idx: number, dir: -1 | 1) {
@@ -241,6 +301,9 @@ export function WhatsNewView(props: WhatsNewViewProps) {
       [pages[idx], pages[target]] = [pages[target], pages[idx]];
       return { ...d, pages };
     });
+    const target = idx + dir;
+    const d = draft();
+    if (d && target >= 0 && target < d.pages.length) setActivePage(target);
   }
 
   async function handleUpload(idx: number, file: File | undefined) {
@@ -261,6 +324,53 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     } finally {
       setUploadingPage(null);
     }
+  }
+
+  async function openImagePicker() {
+    const token = await props.getToken();
+    setPickerImages(await fetchWhatsNewImagesApi(token));
+    setPickerOpen(true);
+  }
+
+  // Wraps the selection (bold/italic/link) or prefixes the selected lines
+  // (heading/lists) in the body textarea, then restores focus + selection
+  function applyMarkdown(action: MdAction) {
+    const ta = bodyTextareaRef;
+    const pg = activePageData();
+    if (!ta || !pg) return;
+    const value = ta.value;
+    const start = ta.selectionStart ?? 0;
+    const end = ta.selectionEnd ?? 0;
+    let next: string;
+    let selStart: number;
+    let selEnd: number;
+    if (action === 'bold' || action === 'italic' || action === 'link') {
+      const sel = value.slice(start, end);
+      const insert = action === 'bold'
+        ? `**${sel || 'bold text'}**`
+        : action === 'italic'
+          ? `*${sel || 'italic text'}*`
+          : `[${sel || 'link text'}](https://)`;
+      next = value.slice(0, start) + insert + value.slice(end);
+      selStart = start;
+      selEnd = start + insert.length;
+    } else {
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      const lineEndIdx = value.indexOf('\n', end);
+      const lineEnd = lineEndIdx === -1 ? value.length : lineEndIdx;
+      const block = value.slice(lineStart, lineEnd);
+      const prefixed = block.split('\n').map((line, i) =>
+        action === 'heading' ? `## ${line}` : action === 'bullet' ? `- ${line}` : `${i + 1}. ${line}`
+      ).join('\n');
+      next = value.slice(0, lineStart) + prefixed + value.slice(lineEnd);
+      selStart = lineStart;
+      selEnd = lineStart + prefixed.length;
+    }
+    updatePage(activePage(), { body: setLangText(pg.body, next) });
+    queueMicrotask(() => {
+      ta.focus();
+      ta.setSelectionRange(selStart, selEnd);
+    });
   }
 
   async function handleSave() {
@@ -305,7 +415,6 @@ export function WhatsNewView(props: WhatsNewViewProps) {
             // Text-only pages keep any uploaded image in the draft (so switching
             // preset back restores it) but never persist it
             ...(needsImage && p.imageUrl ? { imageUrl: p.imageUrl } : {}),
-            ...(needsImage && p.imageAlt?.en?.trim() ? { imageAlt: cleanText(p.imageAlt!, true) } : {}),
           };
           if (p.title?.en.trim()) page.title = cleanText(p.title, true);
           return page;
@@ -316,7 +425,11 @@ export function WhatsNewView(props: WhatsNewViewProps) {
         : await updateWhatsNewPostApi(id, payload, token);
       if (result.success) {
         addToast(id === 'new' ? 'Post created' : 'Post saved', 'success');
-        if (result.post) selectPost(result.post);
+        if (result.post) {
+          const keepPage = activePage();
+          selectPost(result.post);
+          setActivePage(Math.min(keepPage, result.post.pages.length - 1));
+        }
         await refetch();
       } else {
         addToast(result.error || 'Failed to save post', 'error');
@@ -335,7 +448,9 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     const result = await deleteWhatsNewPostApi(id, token);
     if (result.success) {
       addToast('Post deleted', 'success');
-      closeEditor();
+      setSelectedId(null);
+      setDraft(null);
+      setSavedSnapshot(null);
       await refetch();
     } else {
       addToast(result.error || 'Failed to delete post', 'error');
@@ -344,7 +459,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
 
   return (
     <div class="volume-usage-container">
-      <div class="volume-usage-content">
+      <div class="volume-usage-content whats-new-wide">
         <div class="volume-usage-header">
           <h2 class="volume-usage-title">What's New</h2>
           <div style="display: flex; gap: 12px">
@@ -371,7 +486,10 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                   <button
                     type="button"
                     class={`whats-new-list-item ${selectedId() === post.id ? 'active' : ''}`}
-                    onClick={() => selectPost(post)}
+                    onClick={() => {
+                      if (selectedId() === post.id) return;
+                      if (confirmDiscard()) selectPost(post);
+                    }}
                   >
                     <div class="whats-new-list-item-top">
                       <span class="whats-new-list-item-title">{post.title.en}</span>
@@ -412,6 +530,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
             >
               {(d) => (
                 <div class="whats-new-editor">
+                  <div class="whats-new-section-label">Post settings</div>
                   <div class="whats-new-fields">
                     <div class="whats-new-field" style="flex: 1">
                       <label>Title</label>
@@ -426,11 +545,24 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                     <div class="whats-new-field">
                       <label>Platform version</label>
                       <input
+                        list="wn-version-options"
                         class="modal-input whats-new-version-input"
                         type="text"
                         placeholder={latestVersion() || '1.62.0'}
                         value={d().version}
                         onInput={(e) => updateDraft({ version: e.currentTarget.value })}
+                      />
+                      <datalist id="wn-version-options">
+                        <For each={versions()}>{(v) => <option value={v} />}</For>
+                      </datalist>
+                    </div>
+                    <div class="whats-new-field">
+                      <label>Publish at (optional)</label>
+                      <input
+                        class="modal-input"
+                        type="datetime-local"
+                        value={d().publishAt}
+                        onInput={(e) => updateDraft({ publishAt: e.currentTarget.value })}
                       />
                     </div>
                     <label class="whats-new-check">
@@ -449,15 +581,6 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                       />
                       Published
                     </label>
-                    <div class="whats-new-field">
-                      <label>Publish at (optional)</label>
-                      <input
-                        class="modal-input"
-                        type="datetime-local"
-                        value={d().publishAt}
-                        onInput={(e) => updateDraft({ publishAt: e.currentTarget.value })}
-                      />
-                    </div>
                   </div>
 
                   <div class="whats-new-lang-row">
@@ -480,45 +603,75 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                     </span>
                   </div>
 
-                  {/* Index (not For): items are recreated on every keystroke, so
-                      identity-keyed For would remount the card and drop focus */}
-                  <Index each={d().pages}>
-                    {(page, idx) => (
-                      <div class="whats-new-page-card">
-                        <div class="whats-new-page-header">
-                          <span class="whats-new-page-label">Page {idx + 1} of {d().pages.length}</span>
-                          {/* Structural changes are locked during an upload — the in-flight
-                              upload targets a page index that a move/delete would invalidate */}
-                          <div class="whats-new-page-actions">
-                            <button class="system-btn" disabled={idx === 0 || uploadingPage() !== null} onClick={() => movePage(idx, -1)}>↑</button>
-                            <button class="system-btn" disabled={idx === d().pages.length - 1 || uploadingPage() !== null} onClick={() => movePage(idx, 1)}>↓</button>
-                            <button class="system-btn" disabled={d().pages.length === 1 || uploadingPage() !== null} onClick={() => removePage(idx)}>Delete page</button>
+                  <div class="whats-new-section-label whats-new-section-gap">Pages</div>
+                  <div class="whats-new-page-tabs">
+                    <For each={d().pages}>
+                      {(_, i) => (
+                        <button
+                          type="button"
+                          classList={{ active: activePage() === i() }}
+                          onClick={() => setActivePage(i())}
+                        >
+                          Page {i() + 1}
+                        </button>
+                      )}
+                    </For>
+                    <button
+                      type="button"
+                      class="add"
+                      title="Add page"
+                      disabled={d().pages.length >= MAX_PAGES || uploadingPage() !== null}
+                      onClick={addPage}
+                    >+</button>
+                  </div>
+
+                  <div class="whats-new-editor-grid">
+                    <Show when={activePageData()}>
+                      {(pg) => (
+                        <div class="whats-new-page-card whats-new-page-fields">
+                          <div class="whats-new-page-header">
+                            <span class="whats-new-page-label">Page {activePage() + 1} of {d().pages.length}</span>
+                            {/* Structural changes are locked during an upload — the in-flight
+                                upload targets a page index that a move/delete would invalidate */}
+                            <div class="whats-new-page-actions">
+                              <button class="system-btn" disabled={activePage() === 0 || uploadingPage() !== null} onClick={() => movePage(activePage(), -1)}>↑</button>
+                              <button class="system-btn" disabled={activePage() === d().pages.length - 1 || uploadingPage() !== null} onClick={() => movePage(activePage(), 1)}>↓</button>
+                              <button class="system-btn" disabled={d().pages.length === 1 || uploadingPage() !== null} onClick={() => removePage(activePage())}>Delete page</button>
+                            </div>
                           </div>
-                        </div>
-                        <div class="whats-new-page-grid">
                           <div class="whats-new-page-inputs">
                             <div class="whats-new-field">
                               <label>Page heading (optional)</label>
                               <input
                                 class="modal-input"
                                 type="text"
-                                placeholder={editLang() !== 'en' ? page().title?.en ?? '' : ''}
-                                value={langText(page().title)}
-                                onInput={(e) => updatePage(idx, { title: setLangText(page().title, e.currentTarget.value) })}
+                                placeholder={editLang() !== 'en' ? pg().title?.en ?? '' : ''}
+                                value={langText(pg().title)}
+                                onInput={(e) => updatePage(activePage(), { title: setLangText(pg().title, e.currentTarget.value) })}
                               />
                             </div>
                             <div class="whats-new-field">
                               <label>Body (markdown)</label>
+                              <div class="whats-new-md-toolbar">
+                                <For each={MD_BUTTONS}>
+                                  {(btn) => (
+                                    <button type="button" title={btn.title} onClick={() => applyMarkdown(btn.action)}>
+                                      {btn.label}
+                                    </button>
+                                  )}
+                                </For>
+                              </div>
                               <textarea
+                                ref={bodyTextareaRef}
                                 class="modal-input whats-new-body-input"
-                                rows={8}
+                                rows={10}
                                 placeholder={
-                                  editLang() !== 'en' && page().body.en
-                                    ? page().body.en
+                                  editLang() !== 'en' && pg().body.en
+                                    ? pg().body.en
                                     : 'Describe the change...\n\n- Bullet points work\n- **Bold** and *italic* too'
                                 }
-                                value={langText(page().body)}
-                                onInput={(e) => updatePage(idx, { body: setLangText(page().body, e.currentTarget.value) })}
+                                value={langText(pg().body)}
+                                onInput={(e) => updatePage(activePage(), { body: setLangText(pg().body, e.currentTarget.value) })}
                               />
                             </div>
                             <div class="whats-new-field">
@@ -529,8 +682,8 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                     <button
                                       type="button"
                                       class="whats-new-preset-card"
-                                      classList={{ active: page().layoutPreset === preset.value }}
-                                      onClick={() => updatePage(idx, { layoutPreset: preset.value })}
+                                      classList={{ active: pg().layoutPreset === preset.value }}
+                                      onClick={() => updatePage(activePage(), { layoutPreset: preset.value })}
                                     >
                                       <PresetDiagram preset={preset.value} />
                                       <span>{preset.label}</span>
@@ -539,72 +692,95 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                 </For>
                               </div>
                             </div>
-                            <Show when={WHATS_NEW_LAYOUTS[page().layoutPreset].hasImage}>
+                            <Show when={WHATS_NEW_LAYOUTS[pg().layoutPreset].hasImage}>
                               <div class="whats-new-field">
                                 <label>Image / GIF</label>
                                 <Show
-                                  when={page().imageUrl}
+                                  when={pg().imageUrl}
                                   fallback={
-                                    <input
-                                      type="file"
-                                      accept="image/png,image/jpeg,image/gif,image/webp"
-                                      disabled={uploadingPage() === idx}
-                                      onChange={(e) => {
-                                        handleUpload(idx, e.currentTarget.files?.[0]);
-                                        e.currentTarget.value = '';
-                                      }}
-                                    />
+                                    <div class="whats-new-picker-row">
+                                      <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/gif,image/webp"
+                                        disabled={uploadingPage() === activePage()}
+                                        onChange={(e) => {
+                                          handleUpload(activePage(), e.currentTarget.files?.[0]);
+                                          e.currentTarget.value = '';
+                                        }}
+                                      />
+                                      <button class="system-btn" onClick={openImagePicker}>Choose existing</button>
+                                    </div>
                                   }
                                 >
                                   <div class="whats-new-image-row">
-                                    <img class="whats-new-thumb" src={page().imageUrl} alt="" />
+                                    <img class="whats-new-thumb" src={pg().imageUrl} alt="" />
                                     <button
                                       class="system-btn"
-                                      onClick={() => updatePage(idx, { imageUrl: undefined, imageAlt: undefined })}
+                                      onClick={() => updatePage(activePage(), { imageUrl: undefined })}
                                     >Remove image</button>
                                   </div>
-                                  <div class="whats-new-field" style="margin-top: 10px">
-                                    <label>Image description (alt text, optional)</label>
-                                    <input
-                                      class="modal-input"
-                                      type="text"
-                                      placeholder={editLang() !== 'en' ? page().imageAlt?.en ?? '' : 'For screen readers'}
-                                      value={langText(page().imageAlt)}
-                                      onInput={(e) => updatePage(idx, { imageAlt: setLangText(page().imageAlt, e.currentTarget.value) })}
-                                    />
+                                </Show>
+                                <Show when={pickerOpen()}>
+                                  <div class="whats-new-image-picker">
+                                    <Show when={pickerImages().length === 0}>
+                                      <span class="whats-new-uploading">No uploaded images available</span>
+                                    </Show>
+                                    <For each={pickerImages()}>
+                                      {(img) => (
+                                        <button
+                                          type="button"
+                                          class="whats-new-image-pick"
+                                          title={img.filename}
+                                          onClick={() => {
+                                            updatePage(activePage(), { imageUrl: img.url });
+                                            setPickerOpen(false);
+                                          }}
+                                        >
+                                          <img src={img.url} alt="" />
+                                        </button>
+                                      )}
+                                    </For>
                                   </div>
                                 </Show>
-                                <Show when={uploadingPage() === idx}>
+                                <Show when={uploadingPage() === activePage()}>
                                   <span class="whats-new-uploading">Uploading…</span>
                                 </Show>
                               </div>
                             </Show>
                           </div>
-                          <div class="whats-new-preview">
-                            <div class="whats-new-preview-label">Preview (as it appears in the platform)</div>
-                            <WhatsNewPreview
-                              postTitle={d().title}
-                              page={page()}
-                              pageIndex={idx}
-                              pageCount={d().pages.length}
-                              lang={editLang()}
-                            />
-                          </div>
                         </div>
-                      </div>
-                    )}
-                  </Index>
+                      )}
+                    </Show>
+                    <div class="whats-new-preview">
+                      <div class="whats-new-preview-label">Preview (as it appears in the platform)</div>
+                      <Show when={activePageData()}>
+                        {(pg) => (
+                          <WhatsNewPreview
+                            postTitle={d().title}
+                            page={pg()}
+                            pageIndex={activePage()}
+                            pageCount={d().pages.length}
+                            lang={editLang()}
+                          />
+                        )}
+                      </Show>
+                    </div>
+                  </div>
 
                   <div class="whats-new-editor-footer">
-                    <button class="system-btn" onClick={addPage}>Add page</button>
-                    <div style="flex: 1"></div>
                     <Show when={selectedId() !== 'new'}>
                       <button class="system-btn" onClick={duplicatePost}>Duplicate</button>
                       <button class="action-btn danger" style="margin: 0" onClick={handleDelete}>Delete post</button>
                     </Show>
+                    <div style="flex: 1"></div>
                     <button class="system-btn" onClick={closeEditor}>Close</button>
-                    <button class="system-btn snapshot" disabled={saving()} onClick={handleSave}>
-                      {saving() ? 'Saving…' : 'Save'}
+                    <button
+                      class="system-btn snapshot"
+                      classList={{ 'whats-new-save-dirty': isDirty() }}
+                      disabled={saving()}
+                      onClick={handleSave}
+                    >
+                      {saving() ? 'Saving…' : isDirty() ? 'Save •' : 'Save'}
                     </button>
                   </div>
                 </div>

@@ -44,7 +44,6 @@ interface WhatsNewPage {
   title?: WhatsNewText;
   body: WhatsNewText;
   imageUrl?: string; // required for image presets
-  imageAlt?: WhatsNewText;
   layoutPreset: WhatsNewLayoutPreset;
 }
 
@@ -89,7 +88,6 @@ function normalizePost(p: WhatsNewPost): WhatsNewPost {
       return {
         ...rest,
         ...(page.title !== undefined ? { title: normalizeText(page.title) } : {}),
-        ...(page.imageAlt !== undefined ? { imageAlt: normalizeText(page.imageAlt) } : {}),
         body: normalizeText(page.body),
         layoutPreset: normalizeLayout(page as WhatsNewPage & { imagePosition?: string }),
       };
@@ -208,8 +206,6 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
     if ("error" in bodyResult) return bodyResult;
     const titleRes = cleanText(page.title, "Page heading", { required: false, trim: true, maxLen: MAX_TITLE_LEN });
     if ("error" in titleRes) return titleRes;
-    const altRes = cleanText(page.imageAlt, "Image description", { required: false, trim: true, maxLen: MAX_TITLE_LEN });
-    if ("error" in altRes) return altRes;
     if (!page.layoutPreset || !LAYOUT_PRESETS.includes(page.layoutPreset)) {
       return { error: "Invalid page layout" };
     }
@@ -223,7 +219,6 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
       body: bodyResult.text!,
       layoutPreset: page.layoutPreset,
       ...(needsImage ? { imageUrl: page.imageUrl } : {}),
-      ...(needsImage && altRes.text ? { imageAlt: altRes.text } : {}),
     });
   }
   return {
@@ -402,6 +397,35 @@ router.delete("/admin/posts/:id", async (c) => {
   if ("error" in outcome) return c.json({ success: false, error: outcome.error });
   await deleteImageFiles(imageFilenamesOf(outcome.removed));
   return c.json({ success: true });
+});
+
+// Admin: previously uploaded images, for the editor's reuse picker. The
+// orphan sweep deletes unreferenced files older than 24h, so this naturally
+// lists only referenced or recently uploaded images.
+router.get("/admin/images", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+  const images: { filename: string; url: string; size: number; mtime: string }[] = [];
+  try {
+    for await (const entry of Deno.readDir(IMAGES_DIR)) {
+      if (!entry.isFile || !/^[A-Za-z0-9-]+\.[a-z]+$/.test(entry.name)) continue;
+      try {
+        const stat = await Deno.stat(`${IMAGES_DIR}/${entry.name}`);
+        images.push({
+          filename: entry.name,
+          url: `${PUBLIC_API_BASE}/api/whats-new/images/${entry.name}`,
+          size: stat.size,
+          mtime: stat.mtime?.toISOString() ?? "",
+        });
+      } catch {
+        // raced with a remove — skip
+      }
+    }
+  } catch {
+    // images dir doesn't exist yet
+  }
+  images.sort((a, b) => b.mtime.localeCompare(a.mtime));
+  return c.json({ images });
 });
 
 // Admin: multipart image upload
