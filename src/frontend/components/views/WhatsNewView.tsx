@@ -42,6 +42,16 @@ const MD_BUTTONS: { action: MdAction; label: string; title: string }[] = [
   { action: 'link', label: 'Link', title: 'Insert link' },
 ];
 
+// "1.61.0" -> minor: "1.62.0", patch: "1.61.1"; '' when latest is unparsable
+function bumpVersion(latest: string, kind: 'minor' | 'patch'): string {
+  const m = latest.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!m) return '';
+  const [, major, minor, patch] = m;
+  return kind === 'minor'
+    ? `${major}.${Number(minor) + 1}.0`
+    : `${major}.${minor}.${Number(patch) + 1}`;
+}
+
 function isoToLocalInput(iso: string | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -143,11 +153,31 @@ export function WhatsNewView(props: WhatsNewViewProps) {
   const [activePage, setActivePage] = createSignal(0);
   const [pickerOpen, setPickerOpen] = createSignal(false);
   const [pickerImages, setPickerImages] = createSignal<WhatsNewImageInfo[]>([]);
+  const [versionMenuOpen, setVersionMenuOpen] = createSignal(false);
 
   let bodyTextareaRef: HTMLTextAreaElement | undefined;
+  let versionComboRef: HTMLDivElement | undefined;
 
   const latestVersion = () => versions()[0] ?? '';
+  const nextMinor = () => bumpVersion(latestVersion(), 'minor');
+  const defaultVersion = () => nextMinor() || latestVersion();
   const activePageData = () => draft()?.pages[activePage()];
+
+  // Next minor/patch first (the publish-ahead workflow), then recent released
+  // versions; versions that already carry a post are flagged since duplicates
+  // are usually accidental
+  const versionSuggestions = (): { version: string; label: string }[] => {
+    const out: { version: string; label: string }[] = [];
+    const latest = latestVersion();
+    if (nextMinor()) out.push({ version: nextMinor(), label: 'Next minor · upcoming' });
+    const nextPatch = bumpVersion(latest, 'patch');
+    if (nextPatch) out.push({ version: nextPatch, label: 'Next patch · upcoming' });
+    for (const v of versions().slice(0, 8)) {
+      const hasPost = posts().some(p => p.version === v);
+      out.push({ version: v, label: hasPost ? 'Released · has post' : 'Released' });
+    }
+    return out;
+  };
 
   const isDirty = () => {
     const d = draft();
@@ -187,8 +217,15 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     if (isDirty()) e.preventDefault();
   };
 
+  const handleDocMouseDown = (e: MouseEvent) => {
+    if (versionMenuOpen() && versionComboRef && !versionComboRef.contains(e.target as Node)) {
+      setVersionMenuOpen(false);
+    }
+  };
+
   onMount(async () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('mousedown', handleDocMouseDown);
     await refetch();
     const token = await props.getToken();
     fetchWhatsNewEventLogsApi(token).then(setEventRows);
@@ -198,6 +235,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
 
   onCleanup(() => {
     window.removeEventListener('beforeunload', handleBeforeUnload);
+    document.removeEventListener('mousedown', handleDocMouseDown);
   });
 
   function draftOf(post: WhatsNewPost): DraftPost {
@@ -224,7 +262,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     if (!confirmDiscard()) return;
     const d: DraftPost = {
       title: { en: '' },
-      version: latestVersion(),
+      version: defaultVersion(),
       adminsOnly: false,
       published: false,
       publishAt: '',
@@ -245,7 +283,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     setSelectedId('new');
     setDraft({
       title: { ...d.title, en: `${d.title.en} (copy)` },
-      version: latestVersion() || d.version,
+      version: defaultVersion() || d.version,
       adminsOnly: d.adminsOnly,
       published: false,
       publishAt: '',
@@ -532,7 +570,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                 <div class="whats-new-editor">
                   <div class="whats-new-section-label">Post settings</div>
                   <div class="whats-new-fields">
-                    <div class="whats-new-field" style="flex: 1">
+                    <div class="whats-new-field whats-new-field-title">
                       <label>Title</label>
                       <input
                         class="modal-input"
@@ -542,21 +580,43 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                         onInput={(e) => updateDraft({ title: setLangText(d().title, e.currentTarget.value) })}
                       />
                     </div>
-                    <div class="whats-new-field">
+                    <div class="whats-new-field whats-new-field-version">
                       <label>Platform version</label>
-                      <input
-                        list="wn-version-options"
-                        class="modal-input whats-new-version-input"
-                        type="text"
-                        placeholder={latestVersion() || '1.62.0'}
-                        value={d().version}
-                        onInput={(e) => updateDraft({ version: e.currentTarget.value })}
-                      />
-                      <datalist id="wn-version-options">
-                        <For each={versions()}>{(v) => <option value={v} />}</For>
-                      </datalist>
+                      <div class="whats-new-version-combo" ref={versionComboRef}>
+                        <input
+                          class="modal-input whats-new-version-input"
+                          type="text"
+                          placeholder={defaultVersion() || '1.62.0'}
+                          value={d().version}
+                          onInput={(e) => updateDraft({ version: e.currentTarget.value })}
+                        />
+                        <button
+                          type="button"
+                          class="whats-new-version-toggle"
+                          title="Version suggestions"
+                          onClick={() => setVersionMenuOpen(o => !o)}
+                        >▾</button>
+                        <Show when={versionMenuOpen()}>
+                          <div class="whats-new-version-menu">
+                            <For each={versionSuggestions()}>
+                              {(s) => (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateDraft({ version: s.version });
+                                    setVersionMenuOpen(false);
+                                  }}
+                                >
+                                  <span class="wn-vnum">{s.version}</span>
+                                  <span class="wn-vlabel">{s.label}</span>
+                                </button>
+                              )}
+                            </For>
+                          </div>
+                        </Show>
+                      </div>
                     </div>
-                    <div class="whats-new-field">
+                    <div class="whats-new-field whats-new-field-publishat">
                       <label>Publish at (optional)</label>
                       <input
                         class="modal-input"

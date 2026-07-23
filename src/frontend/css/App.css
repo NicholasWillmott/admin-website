@@ -6309,7 +6309,97 @@ h1 {
 .whats-new-version-input {
   font-family: 'Monaco', 'Courier New', monospace;
   color: #5eead4;
-  width: 120px;
+}
+
+/* Explicit flex sizing for the settings row — without a basis the title
+   (flex:1, basis 0) lets the row mis-measure and the fixed-width inputs
+   collide instead of wrapping */
+.whats-new-field {
+  min-width: 0;
+}
+
+.whats-new-field-title {
+  flex: 1 1 240px;
+  min-width: 220px;
+}
+
+.whats-new-field-version {
+  flex: 0 0 190px;
+}
+
+.whats-new-field-publishat {
+  flex: 0 0 215px;
+}
+
+.whats-new-version-combo {
+  position: relative;
+  display: flex;
+}
+
+.whats-new-version-combo .whats-new-version-input {
+  flex: 1;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.whats-new-version-toggle {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  color: #94a3b8;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.whats-new-version-toggle:hover {
+  color: #5eead4;
+  border-color: #0d9488;
+}
+
+.whats-new-version-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 260px;
+  z-index: 40;
+  background: #1a2e22;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.whats-new-version-menu button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.whats-new-version-menu button:hover {
+  background: rgba(13, 148, 136, 0.12);
+}
+
+.wn-vnum {
+  font-family: 'Monaco', 'Courier New', monospace;
+  color: #5eead4;
+  font-size: 13px;
+}
+
+.wn-vlabel {
+  color: #94a3b8;
+  font-size: 11px;
 }
 
 .whats-new-check {
