@@ -693,15 +693,11 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                         <div class="whats-new-page-card whats-new-page-fields">
                           <div class="whats-new-page-header">
                             <span class="whats-new-page-label">Page {activePage() + 1} of {d().pages.length}</span>
-                            {/* ◀ ▶ navigate; Move reorders (structural changes are locked
-                                during an upload — the in-flight upload targets a page index
-                                that a move/delete would invalidate) */}
+                            {/* Structural changes are locked during an upload — the in-flight
+                                upload targets a page index that a move/delete would invalidate */}
                             <div class="whats-new-page-actions">
-                              <button class="system-btn" title="Previous page" disabled={activePage() === 0} onClick={() => setActivePage(activePage() - 1)}>◀</button>
-                              <button class="system-btn" title="Next page" disabled={activePage() === d().pages.length - 1} onClick={() => setActivePage(activePage() + 1)}>▶</button>
-                              <span class="whats-new-actions-sep" />
-                              <button class="system-btn" title="Move this page earlier" disabled={activePage() === 0 || uploadingPage() !== null} onClick={() => movePage(activePage(), -1)}>Move ◀</button>
-                              <button class="system-btn" title="Move this page later" disabled={activePage() === d().pages.length - 1 || uploadingPage() !== null} onClick={() => movePage(activePage(), 1)}>Move ▶</button>
+                              <button class="system-btn whats-new-btn-sm" title="Move this page earlier" disabled={activePage() === 0 || uploadingPage() !== null} onClick={() => movePage(activePage(), -1)}>Move ◀</button>
+                              <button class="system-btn whats-new-btn-sm" title="Move this page later" disabled={activePage() === d().pages.length - 1 || uploadingPage() !== null} onClick={() => movePage(activePage(), 1)}>Move ▶</button>
                               <button class="system-btn" disabled={d().pages.length === 1 || uploadingPage() !== null} onClick={() => removePage(activePage())}>Delete page</button>
                             </div>
                           </div>

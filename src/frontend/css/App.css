@@ -6478,11 +6478,9 @@ h1 {
   align-items: center;
 }
 
-.whats-new-actions-sep {
-  width: 1px;
-  align-self: stretch;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 0 4px;
+.whats-new-btn-sm {
+  padding: 4px 10px;
+  font-size: 11px;
 }
 
 /* Wide variant for the What's New view: room for page fields + the 800px
