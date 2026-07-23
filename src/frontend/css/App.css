@@ -6321,6 +6321,30 @@ h1 {
   color: #5eead4;
 }
 
+/* Roomy card around the post-settings fields */
+.whats-new-settings {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.whats-new-settings .whats-new-fields {
+  gap: 20px;
+}
+
+.whats-new-settings .modal-input {
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.whats-new-settings .whats-new-check {
+  padding-bottom: 10px;
+}
+
 /* Explicit flex sizing for the settings row — without a basis the title
    (flex:1, basis 0) lets the row mis-measure and the fixed-width inputs
    collide instead of wrapping */
@@ -6329,16 +6353,16 @@ h1 {
 }
 
 .whats-new-field-title {
-  flex: 1 1 240px;
-  min-width: 220px;
+  flex: 1 1 320px;
+  min-width: 280px;
 }
 
 .whats-new-field-version {
-  flex: 0 0 190px;
+  flex: 0 0 215px;
 }
 
 .whats-new-field-publishat {
-  flex: 0 0 215px;
+  flex: 0 0 245px;
 }
 
 .whats-new-version-combo {
@@ -6451,6 +6475,14 @@ h1 {
 .whats-new-page-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+.whats-new-actions-sep {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
 }
 
 /* Wide variant for the What's New view: room for page fields + the 800px
