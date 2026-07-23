@@ -6167,6 +6167,16 @@ h1 {
 
 /* ─── What's New view ─────────────────────────────────────────────────── */
 
+/* This app has no global box-sizing reset — width:100% inputs would overflow
+   their flex containers by their own padding and visually overlap neighboring
+   fields. Border-box also matches the platform (Tailwind), keeping the
+   preview mock accurate. */
+.whats-new-layout *,
+.whats-new-layout *::before,
+.whats-new-layout *::after {
+  box-sizing: border-box;
+}
+
 .whats-new-layout {
   display: grid;
   grid-template-columns: 320px 1fr;
