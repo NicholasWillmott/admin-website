@@ -6393,13 +6393,6 @@ h1 {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.whats-new-image-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
-}
-
 .whats-new-pos-toggle {
   display: inline-flex;
   background: rgba(255, 255, 255, 0.06);
@@ -6440,17 +6433,81 @@ h1 {
   font-size: 12px;
 }
 
-.whats-new-size-label {
+.whats-new-preset-cards {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #cbd5e1;
-  font-size: 13px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.whats-new-size-label input[type="range"] {
-  accent-color: #0d9488;
-  width: 140px;
+.whats-new-preset-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 11px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.whats-new-preset-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: #0d9488;
+}
+
+.whats-new-preset-card.active {
+  border-color: #0d9488;
+  background: rgba(13, 148, 136, 0.08);
+  color: #5eead4;
+}
+
+.whats-new-preset-diagram {
+  width: 72px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.whats-new-preset-diagram.row {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.whats-new-preset-diagram .pd-img {
+  background: rgba(13, 148, 136, 0.55);
+  border-radius: 2px;
+  flex: 0 0 45%;
+}
+
+.whats-new-preset-diagram .pd-img.side {
+  flex: 0 0 40%;
+}
+
+.whats-new-preset-diagram .pd-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.whats-new-preset-diagram .pd-text div {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.whats-new-preset-diagram .pd-text div:last-child {
+  width: 60%;
 }
 
 .whats-new-preview {
@@ -6545,68 +6602,12 @@ h1 {
   object-fit: contain;
 }
 
-.wn-img-wrap {
-  position: relative;
-  user-select: none;
-}
-
 .wn-img-wrap.full {
   margin-inline: auto;
 }
 
 .wn-img-wrap.side {
   flex-shrink: 0;
-}
-
-.wn-img-wrap.resizable:hover,
-.wn-img-wrap.dragging {
-  outline: 2px dashed #0d9488;
-  outline-offset: 2px;
-}
-
-.wn-img-handle {
-  position: absolute;
-  bottom: -7px;
-  width: 14px;
-  height: 14px;
-  background: #0d9488;
-  border: 2px solid #ffffff;
-  border-radius: 4px;
-  opacity: 0;
-  transition: opacity 0.15s;
-  touch-action: none;
-}
-
-.wn-img-handle.right {
-  right: -7px;
-  cursor: nwse-resize;
-}
-
-.wn-img-handle.left {
-  left: -7px;
-  cursor: nesw-resize;
-}
-
-.wn-img-size-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 4px;
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none;
-}
-
-.wn-img-wrap.resizable:hover .wn-img-handle,
-.wn-img-wrap.dragging .wn-img-handle,
-.wn-img-wrap.resizable:hover .wn-img-size-badge,
-.wn-img-wrap.dragging .wn-img-size-badge {
-  opacity: 1;
 }
 
 .wn-modal-footer {

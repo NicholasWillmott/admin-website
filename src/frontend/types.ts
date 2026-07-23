@@ -196,9 +196,22 @@ export interface ChangelogVersion {
 
 export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs" | "accessLog" | "siteAdmins" | "whatsNew";
 
-export type WhatsNewImagePosition = "top" | "bottom" | "left" | "right";
-
 export type WhatsNewLanguage = "en" | "fr" | "pt";
+
+// Locked page layouts — the only way a page can be laid out
+export type WhatsNewLayoutPreset = "textOnly" | "heroTop" | "imageLeft" | "imageRight" | "imageBottom";
+
+// Mirrors WHATS_NEW_LAYOUTS in platform lib/types/whats_new.ts — keep in sync
+export const WHATS_NEW_LAYOUTS: Record<
+  WhatsNewLayoutPreset,
+  { hasImage: boolean; row: boolean; imageFirst: boolean; widthPct: number }
+> = {
+  textOnly: { hasImage: false, row: false, imageFirst: false, widthPct: 0 },
+  heroTop: { hasImage: true, row: false, imageFirst: true, widthPct: 100 },
+  imageBottom: { hasImage: true, row: false, imageFirst: false, widthPct: 100 },
+  imageLeft: { hasImage: true, row: true, imageFirst: true, widthPct: 40 },
+  imageRight: { hasImage: true, row: true, imageFirst: false, widthPct: 40 },
+};
 
 // English required; fr/pt fall back to English in the platform when absent
 export interface WhatsNewText {
@@ -210,9 +223,8 @@ export interface WhatsNewText {
 export interface WhatsNewPage {
   title?: WhatsNewText;
   body: WhatsNewText; // markdown, rendered by the platform client
-  imageUrl?: string;
-  imagePosition?: WhatsNewImagePosition; // default "top"
-  imageWidth?: number; // % of content width, 10-100; default 100 top/bottom, 40 left/right
+  imageUrl?: string; // required for image presets
+  layoutPreset: WhatsNewLayoutPreset;
 }
 
 export interface WhatsNewPost {

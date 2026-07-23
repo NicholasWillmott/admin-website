@@ -1,5 +1,6 @@
 import { For, Index, Show, createSignal, onMount } from 'solid-js';
-import type { WhatsNewImagePosition, WhatsNewLanguage, WhatsNewPage, WhatsNewPost, WhatsNewText } from '../../types.ts';
+import { WHATS_NEW_LAYOUTS } from '../../types.ts';
+import type { WhatsNewLanguage, WhatsNewLayoutPreset, WhatsNewPage, WhatsNewPost, WhatsNewText } from '../../types.ts';
 import { formatDate } from '../../utils.ts';
 import {
   createWhatsNewPostApi,
@@ -24,11 +25,12 @@ interface DraftPost {
   pages: WhatsNewPage[];
 }
 
-const IMAGE_POSITIONS: { value: WhatsNewImagePosition; label: string }[] = [
-  { value: 'top', label: 'Top' },
-  { value: 'bottom', label: 'Bottom' },
-  { value: 'left', label: 'Left' },
-  { value: 'right', label: 'Right' },
+const PRESETS: { value: WhatsNewLayoutPreset; label: string }[] = [
+  { value: 'textOnly', label: 'Text only' },
+  { value: 'heroTop', label: 'Hero image' },
+  { value: 'imageLeft', label: 'Image left' },
+  { value: 'imageRight', label: 'Image right' },
+  { value: 'imageBottom', label: 'Image bottom' },
 ];
 
 const LANGUAGES: { value: WhatsNewLanguage; label: string }[] = [
@@ -38,7 +40,27 @@ const LANGUAGES: { value: WhatsNewLanguage; label: string }[] = [
 ];
 
 function emptyPage(): WhatsNewPage {
-  return { body: { en: '' } };
+  return { body: { en: '' }, layoutPreset: 'textOnly' };
+}
+
+// Mini layout diagram for a preset card: shaded block = image, bars = text
+function PresetDiagram(p: { preset: WhatsNewLayoutPreset }) {
+  const l = WHATS_NEW_LAYOUTS[p.preset];
+  return (
+    <div class="whats-new-preset-diagram" classList={{ row: l.row }}>
+      <Show when={l.hasImage && l.imageFirst}>
+        <div class="pd-img" classList={{ side: l.row }} />
+      </Show>
+      <div class="pd-text">
+        <div />
+        <div />
+        <div />
+      </div>
+      <Show when={l.hasImage && !l.imageFirst}>
+        <div class="pd-img" classList={{ side: l.row }} />
+      </Show>
+    </div>
+  );
 }
 
 // Strips empty fr/pt so the platform falls back to English. Bodies keep
@@ -48,12 +70,6 @@ function cleanText(t: WhatsNewText, trim: boolean): WhatsNewText {
   if (t.fr?.trim()) out.fr = t.fr;
   if (t.pt?.trim()) out.pt = t.pt;
   return out;
-}
-
-// Effective image width %: platform default is full width on top/bottom, 40% beside text
-export function imageWidthOf(page: WhatsNewPage): number {
-  if (page.imageWidth !== undefined) return page.imageWidth;
-  return page.imagePosition === 'left' || page.imagePosition === 'right' ? 40 : 100;
 }
 
 export function WhatsNewView(props: WhatsNewViewProps) {
@@ -167,7 +183,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     const result = await uploadWhatsNewImageApi(file, token);
     setUploadingPage(null);
     if (result.success && result.imageUrl) {
-      updatePage(idx, { imageUrl: result.imageUrl, imagePosition: draft()?.pages[idx]?.imagePosition ?? 'top' });
+      updatePage(idx, { imageUrl: result.imageUrl });
     } else {
       addToast(result.error || 'Image upload failed', 'error');
     }
@@ -191,6 +207,9 @@ export function WhatsNewView(props: WhatsNewViewProps) {
       setEditLang('en');
       return addToast('Page headings need an English version (other languages fall back to it)', 'error');
     }
+    if (d.pages.some(p => p.layoutPreset !== 'textOnly' && !p.imageUrl)) {
+      return addToast('Image layouts need an uploaded image — upload one or choose Text only', 'error');
+    }
 
     setSaving(true);
     const token = await props.getToken();
@@ -201,9 +220,10 @@ export function WhatsNewView(props: WhatsNewViewProps) {
       pages: d.pages.map(p => {
         const page: WhatsNewPage = {
           body: cleanText(p.body, false),
-          ...(p.imageUrl ? { imageUrl: p.imageUrl } : {}),
-          ...(p.imageUrl && p.imagePosition ? { imagePosition: p.imagePosition } : {}),
-          ...(p.imageUrl && p.imageWidth !== undefined ? { imageWidth: p.imageWidth } : {}),
+          layoutPreset: p.layoutPreset,
+          // Text-only pages keep any uploaded image in the draft (so switching
+          // preset back restores it) but never persist it
+          ...(p.layoutPreset !== 'textOnly' && p.imageUrl ? { imageUrl: p.imageUrl } : {}),
         };
         if (p.title?.en.trim()) page.title = cleanText(p.title, true);
         return page;
@@ -401,57 +421,53 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                               />
                             </div>
                             <div class="whats-new-field">
-                              <label>Image / GIF (optional)</label>
-                              <Show
-                                when={page().imageUrl}
-                                fallback={
-                                  <input
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/gif,image/webp"
-                                    disabled={uploadingPage() === idx}
-                                    onChange={(e) => {
-                                      handleUpload(idx, e.currentTarget.files?.[0]);
-                                      e.currentTarget.value = '';
-                                    }}
-                                  />
-                                }
-                              >
-                                <div class="whats-new-image-row">
-                                  <img class="whats-new-thumb" src={page().imageUrl} alt="" />
-                                  <div class="whats-new-image-controls">
-                                    <div class="whats-new-pos-toggle">
-                                      <For each={IMAGE_POSITIONS}>
-                                        {(pos) => (
-                                          <button
-                                            type="button"
-                                            class={(page().imagePosition ?? 'top') === pos.value ? 'active' : ''}
-                                            onClick={() => updatePage(idx, { imagePosition: pos.value })}
-                                          >{pos.label}</button>
-                                        )}
-                                      </For>
-                                    </div>
-                                    <label class="whats-new-size-label">
-                                      Size: {imageWidthOf(page())}%
-                                      <input
-                                        type="range"
-                                        min="10"
-                                        max="100"
-                                        step="5"
-                                        value={imageWidthOf(page())}
-                                        onInput={(e) => updatePage(idx, { imageWidth: Number(e.currentTarget.value) })}
-                                      />
-                                    </label>
+                              <label>Page layout</label>
+                              <div class="whats-new-preset-cards">
+                                <For each={PRESETS}>
+                                  {(preset) => (
+                                    <button
+                                      type="button"
+                                      class="whats-new-preset-card"
+                                      classList={{ active: page().layoutPreset === preset.value }}
+                                      onClick={() => updatePage(idx, { layoutPreset: preset.value })}
+                                    >
+                                      <PresetDiagram preset={preset.value} />
+                                      <span>{preset.label}</span>
+                                    </button>
+                                  )}
+                                </For>
+                              </div>
+                            </div>
+                            <Show when={WHATS_NEW_LAYOUTS[page().layoutPreset].hasImage}>
+                              <div class="whats-new-field">
+                                <label>Image / GIF</label>
+                                <Show
+                                  when={page().imageUrl}
+                                  fallback={
+                                    <input
+                                      type="file"
+                                      accept="image/png,image/jpeg,image/gif,image/webp"
+                                      disabled={uploadingPage() === idx}
+                                      onChange={(e) => {
+                                        handleUpload(idx, e.currentTarget.files?.[0]);
+                                        e.currentTarget.value = '';
+                                      }}
+                                    />
+                                  }
+                                >
+                                  <div class="whats-new-image-row">
+                                    <img class="whats-new-thumb" src={page().imageUrl} alt="" />
                                     <button
                                       class="system-btn"
-                                      onClick={() => updatePage(idx, { imageUrl: undefined, imagePosition: undefined, imageWidth: undefined })}
+                                      onClick={() => updatePage(idx, { imageUrl: undefined })}
                                     >Remove image</button>
                                   </div>
-                                </div>
-                              </Show>
-                              <Show when={uploadingPage() === idx}>
-                                <span class="whats-new-uploading">Uploading…</span>
-                              </Show>
-                            </div>
+                                </Show>
+                                <Show when={uploadingPage() === idx}>
+                                  <span class="whats-new-uploading">Uploading…</span>
+                                </Show>
+                              </div>
+                            </Show>
                           </div>
                           <div class="whats-new-preview">
                             <div class="whats-new-preview-label">Preview (as it appears in the platform)</div>
@@ -461,7 +477,6 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                               pageIndex={idx}
                               pageCount={d().pages.length}
                               lang={editLang()}
-                              onImageWidthChange={(w) => updatePage(idx, { imageWidth: w })}
                             />
                           </div>
                         </div>

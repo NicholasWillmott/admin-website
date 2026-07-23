@@ -24,8 +24,8 @@ const IMAGE_CONTENT_TYPES: Record<string, string> = {
   webp: "image/webp",
 };
 
-const IMAGE_POSITIONS = ["top", "bottom", "left", "right"] as const;
-type WhatsNewImagePosition = (typeof IMAGE_POSITIONS)[number];
+const LAYOUT_PRESETS = ["textOnly", "heroTop", "imageLeft", "imageRight", "imageBottom"] as const;
+type WhatsNewLayoutPreset = (typeof LAYOUT_PRESETS)[number];
 
 // English required; fr/pt fall back to English in the platform when absent
 interface WhatsNewText {
@@ -37,9 +37,8 @@ interface WhatsNewText {
 interface WhatsNewPage {
   title?: WhatsNewText;
   body: WhatsNewText;
-  imageUrl?: string;
-  imagePosition?: WhatsNewImagePosition;
-  imageWidth?: number; // % of content width, 10-100
+  imageUrl?: string; // required for image presets
+  layoutPreset: WhatsNewLayoutPreset;
 }
 
 interface WhatsNewPost {
@@ -58,15 +57,32 @@ function normalizeText(v: unknown): WhatsNewText {
   return typeof v === "string" ? { en: v } : (v as WhatsNewText);
 }
 
+// Pages stored before layout presets have imagePosition/imageWidth instead
+// of layoutPreset — map to the nearest preset and drop the old fields
+function normalizeLayout(page: WhatsNewPage & { imagePosition?: string; imageWidth?: number }): WhatsNewLayoutPreset {
+  if (page.layoutPreset && LAYOUT_PRESETS.includes(page.layoutPreset)) return page.layoutPreset;
+  if (!page.imageUrl) return "textOnly";
+  switch (page.imagePosition) {
+    case "left": return "imageLeft";
+    case "right": return "imageRight";
+    case "bottom": return "imageBottom";
+    default: return "heroTop";
+  }
+}
+
 function normalizePost(p: WhatsNewPost): WhatsNewPost {
   return {
     ...p,
     title: normalizeText(p.title),
-    pages: p.pages.map((page) => ({
-      ...page,
-      ...(page.title !== undefined ? { title: normalizeText(page.title) } : {}),
-      body: normalizeText(page.body),
-    })),
+    pages: p.pages.map((page) => {
+      const { imagePosition: _pos, imageWidth: _w, ...rest } = page as WhatsNewPage & { imagePosition?: string; imageWidth?: number };
+      return {
+        ...rest,
+        ...(page.title !== undefined ? { title: normalizeText(page.title) } : {}),
+        body: normalizeText(page.body),
+        layoutPreset: normalizeLayout(page as WhatsNewPage & { imagePosition?: string }),
+      };
+    }),
   };
 }
 
@@ -146,23 +162,19 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
     if ("error" in bodyResult) return bodyResult;
     const titleRes = cleanText(page.title, "Page heading", { required: false, trim: true });
     if ("error" in titleRes) return titleRes;
-    if (page.imagePosition !== undefined && !IMAGE_POSITIONS.includes(page.imagePosition)) {
-      return { error: "Invalid image position" };
+    if (!page.layoutPreset || !LAYOUT_PRESETS.includes(page.layoutPreset)) {
+      return { error: "Invalid page layout" };
     }
     if (page.imageUrl !== undefined && typeof page.imageUrl !== "string") return { error: "Invalid image URL" };
-    if (
-      page.imageWidth !== undefined &&
-      (typeof page.imageWidth !== "number" || !Number.isFinite(page.imageWidth) ||
-        page.imageWidth < 10 || page.imageWidth > 100)
-    ) {
-      return { error: "Image width must be between 10 and 100" };
+    const needsImage = page.layoutPreset !== "textOnly";
+    if (needsImage && !page.imageUrl) {
+      return { error: "Image layouts need an uploaded image — upload one or choose Text only" };
     }
     pages.push({
       ...(titleRes.text ? { title: titleRes.text } : {}),
       body: bodyResult.text!,
-      ...(page.imageUrl ? { imageUrl: page.imageUrl } : {}),
-      ...(page.imageUrl && page.imagePosition ? { imagePosition: page.imagePosition } : {}),
-      ...(page.imageUrl && page.imageWidth !== undefined ? { imageWidth: Math.round(page.imageWidth) } : {}),
+      layoutPreset: page.layoutPreset,
+      ...(needsImage ? { imageUrl: page.imageUrl } : {}),
     });
   }
   return { post: { title, version, pages, adminsOnly: b.adminsOnly === true, published: b.published === true } };
