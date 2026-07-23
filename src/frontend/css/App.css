@@ -6827,3 +6827,84 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── What's New: scheduled badge, stats, cover preset, preset diagram ── */
+
+.whats-new-status.scheduled {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.whats-new-list-item-stats {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.whats-new-preset-diagram.cover {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+}
+
+.whats-new-preset-diagram.cover .pd-cover-img {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 148, 136, 0.55);
+}
+
+.whats-new-preset-diagram.cover .pd-cover-text {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.whats-new-preset-diagram.cover .pd-cover-text div {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.whats-new-preset-diagram.cover .pd-cover-text div:last-child {
+  width: 55%;
+}
+
+.wn-modal-page-region.cover {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 0.25rem;
+}
+
+.wn-cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wn-cover-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 4rem 1.5rem 1.5rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
+  color: #ffffff;
+}
+
+.wn-cover-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.wn-cover-md,
+.wn-cover-md a {
+  color: #ffffff;
+}

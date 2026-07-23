@@ -199,18 +199,19 @@ export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "vol
 export type WhatsNewLanguage = "en" | "fr" | "pt";
 
 // Locked page layouts — the only way a page can be laid out
-export type WhatsNewLayoutPreset = "textOnly" | "heroTop" | "imageLeft" | "imageRight" | "imageBottom";
+export type WhatsNewLayoutPreset = "textOnly" | "heroTop" | "imageLeft" | "imageRight" | "imageBottom" | "cover";
 
 // Mirrors WHATS_NEW_LAYOUTS in platform lib/types/whats_new.ts — keep in sync
 export const WHATS_NEW_LAYOUTS: Record<
   WhatsNewLayoutPreset,
-  { hasImage: boolean; row: boolean; imageFirst: boolean; widthPct: number }
+  { hasImage: boolean; row: boolean; imageFirst: boolean; widthPct: number; cover: boolean }
 > = {
-  textOnly: { hasImage: false, row: false, imageFirst: false, widthPct: 0 },
-  heroTop: { hasImage: true, row: false, imageFirst: true, widthPct: 100 },
-  imageBottom: { hasImage: true, row: false, imageFirst: false, widthPct: 100 },
-  imageLeft: { hasImage: true, row: true, imageFirst: true, widthPct: 40 },
-  imageRight: { hasImage: true, row: true, imageFirst: false, widthPct: 40 },
+  textOnly: { hasImage: false, row: false, imageFirst: false, widthPct: 0, cover: false },
+  heroTop: { hasImage: true, row: false, imageFirst: true, widthPct: 100, cover: false },
+  imageBottom: { hasImage: true, row: false, imageFirst: false, widthPct: 100, cover: false },
+  imageLeft: { hasImage: true, row: true, imageFirst: true, widthPct: 40, cover: false },
+  imageRight: { hasImage: true, row: true, imageFirst: false, widthPct: 40, cover: false },
+  cover: { hasImage: true, row: false, imageFirst: true, widthPct: 100, cover: true },
 };
 
 // English required; fr/pt fall back to English in the platform when absent
@@ -224,6 +225,7 @@ export interface WhatsNewPage {
   title?: WhatsNewText;
   body: WhatsNewText; // markdown, rendered by the platform client
   imageUrl?: string; // required for image presets
+  imageAlt?: WhatsNewText; // screen-reader description of the image
   layoutPreset: WhatsNewLayoutPreset;
 }
 
@@ -234,6 +236,7 @@ export interface WhatsNewPost {
   pages: WhatsNewPage[];
   adminsOnly: boolean;
   published: boolean;
+  publishAt?: string; // ISO; public feed includes the post only after this time
   createdAt: string;
   updatedAt: string;
 }

@@ -875,40 +875,93 @@ export async function fetchWhatsNewPostsAdminApi(token: string | null): Promise<
   }
 }
 
+// Shared error handling for What's New mutations: non-2xx statuses and
+// non-JSON bodies (nginx error pages, dropped connections) must surface as
+// {success:false} instead of throwing — a throw here leaves the editor's
+// Saving…/Uploading… state stuck forever.
+async function whatsNewMutation<T extends { success: boolean; error?: string }>(
+  url: string,
+  init: RequestInit,
+): Promise<T | { success: false; error: string }> {
+  try {
+    const response = await fetch(url, init);
+    if (!response.ok) {
+      return { success: false, error: `Request failed (${response.status})` };
+    }
+    return await response.json();
+  } catch (error) {
+    return { success: false, error: `Request failed: ${error}` };
+  }
+}
+
 export async function createWhatsNewPostApi(post: Omit<WhatsNewPost, 'id' | 'createdAt' | 'updatedAt'>, token: string | null): Promise<{ success: boolean; post?: WhatsNewPost; error?: string }> {
-  const response = await fetch(`${API_BASE}/api/whats-new/admin/posts`, {
+  return whatsNewMutation(`${API_BASE}/api/whats-new/admin/posts`, {
     method: 'POST',
     headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
     body: JSON.stringify(post),
   });
-  return await response.json();
 }
 
 export async function updateWhatsNewPostApi(id: string, post: Omit<WhatsNewPost, 'id' | 'createdAt' | 'updatedAt'>, token: string | null): Promise<{ success: boolean; post?: WhatsNewPost; error?: string }> {
-  const response = await fetch(`${API_BASE}/api/whats-new/admin/posts/${encodeURIComponent(id)}`, {
+  return whatsNewMutation(`${API_BASE}/api/whats-new/admin/posts/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
     body: JSON.stringify(post),
   });
-  return await response.json();
 }
 
 export async function deleteWhatsNewPostApi(id: string, token: string | null): Promise<{ success: boolean; error?: string }> {
-  const response = await fetch(`${API_BASE}/api/whats-new/admin/posts/${encodeURIComponent(id)}`, {
+  return whatsNewMutation(`${API_BASE}/api/whats-new/admin/posts/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: getAuthHeaders(token),
   });
-  return await response.json();
 }
 
 export async function uploadWhatsNewImageApi(file: File, token: string | null): Promise<{ success: boolean; imageUrl?: string; error?: string }> {
   const formData = new FormData();
   formData.append('file', file);
   // No Content-Type header — the browser sets the multipart boundary
-  const response = await fetch(`${API_BASE}/api/whats-new/admin/upload`, {
+  return whatsNewMutation(`${API_BASE}/api/whats-new/admin/upload`, {
     method: 'POST',
     headers: getAuthHeaders(token),
     body: formData,
   });
-  return await response.json();
+}
+
+export interface WhatsNewEventRow {
+  serverId: string;
+  userEmail: string;
+  event: 'seen' | 'skipped' | 'completed';
+  postId: string;
+}
+
+// Platform instances log popup events into their user-log pipeline with the
+// endpoint name "whats_new_<event>:<postId>". Raw logs cover the last 7 days;
+// the weekly aggregate covers everything older — the two sets are disjoint
+// (rollup deletes what it aggregates), so a plain union is correct.
+export async function fetchWhatsNewEventLogsApi(token: string | null): Promise<WhatsNewEventRow[]> {
+  const rows: WhatsNewEventRow[] = [];
+  const collect = (serverId: string, entries: { user_email?: string; endpoint?: string }[] | undefined) => {
+    for (const entry of entries ?? []) {
+      const m = (entry.endpoint ?? '').match(/^whats_new_(seen|skipped|completed):(.+)$/);
+      if (!m) continue;
+      rows.push({ serverId, userEmail: entry.user_email ?? '', event: m[1] as WhatsNewEventRow['event'], postId: m[2] });
+    }
+  };
+  const collectResponse = async (response: Response) => {
+    if (!response.ok) return;
+    const data = await response.json() as Record<string, { logs?: { user_email?: string; endpoint?: string }[] } | null>;
+    for (const [serverId, value] of Object.entries(data)) collect(serverId, value?.logs);
+  };
+  try {
+    const [raw, aggregate] = await Promise.all([
+      fetch(`${API_BASE}/api/servers/all/user_logs_all`, { headers: getAuthHeaders(token) }),
+      fetch(`${API_BASE}/api/servers/all/user_logs_aggregate`, { headers: getAuthHeaders(token) }),
+    ]);
+    await collectResponse(raw);
+    await collectResponse(aggregate);
+  } catch {
+    // stats are best-effort
+  }
+  return rows;
 }

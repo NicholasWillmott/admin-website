@@ -10,6 +10,12 @@ const IMAGES_DIR = `${WHATS_NEW_DIR}/images`;
 const PUBLIC_API_BASE = Deno.env.get("PUBLIC_API_BASE") ?? "https://status-api.fastr-analytics.org";
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_TITLE_LEN = 200;
+const MAX_BODY_LEN = 20_000;
+const MAX_PAGES = 20;
+const ORPHAN_MIN_AGE_MS = 24 * 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
 const ALLOWED_UPLOAD_TYPES = new Map([
   ["image/png", "png"],
   ["image/jpeg", "jpg"],
@@ -24,7 +30,7 @@ const IMAGE_CONTENT_TYPES: Record<string, string> = {
   webp: "image/webp",
 };
 
-const LAYOUT_PRESETS = ["textOnly", "heroTop", "imageLeft", "imageRight", "imageBottom"] as const;
+const LAYOUT_PRESETS = ["textOnly", "heroTop", "imageLeft", "imageRight", "imageBottom", "cover"] as const;
 type WhatsNewLayoutPreset = (typeof LAYOUT_PRESETS)[number];
 
 // English required; fr/pt fall back to English in the platform when absent
@@ -38,6 +44,7 @@ interface WhatsNewPage {
   title?: WhatsNewText;
   body: WhatsNewText;
   imageUrl?: string; // required for image presets
+  imageAlt?: WhatsNewText;
   layoutPreset: WhatsNewLayoutPreset;
 }
 
@@ -48,13 +55,16 @@ interface WhatsNewPost {
   pages: WhatsNewPage[];
   adminsOnly: boolean;
   published: boolean;
+  publishAt?: string; // ISO; when set, public feed includes the post only after this time
   createdAt: string;
   updatedAt: string;
 }
 
 // Posts stored before the multi-language change have plain-string text fields
 function normalizeText(v: unknown): WhatsNewText {
-  return typeof v === "string" ? { en: v } : (v as WhatsNewText);
+  if (typeof v === "string") return { en: v };
+  if (v && typeof v === "object") return v as WhatsNewText;
+  return { en: String(v ?? "") };
 }
 
 // Pages stored before layout presets have imagePosition/imageWidth instead
@@ -74,11 +84,12 @@ function normalizePost(p: WhatsNewPost): WhatsNewPost {
   return {
     ...p,
     title: normalizeText(p.title),
-    pages: p.pages.map((page) => {
+    pages: (p.pages ?? []).map((page) => {
       const { imagePosition: _pos, imageWidth: _w, ...rest } = page as WhatsNewPage & { imagePosition?: string; imageWidth?: number };
       return {
         ...rest,
         ...(page.title !== undefined ? { title: normalizeText(page.title) } : {}),
+        ...(page.imageAlt !== undefined ? { imageAlt: normalizeText(page.imageAlt) } : {}),
         body: normalizeText(page.body),
         layoutPreset: normalizeLayout(page as WhatsNewPage & { imagePosition?: string }),
       };
@@ -86,24 +97,48 @@ function normalizePost(p: WhatsNewPost): WhatsNewPost {
   };
 }
 
+// A missing file is legitimately "no posts yet"; anything else (corrupt JSON,
+// permission errors) must THROW — returning [] here would let the next save
+// silently overwrite every post.
 async function readPosts(): Promise<WhatsNewPost[]> {
+  let text: string;
   try {
-    const text = await Deno.readTextFile(POSTS_FILE);
-    const posts: WhatsNewPost[] = JSON.parse(text).posts ?? [];
-    return posts.map(normalizePost);
-  } catch {
-    return [];
+    text = await Deno.readTextFile(POSTS_FILE);
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) return [];
+    throw err;
   }
+  const posts: WhatsNewPost[] = JSON.parse(text).posts ?? [];
+  return posts.map(normalizePost);
 }
 
+// Atomic: write to a temp file, then rename over the live one, so a crash
+// mid-write can never leave a truncated posts.json
 async function writePosts(posts: WhatsNewPost[]): Promise<void> {
   await Deno.mkdir(WHATS_NEW_DIR, { recursive: true });
-  await Deno.writeTextFile(POSTS_FILE, JSON.stringify({ posts }, null, 2));
+  const tmp = `${POSTS_FILE}.tmp`;
+  await Deno.writeTextFile(tmp, JSON.stringify({ posts }, null, 2));
+  await Deno.rename(tmp, POSTS_FILE);
+}
+
+// Serializes read-modify-write cycles so concurrent admin edits can't lose
+// each other's updates
+let postsMutex: Promise<void> = Promise.resolve();
+function withPostsLock<T>(fn: () => Promise<T>): Promise<T> {
+  const result = postsMutex.then(fn);
+  postsMutex = result.then(() => undefined, () => undefined);
+  return result;
 }
 
 function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
+  const pa = a.split(".").map((s) => {
+    const n = parseInt(s, 10);
+    return Number.isNaN(n) ? 0 : n;
+  });
+  const pb = b.split(".").map((s) => {
+    const n = parseInt(s, 10);
+    return Number.isNaN(n) ? 0 : n;
+  });
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
     if (diff !== 0) return diff;
@@ -118,7 +153,7 @@ function compareVersions(a: string, b: string): number {
 function cleanText(
   v: unknown,
   label: string,
-  opts: { required: boolean; trim: boolean },
+  opts: { required: boolean; trim: boolean; maxLen: number },
 ): { text: WhatsNewText | null } | { error: string } {
   const raw = typeof v === "string" ? { en: v } : v;
   if (raw === undefined || raw === null) {
@@ -128,6 +163,9 @@ function cleanText(
   if (typeof t !== "object") return { error: `Invalid ${label}` };
   for (const lang of ["en", "fr", "pt"] as const) {
     if (t[lang] !== undefined && typeof t[lang] !== "string") return { error: `Invalid ${label}` };
+    if (t[lang] !== undefined && t[lang]!.length > opts.maxLen) {
+      return { error: `${label} is too long (max ${opts.maxLen} characters)` };
+    }
   }
   const en = opts.trim ? t.en?.trim() : t.en;
   const fr = opts.trim ? t.fr?.trim() : t.fr;
@@ -148,20 +186,30 @@ function cleanText(
 function validatePostInput(body: unknown): { error: string } | { post: Omit<WhatsNewPost, "id" | "createdAt" | "updatedAt"> } {
   const b = body as Partial<WhatsNewPost> | null;
   if (!b || typeof b !== "object") return { error: "Invalid body" };
-  const titleResult = cleanText(b.title, "Title", { required: true, trim: true });
+  const titleResult = cleanText(b.title, "Title", { required: true, trim: true, maxLen: MAX_TITLE_LEN });
   if ("error" in titleResult) return titleResult;
   const title = titleResult.text!;
   const version = typeof b.version === "string" ? b.version.trim() : "";
   if (!/^\d+\.\d+\.\d+$/.test(version)) return { error: "Version must be in the form 1.62.0" };
+  let publishAt: string | undefined;
+  if (b.publishAt !== undefined && b.publishAt !== null && b.publishAt !== "") {
+    if (typeof b.publishAt !== "string" || Number.isNaN(Date.parse(b.publishAt))) {
+      return { error: "Invalid publish date" };
+    }
+    publishAt = new Date(b.publishAt).toISOString();
+  }
   if (!Array.isArray(b.pages) || b.pages.length === 0) return { error: "At least one page is required" };
+  if (b.pages.length > MAX_PAGES) return { error: `Too many pages (max ${MAX_PAGES})` };
   const pages: WhatsNewPage[] = [];
   for (const raw of b.pages) {
     const page = raw as Partial<WhatsNewPage> | null;
     if (!page || typeof page !== "object") return { error: "Invalid page" };
-    const bodyResult = cleanText(page.body, "Page body", { required: true, trim: false });
+    const bodyResult = cleanText(page.body, "Page body", { required: true, trim: false, maxLen: MAX_BODY_LEN });
     if ("error" in bodyResult) return bodyResult;
-    const titleRes = cleanText(page.title, "Page heading", { required: false, trim: true });
+    const titleRes = cleanText(page.title, "Page heading", { required: false, trim: true, maxLen: MAX_TITLE_LEN });
     if ("error" in titleRes) return titleRes;
+    const altRes = cleanText(page.imageAlt, "Image description", { required: false, trim: true, maxLen: MAX_TITLE_LEN });
+    if ("error" in altRes) return altRes;
     if (!page.layoutPreset || !LAYOUT_PRESETS.includes(page.layoutPreset)) {
       return { error: "Invalid page layout" };
     }
@@ -175,29 +223,86 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
       body: bodyResult.text!,
       layoutPreset: page.layoutPreset,
       ...(needsImage ? { imageUrl: page.imageUrl } : {}),
+      ...(needsImage && altRes.text ? { imageAlt: altRes.text } : {}),
     });
   }
-  return { post: { title, version, pages, adminsOnly: b.adminsOnly === true, published: b.published === true } };
+  return {
+    post: {
+      title,
+      version,
+      pages,
+      adminsOnly: b.adminsOnly === true,
+      published: b.published === true,
+      ...(publishAt ? { publishAt } : {}),
+    },
+  };
 }
 
-// Best-effort cleanup of uploaded images referenced by a deleted post
-async function deleteReferencedImages(post: WhatsNewPost): Promise<void> {
+function imageFilenamesOf(post: WhatsNewPost): string[] {
+  const names: string[] = [];
   for (const page of post.pages) {
     const filename = page.imageUrl?.split("/api/whats-new/images/")[1];
-    if (!filename || !/^[A-Za-z0-9-]+\.[a-z]+$/.test(filename)) continue;
+    if (filename && /^[A-Za-z0-9-]+\.[a-z]+$/.test(filename)) names.push(filename);
+  }
+  return names;
+}
+
+async function deleteImageFiles(filenames: Iterable<string>): Promise<void> {
+  for (const filename of filenames) {
     try {
       await Deno.remove(`${IMAGES_DIR}/${filename}`);
     } catch {
-      // already gone or shared — ignore
+      // already gone — ignore
     }
   }
 }
 
-// Public: published posts for platform servers to fetch
+// Daily cleanup of uploaded images no post references (uploaded-then-never-
+// saved, or removed from a page). Files younger than 24h are spared so
+// in-progress drafts don't lose their uploads. Never sweeps against a failed
+// read — an unreadable posts.json must not trigger mass deletion.
+async function sweepOrphanImages(): Promise<void> {
+  let posts: WhatsNewPost[];
+  try {
+    posts = await readPosts();
+  } catch (err) {
+    console.error("[whats-new] image sweep skipped (posts unreadable):", err);
+    return;
+  }
+  const referenced = new Set(posts.flatMap(imageFilenamesOf));
+  try {
+    for await (const entry of Deno.readDir(IMAGES_DIR)) {
+      if (!entry.isFile || referenced.has(entry.name)) continue;
+      const path = `${IMAGES_DIR}/${entry.name}`;
+      try {
+        const stat = await Deno.stat(path);
+        const mtime = stat.mtime?.getTime() ?? Date.now();
+        if (Date.now() - mtime > ORPHAN_MIN_AGE_MS) {
+          await Deno.remove(path);
+          console.log(`[whats-new] removed orphan image ${entry.name}`);
+        }
+      } catch {
+        // stat/remove race — ignore
+      }
+    }
+  } catch {
+    // images dir doesn't exist yet — nothing to sweep
+  }
+}
+
+export function startWhatsNewImageSweep(): void {
+  const run = () => sweepOrphanImages().catch((err) => console.error("[whats-new] image sweep failed:", err));
+  run();
+  setInterval(run, SWEEP_INTERVAL_MS);
+}
+
+// Public: published posts for platform servers to fetch (scheduled posts
+// appear once their publishAt has passed)
 router.get("/posts", async (c) => {
   const posts = await readPosts();
+  const now = Date.now();
   const published = posts
-    .filter((p) => p.published)
+    .filter((p) => p.published && (!p.publishAt || Date.parse(p.publishAt) <= now))
     .sort((a, b) => compareVersions(b.version, a.version));
   return c.json({ posts: published });
 });
@@ -213,6 +318,7 @@ router.get("/images/:filename", async (c) => {
     return c.body(bytes, 200, {
       "Content-Type": contentType,
       "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
     });
   } catch {
     return c.text("Not found", 404);
@@ -238,13 +344,15 @@ router.post("/admin/posts", async (c) => {
 
   const now = new Date().toISOString();
   const post: WhatsNewPost = { id: crypto.randomUUID(), ...result.post, createdAt: now, updatedAt: now };
-  const posts = await readPosts();
-  posts.push(post);
-  await writePosts(posts);
+  await withPostsLock(async () => {
+    const posts = await readPosts();
+    posts.push(post);
+    await writePosts(posts);
+  });
   return c.json({ success: true, post });
 });
 
-// Admin: update post (full replace)
+// Admin: update post (full replace); images dropped by the update are removed
 router.put("/admin/posts/:id", async (c) => {
   const authError = await requireAdmin(c);
   if (authError) return authError;
@@ -253,18 +361,28 @@ router.put("/admin/posts/:id", async (c) => {
   const result = validatePostInput(await c.req.json());
   if ("error" in result) return c.json({ success: false, error: result.error });
 
-  const posts = await readPosts();
-  const idx = posts.findIndex((p) => p.id === id);
-  if (idx === -1) return c.json({ success: false, error: "Post not found" });
-
-  const post: WhatsNewPost = {
-    ...posts[idx],
-    ...result.post,
-    updatedAt: new Date().toISOString(),
-  };
-  posts[idx] = post;
-  await writePosts(posts);
-  return c.json({ success: true, post });
+  const outcome = await withPostsLock(async () => {
+    const posts = await readPosts();
+    const idx = posts.findIndex((p) => p.id === id);
+    if (idx === -1) return { error: "Post not found" as const };
+    const previous = posts[idx];
+    const post: WhatsNewPost = {
+      ...previous,
+      ...result.post,
+      // full replace: a cleared publishAt must not linger from the old post
+      publishAt: result.post.publishAt,
+      updatedAt: new Date().toISOString(),
+    };
+    if (post.publishAt === undefined) delete post.publishAt;
+    posts[idx] = post;
+    await writePosts(posts);
+    const kept = new Set(imageFilenamesOf(post));
+    const dropped = imageFilenamesOf(previous).filter((f) => !kept.has(f));
+    return { post, dropped };
+  });
+  if ("error" in outcome) return c.json({ success: false, error: outcome.error });
+  await deleteImageFiles(outcome.dropped);
+  return c.json({ success: true, post: outcome.post });
 });
 
 // Admin: delete post + its uploaded images
@@ -273,13 +391,16 @@ router.delete("/admin/posts/:id", async (c) => {
   if (authError) return authError;
 
   const id = c.req.param("id");
-  const posts = await readPosts();
-  const idx = posts.findIndex((p) => p.id === id);
-  if (idx === -1) return c.json({ success: false, error: "Post not found" });
-
-  const [removed] = posts.splice(idx, 1);
-  await writePosts(posts);
-  await deleteReferencedImages(removed);
+  const outcome = await withPostsLock(async () => {
+    const posts = await readPosts();
+    const idx = posts.findIndex((p) => p.id === id);
+    if (idx === -1) return { error: "Post not found" as const };
+    const [removed] = posts.splice(idx, 1);
+    await writePosts(posts);
+    return { removed };
+  });
+  if ("error" in outcome) return c.json({ success: false, error: outcome.error });
+  await deleteImageFiles(imageFilenamesOf(outcome.removed));
   return c.json({ success: true });
 });
 

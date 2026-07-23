@@ -42,7 +42,7 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
       class={layout().row ? 'wn-img-wrap side' : 'wn-img-wrap full'}
       style={{ width: `${layout().widthPct}%` }}
     >
-      <img class="wn-modal-img" src={props.page.imageUrl} alt="" />
+      <img class="wn-modal-img" src={props.page.imageUrl} alt={txt(props.page.imageAlt)} />
     </div>
   );
 
@@ -52,16 +52,31 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
       <div class="wn-modal-content">
         {/* Mirrors the platform's fixed-height page region: the modal stays
             the same size on every page; long pages scroll inside */}
-        <div class="wn-modal-page-region">
-          <Show when={txt(props.page.title)}>
-            <div class="wn-modal-page-title">{txt(props.page.title)}</div>
-          </Show>
-          <div class={layout().row ? 'wn-modal-body row' : 'wn-modal-body'}>
-            <Show when={showImage() && layout().imageFirst}>{img()}</Show>
-            <div class="wn-md" innerHTML={rendered()} />
-            <Show when={showImage() && !layout().imageFirst}>{img()}</Show>
+        <Show
+          when={layout().cover && showImage()}
+          fallback={
+            <div class="wn-modal-page-region">
+              <Show when={txt(props.page.title)}>
+                <div class="wn-modal-page-title">{txt(props.page.title)}</div>
+              </Show>
+              <div class={layout().row ? 'wn-modal-body row' : 'wn-modal-body'}>
+                <Show when={showImage() && layout().imageFirst}>{img()}</Show>
+                <div class="wn-md" innerHTML={rendered()} />
+                <Show when={showImage() && !layout().imageFirst}>{img()}</Show>
+              </div>
+            </div>
+          }
+        >
+          <div class="wn-modal-page-region cover">
+            <img class="wn-cover-img" src={props.page.imageUrl} alt={txt(props.page.imageAlt)} />
+            <div class="wn-cover-overlay">
+              <Show when={txt(props.page.title)}>
+                <div class="wn-cover-title">{txt(props.page.title)}</div>
+              </Show>
+              <div class="wn-md wn-cover-md" innerHTML={rendered()} />
+            </div>
           </div>
-        </div>
+        </Show>
       </div>
       <div class="wn-modal-footer">
         <Show when={multiPage() && !isLast()}>
