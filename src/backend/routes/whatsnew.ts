@@ -4,7 +4,9 @@ import { requireAdmin } from "../lib/auth.ts";
 
 const router = new Hono();
 
-const WHATS_NEW_DIR = "/mnt/fastr-config/whats-new";
+// Overridable so the feature can run (and be tested) outside the droplet,
+// where /mnt/fastr-config doesn't exist
+const WHATS_NEW_DIR = Deno.env.get("WHATS_NEW_DIR") ?? "/mnt/fastr-config/whats-new";
 const POSTS_FILE = `${WHATS_NEW_DIR}/posts.json`;
 const IMAGES_DIR = `${WHATS_NEW_DIR}/images`;
 const PUBLIC_API_BASE = Deno.env.get("PUBLIC_API_BASE") ?? "https://status-api.fastr-analytics.org";
@@ -21,6 +23,7 @@ const ALLOWED_UPLOAD_TYPES = new Map([
   ["image/jpeg", "jpg"],
   ["image/gif", "gif"],
   ["image/webp", "webp"],
+  ["video/mp4", "mp4"],
 ]);
 const IMAGE_CONTENT_TYPES: Record<string, string> = {
   png: "image/png",
@@ -28,7 +31,13 @@ const IMAGE_CONTENT_TYPES: Record<string, string> = {
   jpeg: "image/jpeg",
   gif: "image/gif",
   webp: "image/webp",
+  mp4: "video/mp4",
 };
+
+// Extensions can contain digits (mp4) — a letters-only pattern would reject
+// uploaded videos on serve AND make the orphan sweep treat them as
+// unreferenced, deleting them a day later.
+const MEDIA_FILENAME_RE = /^[A-Za-z0-9-]+\.[a-z0-9]+$/;
 
 const LAYOUT_PRESETS = ["textOnly", "heroTop", "imageLeft", "imageRight", "imageBottom", "cover"] as const;
 type WhatsNewLayoutPreset = (typeof LAYOUT_PRESETS)[number];
@@ -212,7 +221,7 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
     if (page.imageUrl !== undefined && typeof page.imageUrl !== "string") return { error: "Invalid image URL" };
     const needsImage = page.layoutPreset !== "textOnly";
     if (needsImage && !page.imageUrl) {
-      return { error: "Image layouts need an uploaded image — upload one or choose Text only" };
+      return { error: "Image layouts need uploaded media — upload an image or video, or choose Text only" };
     }
     pages.push({
       ...(titleRes.text ? { title: titleRes.text } : {}),
@@ -237,7 +246,7 @@ function imageFilenamesOf(post: WhatsNewPost): string[] {
   const names: string[] = [];
   for (const page of post.pages) {
     const filename = page.imageUrl?.split("/api/whats-new/images/")[1];
-    if (filename && /^[A-Za-z0-9-]+\.[a-z]+$/.test(filename)) names.push(filename);
+    if (filename && MEDIA_FILENAME_RE.test(filename)) names.push(filename);
   }
   return names;
 }
@@ -302,21 +311,66 @@ router.get("/posts", async (c) => {
   return c.json({ posts: published });
 });
 
-// Public: serve uploaded images (UUID filenames are immutable)
+// Public: serve uploaded media (UUID filenames are immutable). Range requests
+// are honoured because Safari refuses to play a video from a source that
+// can't serve partial content.
 router.get("/images/:filename", async (c) => {
   const filename = c.req.param("filename");
-  if (!/^[A-Za-z0-9-]+\.[a-z]+$/.test(filename)) return c.text("Bad filename", 400);
+  if (!MEDIA_FILENAME_RE.test(filename)) return c.text("Bad filename", 400);
   const contentType = IMAGE_CONTENT_TYPES[filename.split(".").pop()!];
   if (!contentType) return c.text("Unsupported file type", 400);
+
+  const path = `${IMAGES_DIR}/${filename}`;
+  let size: number;
   try {
-    const bytes = await Deno.readFile(`${IMAGES_DIR}/${filename}`);
-    return c.body(bytes, 200, {
-      "Content-Type": contentType,
-      "Cache-Control": "public, max-age=31536000, immutable",
-      "X-Content-Type-Options": "nosniff",
-    });
+    size = (await Deno.stat(path)).size;
   } catch {
     return c.text("Not found", 404);
+  }
+  const headers: Record<string, string> = {
+    "Content-Type": contentType,
+    "Cache-Control": "public, max-age=31536000, immutable",
+    "X-Content-Type-Options": "nosniff",
+    "Accept-Ranges": "bytes",
+  };
+
+  const rangeMatch = c.req.header("Range")?.match(/^bytes=(\d*)-(\d*)$/);
+  if (!rangeMatch) {
+    try {
+      return c.body(await Deno.readFile(path), 200, headers);
+    } catch {
+      return c.text("Not found", 404);
+    }
+  }
+
+  const start = rangeMatch[1] ? Number(rangeMatch[1]) : 0;
+  const end = rangeMatch[2] ? Math.min(Number(rangeMatch[2]), size - 1) : size - 1;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {
+    return c.body(null, 416, { ...headers, "Content-Range": `bytes */${size}` });
+  }
+
+  const length = end - start + 1;
+  let file: Deno.FsFile;
+  try {
+    file = await Deno.open(path, { read: true });
+  } catch {
+    return c.text("Not found", 404);
+  }
+  try {
+    await file.seek(start, Deno.SeekMode.Start);
+    const buf = new Uint8Array(length);
+    let read = 0;
+    while (read < length) {
+      const n = await file.read(buf.subarray(read));
+      if (n === null) break;
+      read += n;
+    }
+    return c.body(buf.subarray(0, read), 206, {
+      ...headers,
+      "Content-Range": `bytes ${start}-${start + read - 1}/${size}`,
+    });
+  } finally {
+    file.close();
   }
 });
 
@@ -408,7 +462,7 @@ router.get("/admin/images", async (c) => {
   const images: { filename: string; url: string; size: number; mtime: string }[] = [];
   try {
     for await (const entry of Deno.readDir(IMAGES_DIR)) {
-      if (!entry.isFile || !/^[A-Za-z0-9-]+\.[a-z]+$/.test(entry.name)) continue;
+      if (!entry.isFile || !MEDIA_FILENAME_RE.test(entry.name)) continue;
       try {
         const stat = await Deno.stat(`${IMAGES_DIR}/${entry.name}`);
         images.push({

@@ -1,5 +1,5 @@
 import { For, Show, createSignal, onCleanup, onMount } from 'solid-js';
-import { WHATS_NEW_LAYOUTS } from '../../types.ts';
+import { WHATS_NEW_LAYOUTS, isWhatsNewVideo } from '../../types.ts';
 import type { WhatsNewLanguage, WhatsNewLayoutPreset, WhatsNewPage, WhatsNewPost, WhatsNewText } from '../../types.ts';
 import { formatDate } from '../../utils.ts';
 import {
@@ -430,7 +430,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
       return addToast('Page headings need an English version (other languages fall back to it)', 'error');
     }
     if (d.pages.some(p => p.layoutPreset !== 'textOnly' && !p.imageUrl)) {
-      return addToast('Image layouts need an uploaded image — upload one or choose Text only', 'error');
+      return addToast('Image layouts need uploaded media — upload an image or video, or choose Text only', 'error');
     }
     if (d.publishAt && !localInputToIso(d.publishAt)) {
       return addToast('Invalid publish date', 'error');
@@ -756,14 +756,14 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                             </div>
                             <Show when={WHATS_NEW_LAYOUTS[pg().layoutPreset].hasImage}>
                               <div class="whats-new-field">
-                                <label>Image / GIF</label>
+                                <label>Image, GIF or video</label>
                                 <Show
                                   when={pg().imageUrl}
                                   fallback={
                                     <div class="whats-new-picker-row">
                                       <input
                                         type="file"
-                                        accept="image/png,image/jpeg,image/gif,image/webp"
+                                        accept="image/png,image/jpeg,image/gif,image/webp,video/mp4"
                                         disabled={uploadingPage() === activePage()}
                                         onChange={(e) => {
                                           handleUpload(activePage(), e.currentTarget.files?.[0]);
@@ -775,17 +775,22 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                   }
                                 >
                                   <div class="whats-new-image-row">
-                                    <img class="whats-new-thumb" src={pg().imageUrl} alt="" />
+                                    <Show
+                                      when={isWhatsNewVideo(pg().imageUrl)}
+                                      fallback={<img class="whats-new-thumb" src={pg().imageUrl} alt="" />}
+                                    >
+                                      <video class="whats-new-thumb" src={pg().imageUrl} muted preload="metadata" />
+                                    </Show>
                                     <button
                                       class="system-btn"
                                       onClick={() => updatePage(activePage(), { imageUrl: undefined })}
-                                    >Remove image</button>
+                                    >Remove</button>
                                   </div>
                                 </Show>
                                 <Show when={pickerOpen()}>
                                   <div class="whats-new-image-picker">
                                     <Show when={pickerImages().length === 0}>
-                                      <span class="whats-new-uploading">No uploaded images available</span>
+                                      <span class="whats-new-uploading">No uploaded media available</span>
                                     </Show>
                                     <For each={pickerImages()}>
                                       {(img) => (
@@ -798,7 +803,13 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                             setPickerOpen(false);
                                           }}
                                         >
-                                          <img src={img.url} alt="" />
+                                          <Show
+                                            when={isWhatsNewVideo(img.url)}
+                                            fallback={<img src={img.url} alt="" />}
+                                          >
+                                            <video src={img.url} muted preload="metadata" />
+                                            <span class="whats-new-pick-badge">MP4</span>
+                                          </Show>
                                         </button>
                                       )}
                                     </For>

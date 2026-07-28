@@ -214,6 +214,11 @@ export const WHATS_NEW_LAYOUTS: Record<
   cover: { hasImage: true, row: false, imageFirst: true, widthPct: 100, cover: true },
 };
 
+// Media may be an image/GIF or an mp4 clip; both live in imageUrl
+export function isWhatsNewVideo(url: string | undefined): boolean {
+  return !!url && /\.mp4(\?|$)/i.test(url);
+}
+
 // English required; fr/pt fall back to English in the platform when absent
 export interface WhatsNewText {
   en: string;

@@ -1,6 +1,6 @@
 import MarkdownIt from 'markdown-it';
 import { Index, Show, createMemo } from 'solid-js';
-import { WHATS_NEW_LAYOUTS } from '../../types.ts';
+import { WHATS_NEW_LAYOUTS, isWhatsNewVideo } from '../../types.ts';
 import type { WhatsNewLanguage, WhatsNewPage, WhatsNewText } from '../../types.ts';
 
 // Mirrors the platform's markdown-it configuration exactly
@@ -42,7 +42,19 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
       class={layout().row ? 'wn-img-wrap side' : 'wn-img-wrap full'}
       style={{ width: `${layout().widthPct}%` }}
     >
-      <img class="wn-modal-img" src={props.page.imageUrl} alt="" />
+      <Show
+        when={isWhatsNewVideo(props.page.imageUrl)}
+        fallback={<img class="wn-modal-img" src={props.page.imageUrl} alt="" />}
+      >
+        <video
+          class="wn-modal-img"
+          src={props.page.imageUrl}
+          autoplay
+          loop
+          controls
+          ref={(el) => { el.muted = true; el.playsInline = true; }}
+        />
+      </Show>
     </div>
   );
 
@@ -68,7 +80,18 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
           }
         >
           <div class="wn-modal-page-region cover">
-            <img class="wn-cover-img" src={props.page.imageUrl} alt="" />
+            <Show
+              when={isWhatsNewVideo(props.page.imageUrl)}
+              fallback={<img class="wn-cover-img" src={props.page.imageUrl} alt="" />}
+            >
+              <video
+                class="wn-cover-img"
+                src={props.page.imageUrl}
+                autoplay
+                loop
+                ref={(el) => { el.muted = true; el.playsInline = true; }}
+              />
+            </Show>
             <div class="wn-cover-overlay">
               <Show when={txt(props.page.title)}>
                 <div class="wn-cover-title">{txt(props.page.title)}</div>
