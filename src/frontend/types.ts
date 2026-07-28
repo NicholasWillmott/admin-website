@@ -219,6 +219,24 @@ export function isWhatsNewVideo(url: string | undefined): boolean {
   return !!url && /\.mp4(\?|$)/i.test(url);
 }
 
+// Mirrors WHATS_NEW_MEDIA_SCALES / whatsNewMediaWidthPct in platform
+// lib/types/whats_new.ts — keep in sync
+export type WhatsNewMediaSize = "sm" | "md" | "full";
+
+export const WHATS_NEW_MEDIA_SCALES: Record<WhatsNewMediaSize, number> = {
+  sm: 0.5,
+  md: 0.75,
+  full: 1,
+};
+
+export function whatsNewMediaWidthPct(
+  preset: WhatsNewLayoutPreset,
+  size: WhatsNewMediaSize | undefined,
+): number {
+  const layout = WHATS_NEW_LAYOUTS[preset] ?? WHATS_NEW_LAYOUTS.textOnly;
+  return layout.widthPct * (WHATS_NEW_MEDIA_SCALES[size ?? 'full'] ?? 1);
+}
+
 // English required; fr/pt fall back to English in the platform when absent
 export interface WhatsNewText {
   en: string;
@@ -230,6 +248,7 @@ export interface WhatsNewPage {
   title?: WhatsNewText;
   body: WhatsNewText; // markdown, rendered by the platform client
   imageUrl?: string; // required for image presets
+  mediaSize?: WhatsNewMediaSize; // default "full"
   layoutPreset: WhatsNewLayoutPreset;
 }
 

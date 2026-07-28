@@ -7184,3 +7184,18 @@ h1 {
 .wn-cover-md a {
   color: #ffffff;
 }
+
+.whats-new-size-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.whats-new-size-caption {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}

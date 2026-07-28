@@ -42,6 +42,9 @@ const MEDIA_FILENAME_RE = /^[A-Za-z0-9-]+\.[a-z0-9]+$/;
 const LAYOUT_PRESETS = ["textOnly", "heroTop", "imageLeft", "imageRight", "imageBottom", "cover"] as const;
 type WhatsNewLayoutPreset = (typeof LAYOUT_PRESETS)[number];
 
+const MEDIA_SIZES = ["sm", "md", "full"] as const;
+type WhatsNewMediaSize = (typeof MEDIA_SIZES)[number];
+
 // English required; fr/pt fall back to English in the platform when absent
 interface WhatsNewText {
   en: string;
@@ -53,6 +56,7 @@ interface WhatsNewPage {
   title?: WhatsNewText;
   body: WhatsNewText;
   imageUrl?: string; // required for image presets
+  mediaSize?: WhatsNewMediaSize; // default "full"
   layoutPreset: WhatsNewLayoutPreset;
 }
 
@@ -219,6 +223,9 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
       return { error: "Invalid page layout" };
     }
     if (page.imageUrl !== undefined && typeof page.imageUrl !== "string") return { error: "Invalid image URL" };
+    if (page.mediaSize !== undefined && !MEDIA_SIZES.includes(page.mediaSize)) {
+      return { error: "Invalid media size" };
+    }
     const needsImage = page.layoutPreset !== "textOnly";
     if (needsImage && !page.imageUrl) {
       return { error: "Image layouts need uploaded media — upload an image or video, or choose Text only" };
@@ -228,6 +235,7 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
       body: bodyResult.text!,
       layoutPreset: page.layoutPreset,
       ...(needsImage ? { imageUrl: page.imageUrl } : {}),
+      ...(needsImage && page.mediaSize && page.mediaSize !== "full" ? { mediaSize: page.mediaSize } : {}),
     });
   }
   return {

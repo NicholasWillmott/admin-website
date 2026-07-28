@@ -1,6 +1,6 @@
 import MarkdownIt from 'markdown-it';
 import { Index, Show, createMemo } from 'solid-js';
-import { WHATS_NEW_LAYOUTS, isWhatsNewVideo } from '../../types.ts';
+import { WHATS_NEW_LAYOUTS, isWhatsNewVideo, whatsNewMediaWidthPct } from '../../types.ts';
 import type { WhatsNewLanguage, WhatsNewPage, WhatsNewText } from '../../types.ts';
 
 // Mirrors the platform's markdown-it configuration exactly
@@ -40,7 +40,7 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
   const img = () => (
     <div
       class={layout().row ? 'wn-img-wrap side' : 'wn-img-wrap full'}
-      style={{ width: `${layout().widthPct}%` }}
+      style={{ width: `${whatsNewMediaWidthPct(props.page.layoutPreset, props.page.mediaSize)}%` }}
     >
       <Show
         when={isWhatsNewVideo(props.page.imageUrl)}

@@ -1,6 +1,6 @@
 import { For, Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { WHATS_NEW_LAYOUTS, isWhatsNewVideo } from '../../types.ts';
-import type { WhatsNewLanguage, WhatsNewLayoutPreset, WhatsNewPage, WhatsNewPost, WhatsNewText } from '../../types.ts';
+import type { WhatsNewLanguage, WhatsNewLayoutPreset, WhatsNewMediaSize, WhatsNewPage, WhatsNewPost, WhatsNewText } from '../../types.ts';
 import { formatDate } from '../../utils.ts';
 import {
   createWhatsNewPostApi,
@@ -85,6 +85,12 @@ const PRESETS: { value: WhatsNewLayoutPreset; label: string }[] = [
   { value: 'imageRight', label: 'Image right' },
   { value: 'imageBottom', label: 'Image bottom' },
   { value: 'cover', label: 'Cover' },
+];
+
+const MEDIA_SIZES: { value: WhatsNewMediaSize; label: string }[] = [
+  { value: 'sm', label: 'Small' },
+  { value: 'md', label: 'Medium' },
+  { value: 'full', label: 'Full' },
 ];
 
 const LANGUAGES: { value: WhatsNewLanguage; label: string }[] = [
@@ -453,6 +459,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
             // Text-only pages keep any uploaded image in the draft (so switching
             // preset back restores it) but never persist it
             ...(needsImage && p.imageUrl ? { imageUrl: p.imageUrl } : {}),
+            ...(needsImage && p.mediaSize && p.mediaSize !== 'full' ? { mediaSize: p.mediaSize } : {}),
           };
           if (p.title?.en.trim()) page.title = cleanText(p.title, true);
           return page;
@@ -786,6 +793,23 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                       onClick={() => updatePage(activePage(), { imageUrl: undefined })}
                                     >Remove</button>
                                   </div>
+                                  {/* Cover fills the whole region, so scaling is meaningless there */}
+                                  <Show when={!WHATS_NEW_LAYOUTS[pg().layoutPreset].cover}>
+                                    <div class="whats-new-size-row">
+                                      <span class="whats-new-size-caption">Display size</span>
+                                      <div class="whats-new-pos-toggle">
+                                        <For each={MEDIA_SIZES}>
+                                          {(size) => (
+                                            <button
+                                              type="button"
+                                              class={(pg().mediaSize ?? 'full') === size.value ? 'active' : ''}
+                                              onClick={() => updatePage(activePage(), { mediaSize: size.value })}
+                                            >{size.label}</button>
+                                          )}
+                                        </For>
+                                      </div>
+                                    </div>
+                                  </Show>
                                 </Show>
                                 <Show when={pickerOpen()}>
                                   <div class="whats-new-image-picker">
