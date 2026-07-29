@@ -1,8 +1,8 @@
 import { createSignal, For } from 'solid-js';
-import type { Server } from '../../types.ts';
+import type { FiscalYear, Server } from '../../types.ts';
 import type { ServerCategory } from '../../services.ts';
 
-type ConfigChanges = { french?: boolean; portuguese?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string; category?: string };
+type ConfigChanges = { french?: boolean; portuguese?: boolean; ethiopian?: boolean; fiscalYear?: FiscalYear; openAccess?: boolean; label?: string; category?: string };
 
 type Language = 'english' | 'french' | 'portuguese';
 
@@ -24,6 +24,7 @@ interface ConfigModalProps {
 export function ConfigModal(props: ConfigModalProps) {
   const [language, setLanguage] = createSignal<Language>(serverLanguage(props.server));
   const [ethiopian, setEthiopian] = createSignal(props.server.ethiopian ?? false);
+  const [fiscalYear, setFiscalYear] = createSignal<FiscalYear>(props.server.fiscalYear ?? 'none');
   const [openAccess, setOpenAccess] = createSignal(props.server.openAccess ?? false);
   const [label, setLabel] = createSignal(props.server.label);
   const [category, setCategory] = createSignal(props.currentCategory);
@@ -31,6 +32,7 @@ export function ConfigModal(props: ConfigModalProps) {
   const hasChanges = () =>
     language() !== serverLanguage(props.server) ||
     ethiopian() !== (props.server.ethiopian ?? false) ||
+    fiscalYear() !== (props.server.fiscalYear ?? 'none') ||
     openAccess() !== (props.server.openAccess ?? false) ||
     label() !== props.server.label ||
     category() !== props.currentCategory;
@@ -43,6 +45,7 @@ export function ConfigModal(props: ConfigModalProps) {
       changes.portuguese = language() === 'portuguese';
     }
     if (ethiopian() !== (props.server.ethiopian ?? false)) changes.ethiopian = ethiopian();
+    if (fiscalYear() !== (props.server.fiscalYear ?? 'none')) changes.fiscalYear = fiscalYear();
     if (openAccess() !== (props.server.openAccess ?? false)) changes.openAccess = openAccess();
     if (label() !== props.server.label) changes.label = label();
     if (category() !== props.currentCategory) changes.category = category();
@@ -113,6 +116,26 @@ export function ConfigModal(props: ConfigModalProps) {
                   onClick={() => setEthiopian(true)}
                 >
                   Ethiopian
+                </button>
+              </div>
+            </div>
+
+            <div class="config-row">
+              <span class="config-label">Fiscal Year</span>
+              <div class="config-toggle-group">
+                <button
+                  type="button"
+                  class={`config-toggle-btn ${fiscalYear() === 'none' ? 'active' : ''}`}
+                  onClick={() => setFiscalYear('none')}
+                >
+                  January
+                </button>
+                <button
+                  type="button"
+                  class={`config-toggle-btn ${fiscalYear() === 'july' ? 'active' : ''}`}
+                  onClick={() => setFiscalYear('july')}
+                >
+                  July
                 </button>
               </div>
             </div>

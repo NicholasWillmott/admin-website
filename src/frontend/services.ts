@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits, AccessLogEntry, SiteAdminsData, WhatsNewPost } from './types.ts';
+import type { Server, FiscalYear, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits, AccessLogEntry, SiteAdminsData, WhatsNewPost } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -448,6 +448,15 @@ export async function updateServerCalendarApi(serverId: string, ethiopian: boole
     method: 'POST',
     headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
     body: JSON.stringify({ serverId, ethiopian }),
+  });
+  return await response.json();
+}
+
+export async function updateServerFiscalYearApi(serverId: string, fiscalYear: FiscalYear, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/update/fiscal-year`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId, fiscalYear }),
   });
   return await response.json();
 }

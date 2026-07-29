@@ -9,7 +9,7 @@ import { ServerMultiSelectModal } from '../../modals/ServerMultiSelectModal.tsx'
 import { DeleteServerModal } from '../../modals/DeleteServerModal.tsx';
 import { ConfigModal } from '../../modals/ConfigModal.tsx';
 import { RestartConfigModal } from '../../modals/RestartConfigModal.tsx';
-import type { Server, ServerRestartStatus, BackupInfo, HealthCheckResponse, ServerUserLogs } from '../../../types.ts';
+import type { Server, FiscalYear, ServerRestartStatus, BackupInfo, HealthCheckResponse, ServerUserLogs } from '../../../types.ts';
 import type { ServerCategory } from '../../../services.ts';
 import {
   fetchServerLogs,
@@ -27,6 +27,7 @@ import {
   bulkStopServerApi,
   updateServerLanguageApi,
   updateServerCalendarApi,
+  updateServerFiscalYearApi,
   updateServerOpenAccessApi,
   updateServerLabelApi,
   assignServerCategoryApi,
@@ -488,7 +489,7 @@ export function ServersView(props: ServersViewProps) {
 
   const handleSaveConfig = async (
     serverId: string,
-    changes: { french?: boolean; portuguese?: boolean; ethiopian?: boolean; openAccess?: boolean; label?: string; category?: string },
+    changes: { french?: boolean; portuguese?: boolean; ethiopian?: boolean; fiscalYear?: FiscalYear; openAccess?: boolean; label?: string; category?: string },
   ) => {
     if (props.sshOperationInProgress()) {
       addToast('Another SSH operation is in progress. Please wait.', 'info');
@@ -503,6 +504,10 @@ export function ServersView(props: ServersViewProps) {
       }
       if (changes.ethiopian !== undefined) {
         const r = await updateServerCalendarApi(serverId, changes.ethiopian, token);
+        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
+      }
+      if (changes.fiscalYear !== undefined) {
+        const r = await updateServerFiscalYearApi(serverId, changes.fiscalYear, token);
         if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
       }
       if (changes.openAccess !== undefined) {

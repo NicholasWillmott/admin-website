@@ -327,6 +327,33 @@ router.post("/update/calendar", async (c) => {
     }
 });
 
+// update server fiscal year
+router.post("/update/fiscal-year", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string, fiscalYear: string }>();
+    const serverId: string = body.serverId;
+    const fiscalYear: string = body.fiscalYear;
+
+    const command = `wb c update ${serverId} --fiscal-year ${fiscalYear}`
+
+    if (!isCommandAllowed(command)) {
+        return c.json({ error: "command not allowed" }, 403);
+    }
+
+    try {
+        const result = await executeCommand(getDropletIp(), command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr,
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // update server open access status
 router.post("/update/open-access", async (c) => {
     const authError = await requireAdmin(c);

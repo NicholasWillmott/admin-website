@@ -1,3 +1,5 @@
+export type FiscalYear = 'none' | 'july';
+
 export interface Server {
   id: string;
   label: string;
@@ -8,6 +10,7 @@ export interface Server {
   french?: boolean;
   portuguese?: boolean;
   ethiopian?: boolean;
+  fiscalYear?: FiscalYear;
   openAccess?: boolean;
   volume?: string;
   mode?: "central";
