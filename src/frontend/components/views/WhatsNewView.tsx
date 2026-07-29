@@ -14,6 +14,7 @@ import {
 } from '../../services.ts';
 import type { WhatsNewEventRow, WhatsNewImageInfo } from '../../services.ts';
 import { addToast } from '../../stores/toastStore.ts';
+import { DeleteWhatsNewPostModal } from '../modals/DeleteWhatsNewPostModal.tsx';
 import { WhatsNewPreview } from './WhatsNewPreview.tsx';
 
 interface WhatsNewViewProps {
@@ -160,6 +161,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
   const [pickerOpen, setPickerOpen] = createSignal(false);
   const [pickerImages, setPickerImages] = createSignal<WhatsNewImageInfo[]>([]);
   const [versionMenuOpen, setVersionMenuOpen] = createSignal(false);
+  const [deleteModalOpen, setDeleteModalOpen] = createSignal(false);
 
   let bodyTextareaRef: HTMLTextAreaElement | undefined;
   let versionComboRef: HTMLDivElement | undefined;
@@ -262,6 +264,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     setSavedSnapshot(JSON.stringify(d));
     setActivePage(0);
     setPickerOpen(false);
+    setDeleteModalOpen(false);
   }
 
   function newPost() {
@@ -279,6 +282,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     setSavedSnapshot(JSON.stringify(d));
     setActivePage(0);
     setPickerOpen(false);
+    setDeleteModalOpen(false);
   }
 
   // Start the next release's post from the current one; shares image files
@@ -486,19 +490,19 @@ export function WhatsNewView(props: WhatsNewViewProps) {
 
   async function handleDelete() {
     const id = selectedId();
-    const d = draft();
-    if (!id || id === 'new' || !d) return;
-    if (!confirm(`Delete the post "${d.title.en}" and its uploaded images?`)) return;
+    if (!id || id === 'new') return;
     const token = await props.getToken();
     const result = await deleteWhatsNewPostApi(id, token);
     if (result.success) {
       addToast('Post deleted', 'success');
+      setDeleteModalOpen(false);
       setSelectedId(null);
       setDraft(null);
       setSavedSnapshot(null);
       await refetch();
     } else {
       addToast(result.error || 'Failed to delete post', 'error');
+      setDeleteModalOpen(false);
     }
   }
 
@@ -867,7 +871,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                   <div class="whats-new-editor-footer">
                     <Show when={selectedId() !== 'new'}>
                       <button class="system-btn" onClick={duplicatePost}>Duplicate</button>
-                      <button class="action-btn danger" style="margin: 0" onClick={handleDelete}>Delete post</button>
+                      <button class="action-btn danger" style="margin: 0" onClick={() => setDeleteModalOpen(true)}>Delete post</button>
                     </Show>
                     <div style="flex: 1"></div>
                     <button class="system-btn" onClick={closeEditor}>Close</button>
@@ -880,6 +884,17 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                       {saving() ? 'Saving…' : isDirty() ? 'Save •' : 'Save'}
                     </button>
                   </div>
+
+                  <Show when={deleteModalOpen()}>
+                    <DeleteWhatsNewPostModal
+                      postTitle={d().title.en}
+                      version={d().version}
+                      published={d().published}
+                      mediaCount={new Set(d().pages.map(p => p.imageUrl).filter(Boolean)).size}
+                      onClose={() => setDeleteModalOpen(false)}
+                      onConfirm={handleDelete}
+                    />
+                  </Show>
                 </div>
               )}
             </Show>
