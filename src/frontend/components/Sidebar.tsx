@@ -54,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'users', label: 'Users', iconPath: 'M16 19v-1a4 4 0 0 0-8 0v1M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7' },
       { id: 'userLogs', label: 'Usage Logs', iconPath: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01' },
+      { id: 'docActivity', label: 'Report & Deck Activity', iconPath: 'M14 3v5h5M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5zM9 13h6M9 17h6' },
       { id: 'aiUsage', label: 'AI Usage', iconPath: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16' },
       { id: 'accessLog', label: 'Site Access', iconPath: 'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3', superUserOnly: true },
     ],

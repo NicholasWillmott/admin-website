@@ -61,7 +61,7 @@ export function UserLogsView(props: UserLogsViewProps) {
 
         for (const [sid, serverLogs] of Object.entries(logs)) {
             if (serverId && sid !== serverId) continue;
-            for (const log of serverLogs) {
+            for (const log of serverLogs ?? []) {
                 if (from && log.week_start < from) continue;
                 if (to && log.week_start > to) continue;
                 if (userQ && !log.user_email.toLowerCase().includes(userQ)) continue;

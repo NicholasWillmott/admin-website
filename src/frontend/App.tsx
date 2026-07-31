@@ -59,6 +59,7 @@ import { ToastContainer } from './components/modals/Toast.tsx';
 import { addToast } from './stores/toastStore.ts';
 import { Users } from "./components/views/users/Users.tsx";
 import { UserLogsView } from "./components/views/UserLogsView.tsx";
+import { DocActivityView } from "./components/views/DocActivityView.tsx";
 
 function App() {
   const { getToken } = useAuth();
@@ -209,9 +210,9 @@ function App() {
     }
   );
 
-  // get aggregate user logs — lazy: only fetches when userLogs view is active
+  // get aggregate user logs — lazy: only fetches when a view needing them is active
   const [aggregateLogs] = createResource(
-    () => activeView() === "userLogs" && servers() ? servers() : null,
+    () => (activeView() === "userLogs" || activeView() === "docActivity") && servers() ? servers() : null,
     async (serverList) => {
       const token = await getToken();
       return fetchAllServerUserLogsAggregate(serverList!, token);
@@ -600,6 +601,14 @@ function App() {
               aggregateLoading={aggregateLogs.loading}
               rawLogs={allRawUserLogs()}
               rawLoading={allRawUserLogs.loading}
+            />
+          </Show>
+
+          <Show when={activeView() === "docActivity"}>
+            <DocActivityView
+              servers={servers()}
+              aggregateLogs={aggregateLogs()}
+              loading={aggregateLogs.loading}
             />
           </Show>
 

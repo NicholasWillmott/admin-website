@@ -735,7 +735,9 @@ export async function fetchAllServerUserLogsAll(servers: Server[], token: string
 
 export async function fetchAllServerUserLogsAggregate(servers: Server[], token: string | null): Promise<ServerUserLogsAggregate> {
   const data = await fetchAggregate("user_logs_aggregate", token) as Record<string, { logs?: UserLogAggregate[] } | null>;
-  return Object.fromEntries(servers.map(s => [s.id, data[s.id]?.logs ?? []]));
+  // Keep null for unreachable servers — the activity views render those as
+  // "no data" rather than zero usage.
+  return Object.fromEntries(servers.map(s => [s.id, data[s.id] ? data[s.id]!.logs ?? [] : null]));
 }
 
 export async function fetchAllServerAiUsage(servers: Server[], token: string | null): Promise<ServerAiUsageLogs> {

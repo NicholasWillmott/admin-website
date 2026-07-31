@@ -7199,3 +7199,51 @@ h1 {
   letter-spacing: 0.08em;
   color: #94a3b8;
 }
+
+/* ===== Report & Deck Activity view ===== */
+
+.doc-activity-note {
+  color: #94a3b8;
+  font-size: 0.8125rem;
+  margin: -8px 0 16px;
+}
+
+.doc-activity-instance {
+  color: #e2e8f0;
+  white-space: nowrap;
+}
+
+.doc-activity-th-month {
+  white-space: nowrap;
+}
+
+.doc-activity-cell-zero {
+  color: #64748b;
+}
+
+.doc-activity-cell-na {
+  color: #64748b;
+  font-style: italic;
+}
+
+.doc-activity-total {
+  font-weight: 600;
+}
+
+.doc-activity-export-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.doc-activity-export-btn:hover {
+  border-color: #0d9488;
+  color: #5eead4;
+}

@@ -144,7 +144,8 @@ export interface UserLogAggregate {
   count: number;
 }
 
-export type ServerUserLogsAggregate = { [serverId: string]: UserLogAggregate[] };
+// null = instance unreachable (fan-out failed); [] = reachable with no rows
+export type ServerUserLogsAggregate = { [serverId: string]: UserLogAggregate[] | null };
 
 export interface AiUsageLog {
   id: number;
@@ -197,7 +198,7 @@ export interface ChangelogVersion {
   types: ChangelogTypeGroup[];
 }
 
-export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs" | "accessLog" | "siteAdmins" | "whatsNew";
+export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs" | "docActivity" | "accessLog" | "siteAdmins" | "whatsNew";
 
 export type WhatsNewLanguage = "en" | "fr" | "pt";
 
