@@ -362,29 +362,52 @@ h1 {
 
 .multi-select-modal {
   position: fixed;
-  bottom: 0;
-  left: var(--sidebar-width);
-  right: 0;
+  bottom: 16px;
+  left: calc(var(--sidebar-width) + 20px);
+  right: 20px;
   z-index: 200;
-  background: #0d1f20;
-  border-top: 2px solid #0d9488;
+  background: #1a2e22;
+  border: 1px solid rgba(13, 148, 136, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   padding: 14px 20px;
   display: flex;
   align-items: center;
   gap: 16px;
   color: white;
+  animation: multi-select-slide-up 0.2s ease-out;
+}
+
+@keyframes multi-select-slide-up {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .multi-select-modal h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #e2e8f0;
   white-space: nowrap;
 }
 
 .multi-select-modal p {
   margin: 0;
   font-size: 13px;
-  opacity: 0.75;
+  color: #cbd5e1;
+  white-space: nowrap;
+}
+
+.multi-select-modal p strong {
+  color: #5eead4;
 }
 
 .server-list-wrapper {
@@ -440,10 +463,45 @@ h1 {
   white-space: nowrap;
 }
 
+.multi-select-modal label strong {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
 .multi-select-modal-content {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Normalise the shared card buttons for the modal's single-row layout:
+   strip the card grid margins, equalise heights (the gradient variants are
+   border-less while the plain action-btn has a 1px border), and swap the
+   scale-up hover for a lift that doesn't jostle the row */
+.multi-select-modal .update-btn,
+.multi-select-modal .action-btn {
+  margin: 0;
+  padding: 9px 18px;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.multi-select-modal .update-btn,
+.multi-select-modal .action-btn.restart,
+.multi-select-modal .action-btn.stop {
+  border: 1px solid transparent;
+}
+
+.multi-select-modal .update-btn:hover:not(:disabled),
+.multi-select-modal .action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .multi-select-server-list {
@@ -457,23 +515,22 @@ h1 {
 
 .multi-select-confirm-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
 }
 
 @media (max-width: 600px) {
   .multi-select-modal {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
     padding: 12px 16px;
   }
 
   .multi-select-modal-content {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 10px;
-  }
-
-  .multi-select-modal h3 {
-    font-size: 14px;
   }
 
   .multi-select-modal p {
@@ -493,8 +550,14 @@ h1 {
     min-width: 0;
   }
 
-  .multi-select-modal .update-btn {
+  .multi-select-modal .update-btn,
+  .multi-select-modal .action-btn {
     width: 100%;
+  }
+
+  .multi-select-confirm-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
