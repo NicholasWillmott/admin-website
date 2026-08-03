@@ -9,6 +9,11 @@ export function parseVersion(version: string): { major: number; minor: number; p
   };
 }
 
+// Ad-hoc deploy tags are anything non-semver (e.g. "test-feature-x")
+export function filterAdhocVersions(versions: string[]): string[] {
+  return versions.filter((v) => parseVersion(v) === null).sort();
+}
+
 // Filter versions to only show those >= current server's minor version
 export function filterVersionsForServer(versions: string[], currentVersion: string): string[] {
   const current = parseVersion(currentVersion);

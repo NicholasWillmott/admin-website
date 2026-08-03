@@ -239,6 +239,17 @@ h1 {
   border-color: #b8860b;
 }
 
+.server-card.central .adhoc-toggle-btn:hover {
+  border-color: #b8860b;
+  color: #e8c66a;
+}
+
+.server-card.central .adhoc-toggle-btn.active {
+  background: rgba(184, 134, 11, 0.15);
+  border-color: #b8860b;
+  color: #e8c66a;
+}
+
 .server-card.central .update-btn {
   background: linear-gradient(135deg, #b8860b 0%, #8a6508 100%);
 }
@@ -635,6 +646,37 @@ h1 {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+.version-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.adhoc-toggle-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.adhoc-toggle-btn:hover {
+  border-color: #0d9488;
+  color: #5eead4;
+}
+
+.adhoc-toggle-btn.active {
+  background: rgba(13, 148, 136, 0.15);
+  border-color: #0d9488;
+  color: #5eead4;
 }
 
 .version-select {

@@ -1,6 +1,6 @@
 import { createSignal, For, Show } from 'solid-js';
 import type { Server, HealthCheckResponse, ServerRestartStatus } from '../../../types.ts';
-import { filterVersionsForServer, formatUptime, timeAgo } from '../../../utils.ts';
+import { filterAdhocVersions, filterVersionsForServer, formatUptime, parseVersion, timeAgo } from '../../../utils.ts';
 
 interface ServerCardProps {
   server: Server;
@@ -34,6 +34,21 @@ interface ServerCardProps {
 
 export function ServerCard(props: ServerCardProps) {
   const [selectedVersion, setSelectedVersion] = createSignal(props.server.serverVersion);
+  // Auto-enable when the server is already running an ad-hoc deploy, so its
+  // current version is present in the dropdown
+  const [showAdhoc, setShowAdhoc] = createSignal(parseVersion(props.server.serverVersion) === null);
+
+  const semverVersions = () =>
+    filterVersionsForServer(props.versions || [], props.server.serverVersion).filter((v) => parseVersion(v) !== null);
+  const adhocVersions = () => filterAdhocVersions(props.versions || []);
+
+  const toggleAdhoc = () => {
+    const next = !showAdhoc();
+    setShowAdhoc(next);
+    if (!next && parseVersion(selectedVersion()) === null) {
+      setSelectedVersion(props.server.serverVersion);
+    }
+  };
 
   const statusKey = () => {
     if (props.restartStatus === 'pending') return 'pending';
@@ -123,15 +138,34 @@ export function ServerCard(props: ServerCardProps) {
           {/* Version Control */}
           <div class="control-section">
             <h3>Version Control</h3>
-            <label>
+            <div class="version-label-row">
               <strong>Server Version:</strong>
+              <button
+                type="button"
+                class={`adhoc-toggle-btn ${showAdhoc() ? 'active' : ''}`}
+                title={showAdhoc() ? 'Hide ad-hoc deploys from the version list' : 'Show ad-hoc deploys in the version list'}
+                onClick={toggleAdhoc}
+              >
+                Ad-hoc
+              </button>
+            </div>
+            <label>
               <select class="version-select"
                 value={selectedVersion()}
                 onChange={(e) => setSelectedVersion(e.currentTarget.value)}
               >
-                <For each={filterVersionsForServer(props.versions || [], props.server.serverVersion)}>{(version) =>
+                <For each={semverVersions()}>{(version) =>
                   <option value={version} selected={props.server.serverVersion === version}>{version}</option>
                 }</For>
+                <Show when={showAdhoc()}>
+                  <optgroup label="Ad-hoc deploys">
+                    <Show when={adhocVersions().length > 0} fallback={<option disabled>No ad-hoc deploys found</option>}>
+                      <For each={adhocVersions()}>{(version) =>
+                        <option value={version} selected={props.server.serverVersion === version}>{version}</option>
+                      }</For>
+                    </Show>
+                  </optgroup>
+                </Show>
               </select>
             </label>
             <button

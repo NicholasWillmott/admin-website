@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js';
 import { For, Show } from 'solid-js';
+import { parseVersion } from '../../utils.ts';
 
 type ConfirmAction = 'update' | 'restart' | 'stop' | null;
 
@@ -37,7 +38,10 @@ function ServerListLabel(props: { ids: string[] }) {
 }
 
 export function ServerMultiSelectModal(props: multiSelectProps) {
-  const availableVersions = () => props.isCentral ? props.centralVersions : props.versions;
+  // Semver only — ad-hoc deploys are excluded from bulk updates; they can
+  // only be applied per-server from the server card's ad-hoc toggle
+  const availableVersions = () =>
+    (props.isCentral ? props.centralVersions : props.versions).filter((v) => parseVersion(v) !== null);
   const [selectedVersion, setSelectedVersion] = createSignal(availableVersions()[0] ?? '');
   const [confirmAction, setConfirmAction] = createSignal<ConfirmAction>(null);
 
