@@ -65,7 +65,10 @@ router.get("/versions", async (c) => {
             .filter(tag => tag.startsWith(tagPrefix))
             .map(tag => tag.replace(tagPrefix, ''));
 
-        const sortedTags = tags.sort((a, b) => {
+        // Semver tags sorted by version desc; ad-hoc (non-semver) tags keep
+        // docker's newest-first listing order so clients can show most recent first
+        const isSemver = (tag: string) => /^\d+\.\d+\.\d+/.test(tag);
+        const semverTags = tags.filter(isSemver).sort((a, b) => {
             const aParts = a.split('.').map(Number);
             const bParts = b.split('.').map(Number);
             for (let i = 0; i < 3; i++) {
@@ -73,8 +76,9 @@ router.get("/versions", async (c) => {
             }
             return 0;
         });
+        const adhocTags = tags.filter(tag => !isSemver(tag));
 
-        return c.json({ versions: sortedTags });
+        return c.json({ versions: [...semverTags, ...adhocTags] });
     } catch (error) {
         return c.json({ error: String(error) }, 500);
     }
