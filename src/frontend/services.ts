@@ -461,6 +461,15 @@ export async function updateServerFiscalYearApi(serverId: string, fiscalYear: Fi
   return await response.json();
 }
 
+export async function updateServerCountryIso3Api(serverId: string, countryIso3: string, token: string | null): Promise<{ success: boolean; error?: string }> {
+  const response = await fetch(`${API_BASE}/api/servers/update/country-iso3`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ serverId, countryIso3 }),
+  });
+  return await response.json();
+}
+
 export async function updateServerOpenAccessApi(serverId: string, openAccess: boolean, token: string | null): Promise<{ success: boolean; error?: string }> {
   const response = await fetch(`${API_BASE}/api/servers/update/open-access`, {
     method: 'POST',

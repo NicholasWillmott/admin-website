@@ -2,7 +2,7 @@ import { createSignal, For } from 'solid-js';
 import type { FiscalYear, Server } from '../../types.ts';
 import type { ServerCategory } from '../../services.ts';
 
-type ConfigChanges = { french?: boolean; portuguese?: boolean; ethiopian?: boolean; fiscalYear?: FiscalYear; openAccess?: boolean; label?: string; category?: string };
+type ConfigChanges = { french?: boolean; portuguese?: boolean; ethiopian?: boolean; fiscalYear?: FiscalYear; countryIso3?: string; openAccess?: boolean; label?: string; category?: string };
 
 type Language = 'english' | 'french' | 'portuguese';
 
@@ -25,6 +25,7 @@ export function ConfigModal(props: ConfigModalProps) {
   const [language, setLanguage] = createSignal<Language>(serverLanguage(props.server));
   const [ethiopian, setEthiopian] = createSignal(props.server.ethiopian ?? false);
   const [fiscalYear, setFiscalYear] = createSignal<FiscalYear>(props.server.fiscalYear ?? 'none');
+  const [countryIso3, setCountryIso3] = createSignal(props.server.countryIso3 ?? '');
   const [openAccess, setOpenAccess] = createSignal(props.server.openAccess ?? false);
   const [label, setLabel] = createSignal(props.server.label);
   const [category, setCategory] = createSignal(props.currentCategory);
@@ -33,6 +34,7 @@ export function ConfigModal(props: ConfigModalProps) {
     language() !== serverLanguage(props.server) ||
     ethiopian() !== (props.server.ethiopian ?? false) ||
     fiscalYear() !== (props.server.fiscalYear ?? 'none') ||
+    countryIso3() !== (props.server.countryIso3 ?? '') ||
     openAccess() !== (props.server.openAccess ?? false) ||
     label() !== props.server.label ||
     category() !== props.currentCategory;
@@ -46,6 +48,7 @@ export function ConfigModal(props: ConfigModalProps) {
     }
     if (ethiopian() !== (props.server.ethiopian ?? false)) changes.ethiopian = ethiopian();
     if (fiscalYear() !== (props.server.fiscalYear ?? 'none')) changes.fiscalYear = fiscalYear();
+    if (countryIso3() !== (props.server.countryIso3 ?? '')) changes.countryIso3 = countryIso3();
     if (openAccess() !== (props.server.openAccess ?? false)) changes.openAccess = openAccess();
     if (label() !== props.server.label) changes.label = label();
     if (category() !== props.currentCategory) changes.category = category();
@@ -138,6 +141,24 @@ export function ConfigModal(props: ConfigModalProps) {
                   July
                 </button>
               </div>
+            </div>
+
+            <div class="config-row">
+              <span class="config-label">Country ISO3</span>
+              <input
+                type="text"
+                value={countryIso3()}
+                maxLength={3}
+                placeholder="none"
+                onInput={(e) => {
+                  // Codes are uppercase A–Z; strip anything else as it's typed.
+                  const cleaned = e.currentTarget.value.toUpperCase().replace(/[^A-Z]/g, '');
+                  e.currentTarget.value = cleaned;
+                  setCountryIso3(cleaned);
+                }}
+                class="modal-input"
+                style="width: 96px; text-align: center; font-family: 'Monaco', 'Courier New', monospace"
+              />
             </div>
 
             <div class="config-row">

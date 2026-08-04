@@ -354,6 +354,34 @@ router.post("/update/fiscal-year", async (c) => {
     }
 });
 
+// update server ISO3 country code
+router.post("/update/country-iso3", async (c) => {
+    const authError = await requireAdmin(c);
+    if (authError) return authError;
+
+    const body = await c.req.json<{ serverId: string, countryIso3: string }>();
+    const serverId: string = body.serverId;
+    // Empty means "clear it" — wb takes 'none' as the removal form.
+    const countryIso3: string = body.countryIso3?.trim() ? body.countryIso3.trim() : "none";
+
+    const command = `wb c update ${serverId} --country-iso3 ${countryIso3}`
+
+    if (!isCommandAllowed(command)) {
+        return c.json({ error: "command not allowed" }, 403);
+    }
+
+    try {
+        const result = await executeCommand(getDropletIp(), command);
+        return c.json({
+            success: result.success,
+            message: result.stdout,
+            error: result.stderr,
+        });
+    } catch (error) {
+        return c.json({ error: String(error) }, 500);
+    }
+});
+
 // update server open access status
 router.post("/update/open-access", async (c) => {
     const authError = await requireAdmin(c);

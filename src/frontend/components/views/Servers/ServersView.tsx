@@ -28,6 +28,7 @@ import {
   updateServerLanguageApi,
   updateServerCalendarApi,
   updateServerFiscalYearApi,
+  updateServerCountryIso3Api,
   updateServerOpenAccessApi,
   updateServerLabelApi,
   assignServerCategoryApi,
@@ -489,7 +490,7 @@ export function ServersView(props: ServersViewProps) {
 
   const handleSaveConfig = async (
     serverId: string,
-    changes: { french?: boolean; portuguese?: boolean; ethiopian?: boolean; fiscalYear?: FiscalYear; openAccess?: boolean; label?: string; category?: string },
+    changes: { french?: boolean; portuguese?: boolean; ethiopian?: boolean; fiscalYear?: FiscalYear; countryIso3?: string; openAccess?: boolean; label?: string; category?: string },
   ) => {
     if (props.sshOperationInProgress()) {
       addToast('Another SSH operation is in progress. Please wait.', 'info');
@@ -508,6 +509,10 @@ export function ServersView(props: ServersViewProps) {
       }
       if (changes.fiscalYear !== undefined) {
         const r = await updateServerFiscalYearApi(serverId, changes.fiscalYear, token);
+        if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
+      }
+      if (changes.countryIso3 !== undefined) {
+        const r = await updateServerCountryIso3Api(serverId, changes.countryIso3, token);
         if (!r.success) { addToast(`Error: ${r.error}`, 'error'); return; }
       }
       if (changes.openAccess !== undefined) {

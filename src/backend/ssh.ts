@@ -81,6 +81,7 @@ const ALLOWED_COMMANDS = [
   /^wb c update [\w-]+ --portuguese (?:true|false)$/,
   /^wb c update [\w-]+ --ethiopian (?:true|false)$/,
   /^wb c update [\w-]+ --fiscal-year (?:none|july)$/,
+  /^wb c update [\w-]+ --country-iso3 (?:[A-Za-z]{3}|none)$/,
   /^wb c update [\w-]+ --open-access (?:true|false)$/,
   /^wb c update [\w-]+ --volume [\w_-]+$/,
   /^wb c remove [\w-]+ --force$/,

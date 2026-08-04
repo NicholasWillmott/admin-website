@@ -11,6 +11,7 @@ export interface Server {
   portuguese?: boolean;
   ethiopian?: boolean;
   fiscalYear?: FiscalYear;
+  countryIso3?: string;
   openAccess?: boolean;
   volume?: string;
   mode?: "central";
