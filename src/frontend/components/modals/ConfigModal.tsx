@@ -144,11 +144,11 @@ export function ConfigModal(props: ConfigModalProps) {
             </div>
 
             <div class="config-row">
-              <span class="config-label">Country ISO3</span>
+              <span class="config-label">Country Code</span>
               <input
                 type="text"
                 value={countryIso3()}
-                maxLength={3}
+                maxLength={24}
                 placeholder="none"
                 onInput={(e) => {
                   // Codes are uppercase A–Z; strip anything else as it's typed.
@@ -157,7 +157,7 @@ export function ConfigModal(props: ConfigModalProps) {
                   setCountryIso3(cleaned);
                 }}
                 class="modal-input"
-                style="width: 96px; text-align: center; font-family: 'Monaco', 'Courier New', monospace"
+                style="width: 170px; text-align: center; font-family: 'Monaco', 'Courier New', monospace"
               />
             </div>
 
