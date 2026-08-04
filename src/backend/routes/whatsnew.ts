@@ -259,6 +259,17 @@ function imageFilenamesOf(post: WhatsNewPost): string[] {
   return names;
 }
 
+// Media files are shared: duplicating a post copies its imageUrls, so two
+// posts can point at the same file. Only delete what NO remaining post
+// references, or removing one copy strips the other's images.
+export function unreferencedFilesOf(
+  candidates: Iterable<string>,
+  remainingPosts: WhatsNewPost[],
+): string[] {
+  const referenced = new Set(remainingPosts.flatMap(imageFilenamesOf));
+  return [...new Set(candidates)].filter((f) => !referenced.has(f));
+}
+
 async function deleteImageFiles(filenames: Iterable<string>): Promise<void> {
   for (const filename of filenames) {
     try {
@@ -433,12 +444,14 @@ router.put("/admin/posts/:id", async (c) => {
     if (post.publishAt === undefined) delete post.publishAt;
     posts[idx] = post;
     await writePosts(posts);
-    const kept = new Set(imageFilenamesOf(post));
-    const dropped = imageFilenamesOf(previous).filter((f) => !kept.has(f));
-    return { post, dropped };
+    // Inside the lock: `posts` is the just-written state, so a concurrent
+    // create can't slip a reference in between the check and the unlink
+    await deleteImageFiles(
+      unreferencedFilesOf(imageFilenamesOf(previous), posts),
+    );
+    return { post };
   });
   if ("error" in outcome) return c.json({ success: false, error: outcome.error });
-  await deleteImageFiles(outcome.dropped);
   return c.json({ success: true, post: outcome.post });
 });
 
@@ -454,10 +467,12 @@ router.delete("/admin/posts/:id", async (c) => {
     if (idx === -1) return { error: "Post not found" as const };
     const [removed] = posts.splice(idx, 1);
     await writePosts(posts);
-    return { removed };
+    await deleteImageFiles(
+      unreferencedFilesOf(imageFilenamesOf(removed), posts),
+    );
+    return {};
   });
   if ("error" in outcome) return c.json({ success: false, error: outcome.error });
-  await deleteImageFiles(imageFilenamesOf(outcome.removed));
   return c.json({ success: true });
 });
 
