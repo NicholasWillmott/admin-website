@@ -504,6 +504,13 @@ h1 {
   transform: translateY(-1px);
 }
 
+/* Pull the ad-hoc toggle in to the label's internal 8px gap so it reads as
+   part of the version control, not a separate row item */
+.multi-select-modal .adhoc-toggle-btn {
+  margin-left: -6px;
+  flex-shrink: 0;
+}
+
 .multi-select-server-list {
   font-size: 12px;
   opacity: 0.6;

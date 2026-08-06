@@ -1,6 +1,6 @@
 import { createSignal } from 'solid-js';
 import { For, Show } from 'solid-js';
-import { parseVersion } from '../../utils.ts';
+import { filterAdhocVersions, parseVersion } from '../../utils.ts';
 
 type ConfirmAction = 'update' | 'restart' | 'stop' | null;
 
@@ -38,12 +38,21 @@ function ServerListLabel(props: { ids: string[] }) {
 }
 
 export function ServerMultiSelectModal(props: multiSelectProps) {
-  // Semver only — ad-hoc deploys are excluded from bulk updates; they can
-  // only be applied per-server from the server card's ad-hoc toggle
-  const availableVersions = () =>
+  // Semver by default — ad-hoc deploys are opt-in via the Ad-hoc toggle
+  const semverVersions = () =>
     (props.isCentral ? props.centralVersions : props.versions).filter((v) => parseVersion(v) !== null);
-  const [selectedVersion, setSelectedVersion] = createSignal(availableVersions()[0] ?? '');
+  const adhocVersions = () => filterAdhocVersions(props.isCentral ? props.centralVersions : props.versions);
+  const [selectedVersion, setSelectedVersion] = createSignal(semverVersions()[0] ?? '');
+  const [showAdhoc, setShowAdhoc] = createSignal(false);
   const [confirmAction, setConfirmAction] = createSignal<ConfirmAction>(null);
+
+  const toggleAdhoc = () => {
+    const next = !showAdhoc();
+    setShowAdhoc(next);
+    if (!next && parseVersion(selectedVersion()) === null) {
+      setSelectedVersion(semverVersions()[0] ?? '');
+    }
+  };
 
   const count = () => props.serverIds.length;
 
@@ -61,11 +70,28 @@ export function ServerMultiSelectModal(props: multiSelectProps) {
                 value={selectedVersion()}
                 onChange={(e) => setSelectedVersion(e.currentTarget.value)}
               >
-                <For each={availableVersions()}>
+                <For each={semverVersions()}>
                   {(version) => <option value={version}>{version}</option>}
                 </For>
+                <Show when={showAdhoc()}>
+                  <optgroup label="Ad-hoc deploys">
+                    <Show when={adhocVersions().length > 0} fallback={<option disabled>No ad-hoc deploys found</option>}>
+                      <For each={adhocVersions()}>
+                        {(version) => <option value={version}>{version}</option>}
+                      </For>
+                    </Show>
+                  </optgroup>
+                </Show>
               </select>
             </label>
+            <button
+              type="button"
+              class={`adhoc-toggle-btn ${showAdhoc() ? 'active' : ''}`}
+              title={showAdhoc() ? 'Hide ad-hoc deploys from the version list' : 'Show ad-hoc deploys in the version list'}
+              onClick={toggleAdhoc}
+            >
+              Ad-hoc
+            </button>
             <button
               class="update-btn"
               onClick={() => setConfirmAction('update')}
