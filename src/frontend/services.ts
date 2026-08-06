@@ -973,7 +973,20 @@ export interface WhatsNewEventRow {
   userEmail: string;
   event: 'seen' | 'skipped' | 'completed';
   postId: string;
+  week: string; // Monday of the event's week (YYYY-MM-DD, UTC); '' when the source row had no usable date
 }
+
+// Matches Postgres DATE_TRUNC('week', …) used by the rollup: the Monday of the
+// timestamp's week, so raw-log rows land in the same buckets as aggregate rows.
+export function whatsNewWeekOf(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+type WhatsNewLogEntry = { user_email?: string; endpoint?: string; timestamp?: string; week_start?: string };
 
 // Platform instances log popup events into their user-log pipeline with the
 // endpoint name "whats_new_<event>:<postId>". Raw logs cover the last 7 days;
@@ -981,16 +994,22 @@ export interface WhatsNewEventRow {
 // (rollup deletes what it aggregates), so a plain union is correct.
 export async function fetchWhatsNewEventLogsApi(token: string | null): Promise<WhatsNewEventRow[]> {
   const rows: WhatsNewEventRow[] = [];
-  const collect = (serverId: string, entries: { user_email?: string; endpoint?: string }[] | undefined) => {
+  const collect = (serverId: string, entries: WhatsNewLogEntry[] | undefined) => {
     for (const entry of entries ?? []) {
       const m = (entry.endpoint ?? '').match(/^whats_new_(seen|skipped|completed):(.+)$/);
       if (!m) continue;
-      rows.push({ serverId, userEmail: entry.user_email ?? '', event: m[1] as WhatsNewEventRow['event'], postId: m[2] });
+      rows.push({
+        serverId,
+        userEmail: entry.user_email ?? '',
+        event: m[1] as WhatsNewEventRow['event'],
+        postId: m[2],
+        week: entry.week_start ?? (entry.timestamp ? whatsNewWeekOf(entry.timestamp) : ''),
+      });
     }
   };
   const collectResponse = async (response: Response) => {
     if (!response.ok) return;
-    const data = await response.json() as Record<string, { logs?: { user_email?: string; endpoint?: string }[] } | null>;
+    const data = await response.json() as Record<string, { logs?: WhatsNewLogEntry[] } | null>;
     for (const [serverId, value] of Object.entries(data)) collect(serverId, value?.logs);
   };
   try {
