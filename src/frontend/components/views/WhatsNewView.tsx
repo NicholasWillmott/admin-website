@@ -1,5 +1,5 @@
 import { For, Show, createSignal, onCleanup, onMount } from 'solid-js';
-import { WHATS_NEW_LAYOUTS, isWhatsNewVideo } from '../../types.ts';
+import { WHATS_NEW_LAYOUTS, isWhatsNewVideo, isWhatsNewYouTube, whatsNewYouTubeId } from '../../types.ts';
 import type { WhatsNewLanguage, WhatsNewLayoutPreset, WhatsNewMediaSize, WhatsNewPage, WhatsNewPost, WhatsNewText } from '../../types.ts';
 import { formatDate } from '../../utils.ts';
 import {
@@ -823,15 +823,40 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                         }}
                                       />
                                       <button class="system-btn" onClick={openImagePicker}>Choose existing</button>
+                                      <input
+                                        class="modal-input whats-new-youtube-input"
+                                        type="text"
+                                        placeholder="or paste a YouTube link"
+                                        onChange={(e) => {
+                                          const url = e.currentTarget.value.trim();
+                                          if (!url) return;
+                                          if (!whatsNewYouTubeId(url)) {
+                                            addToast('That doesn\u2019t look like a YouTube link', 'error');
+                                            return;
+                                          }
+                                          updatePage(activePage(), { imageUrl: url });
+                                          e.currentTarget.value = '';
+                                        }}
+                                      />
                                     </div>
                                   }
                                 >
                                   <div class="whats-new-image-row">
                                     <Show
-                                      when={isWhatsNewVideo(pg().imageUrl)}
-                                      fallback={<img class="whats-new-thumb" src={pg().imageUrl} alt="" />}
+                                      when={!isWhatsNewYouTube(pg().imageUrl)}
+                                      fallback={
+                                        <div class="whats-new-thumb whats-new-thumb-yt">
+                                          YouTube
+                                          <span>{whatsNewYouTubeId(pg().imageUrl)}</span>
+                                        </div>
+                                      }
                                     >
-                                      <video class="whats-new-thumb" src={pg().imageUrl} muted preload="metadata" />
+                                      <Show
+                                        when={isWhatsNewVideo(pg().imageUrl)}
+                                        fallback={<img class="whats-new-thumb" src={pg().imageUrl} alt="" />}
+                                      >
+                                        <video class="whats-new-thumb" src={pg().imageUrl} muted preload="metadata" />
+                                      </Show>
                                     </Show>
                                     <button
                                       class="system-btn"
@@ -839,7 +864,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                     >Remove</button>
                                   </div>
                                   {/* Cover fills the whole region, so scaling is meaningless there */}
-                                  <Show when={!WHATS_NEW_LAYOUTS[pg().layoutPreset].cover}>
+                                  <Show when={!WHATS_NEW_LAYOUTS[pg().layoutPreset].cover && !isWhatsNewYouTube(pg().imageUrl)}>
                                     <div class="whats-new-size-row">
                                       <span class="whats-new-size-caption">Display size</span>
                                       <div class="whats-new-pos-toggle">

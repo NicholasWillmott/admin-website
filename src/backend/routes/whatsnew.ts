@@ -39,6 +39,14 @@ const IMAGE_CONTENT_TYPES: Record<string, string> = {
 // unreferenced, deleting them a day later.
 const MEDIA_FILENAME_RE = /^[A-Za-z0-9-]+\.[a-z0-9]+$/;
 
+// Page media is either a file we uploaded or an embedded YouTube video.
+// Anything else is a typo (or an unintended external hotlink) and is rejected.
+const YOUTUBE_URL_RE =
+  /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/;
+function isAcceptableMediaUrl(url: string): boolean {
+  return url.includes("/api/whats-new/images/") || YOUTUBE_URL_RE.test(url);
+}
+
 const LAYOUT_PRESETS = ["textOnly", "heroTop", "imageLeft", "imageRight", "imageBottom", "cover"] as const;
 type WhatsNewLayoutPreset = (typeof LAYOUT_PRESETS)[number];
 
@@ -223,6 +231,9 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
       return { error: "Invalid page layout" };
     }
     if (page.imageUrl !== undefined && typeof page.imageUrl !== "string") return { error: "Invalid image URL" };
+    if (page.imageUrl && !isAcceptableMediaUrl(page.imageUrl)) {
+      return { error: "Media must be an uploaded file or a YouTube link" };
+    }
     if (page.mediaSize !== undefined && !MEDIA_SIZES.includes(page.mediaSize)) {
       return { error: "Invalid media size" };
     }

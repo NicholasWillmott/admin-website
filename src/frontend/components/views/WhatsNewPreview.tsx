@@ -1,6 +1,6 @@
 import MarkdownIt from 'markdown-it';
 import { Index, Show, createMemo } from 'solid-js';
-import { WHATS_NEW_LAYOUTS, isWhatsNewVideo, whatsNewMediaWidthPct } from '../../types.ts';
+import { WHATS_NEW_LAYOUTS, isWhatsNewVideo, isWhatsNewYouTube, whatsNewMediaWidthPct, whatsNewYouTubeEmbedUrl } from '../../types.ts';
 import type { WhatsNewLanguage, WhatsNewPage, WhatsNewText } from '../../types.ts';
 
 // Mirrors the platform's markdown-it configuration exactly
@@ -42,6 +42,15 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
       class={layout().row ? 'wn-img-wrap side' : 'wn-img-wrap full'}
       style={{ width: `${whatsNewMediaWidthPct(props.page.layoutPreset, props.page.mediaSize)}%` }}
     >
+      <Show when={!isWhatsNewYouTube(props.page.imageUrl)} fallback={
+        <iframe
+          class="wn-modal-yt"
+          src={whatsNewYouTubeEmbedUrl(props.page.imageUrl ?? '')}
+          title="YouTube video"
+          allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture; fullscreen"
+          allowfullscreen
+        />
+      }>
       <Show
         when={isWhatsNewVideo(props.page.imageUrl)}
         fallback={<img class="wn-modal-img" src={props.page.imageUrl} alt="" />}
@@ -54,6 +63,7 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
           controls
           ref={(el) => { el.muted = true; el.playsInline = true; }}
         />
+      </Show>
       </Show>
     </div>
   );
@@ -80,6 +90,15 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
           }
         >
           <div class="wn-modal-page-region cover">
+            <Show when={!isWhatsNewYouTube(props.page.imageUrl)} fallback={
+              <iframe
+                class="wn-cover-img"
+                src={whatsNewYouTubeEmbedUrl(props.page.imageUrl ?? '')}
+                title="YouTube video"
+                allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture; fullscreen"
+                allowfullscreen
+              />
+            }>
             <Show
               when={isWhatsNewVideo(props.page.imageUrl)}
               fallback={<img class="wn-cover-img" src={props.page.imageUrl} alt="" />}
@@ -91,6 +110,7 @@ export function WhatsNewPreview(props: WhatsNewPreviewProps) {
                 loop
                 ref={(el) => { el.muted = true; el.playsInline = true; }}
               />
+            </Show>
             </Show>
             <div class="wn-cover-overlay">
               <Show when={txt(props.page.title)}>

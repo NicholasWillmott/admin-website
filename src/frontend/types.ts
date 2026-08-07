@@ -219,9 +219,27 @@ export const WHATS_NEW_LAYOUTS: Record<
   cover: { hasImage: true, row: false, imageFirst: true, widthPct: 100, cover: true },
 };
 
-// Media may be an image/GIF or an mp4 clip; both live in imageUrl
+// Media may be an uploaded image/GIF/mp4 or an embedded YouTube video; all
+// live in imageUrl. Mirrors the helpers in platform lib/types/whats_new.ts.
 export function isWhatsNewVideo(url: string | undefined): boolean {
   return !!url && /\.mp4(\?|$)/i.test(url);
+}
+
+export function whatsNewYouTubeId(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  const m = url.match(
+    /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/,
+  );
+  return m?.[1];
+}
+
+export function isWhatsNewYouTube(url: string | undefined): boolean {
+  return whatsNewYouTubeId(url) !== undefined;
+}
+
+export function whatsNewYouTubeEmbedUrl(url: string): string | undefined {
+  const id = whatsNewYouTubeId(url);
+  return id ? `https://www.youtube-nocookie.com/embed/${id}?rel=0` : undefined;
 }
 
 // Mirrors WHATS_NEW_MEDIA_SCALES / whatsNewMediaWidthPct in platform
