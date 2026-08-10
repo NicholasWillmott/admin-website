@@ -2,11 +2,14 @@
   "version": "5",
   "specifiers": {
     "jsr:@std/dotenv@~0.225.5": "0.225.5",
-    "npm:@hono/clerk-auth@^3.0.3": "3.0.3_hono@4.10.5",
+    "npm:@clerk/backend@^2.23.2": "2.23.2_react@19.2.7",
+    "npm:@hono/clerk-auth@^3.0.3": "3.0.3_hono@4.10.5_react@19.2.7",
+    "npm:@modelcontextprotocol/server@2": "2.0.0",
     "npm:@octokit/rest@20": "20.1.2_@octokit+core@5.2.2",
     "npm:exceljs@*": "4.4.0",
     "npm:hono@4.10.5": "4.10.5",
-    "npm:node-ssh@13.1.0": "13.1.0"
+    "npm:node-ssh@13.1.0": "13.1.0",
+    "npm:zod@^4.2.0": "4.4.3"
   },
   "jsr": {
     "@std/dotenv@0.225.5": {
@@ -14,7 +17,7 @@
     }
   },
   "npm": {
-    "@clerk/backend@2.23.2": {
+    "@clerk/backend@2.23.2_react@19.2.7": {
       "integrity": "sha512-8f+tb4VeLb0nmpjNtoh71mz2+91Z9e9Ojw2/0vNtA1emy0OSSWVV1LmhgDJtlvd1QaQYrYaKSx251N0YiR2Cag==",
       "dependencies": [
         "@clerk/shared",
@@ -24,19 +27,23 @@
         "tslib"
       ]
     },
-    "@clerk/shared@3.35.2": {
+    "@clerk/shared@3.35.2_react@19.2.7": {
       "integrity": "sha512-TXWHWWZYgIkuk6jGFMMHtnjxVw92JJY/krckQnzR8kXqSFbs4Pvrkf5zm1HH+97v4nL0w2GC9XAdolQYOsTk0A==",
       "dependencies": [
         "csstype",
         "dequal",
         "glob-to-regexp",
         "js-cookie",
+        "react",
         "std-env",
         "swr"
       ],
+      "optionalPeers": [
+        "react"
+      ],
       "scripts": true
     },
-    "@clerk/types@4.101.2": {
+    "@clerk/types@4.101.2_react@19.2.7": {
       "integrity": "sha512-R5zsWKwLYkzq6fhOoK7hPSivOnixnE+7dHZualSFtrT7mHJoOaDIRfn3r8xFZlGI7OXFHd7LItNwTDuU+Hcb9Q==",
       "dependencies": [
         "@clerk/shared"
@@ -66,12 +73,25 @@
         "lodash.uniq"
       ]
     },
-    "@hono/clerk-auth@3.0.3_hono@4.10.5": {
+    "@hono/clerk-auth@3.0.3_hono@4.10.5_react@19.2.7": {
       "integrity": "sha512-N671mw3ulvxqxY8ou8D8ojVT7EKljXE6RjdC2egWExMcrQAglMSTvqvU096MbOT5zvWtc8QMo3SKiyTXn30BrQ==",
       "dependencies": [
         "@clerk/backend",
         "@clerk/types",
         "hono"
+      ]
+    },
+    "@modelcontextprotocol/core@2.0.0": {
+      "integrity": "sha512-pJCEwGG7Lfr/+PQp9ZTwKXNeO5wzbfKL7H3MYpCorM4oFBoQrdjnBgEoqG+RjhsvS1FKrDbKux+M1HhlnGWqcA==",
+      "dependencies": [
+        "zod"
+      ]
+    },
+    "@modelcontextprotocol/server@2.0.0": {
+      "integrity": "sha512-YhHWdHfpFMQfd0prsEnxKeS3Qz3ytIGmsS0sth4KDjnacIT7hxk6hXHkJ9KysxlkvTM+WZAtQbbcUhdoP4Hvtw==",
+      "dependencies": [
+        "@modelcontextprotocol/core",
+        "zod"
       ]
     },
     "@octokit/auth-token@4.0.0": {
@@ -575,8 +595,8 @@
     "process-nextick-args@2.0.1": {
       "integrity": "sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag=="
     },
-    "react@19.2.0": {
-      "integrity": "sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ=="
+    "react@19.2.7": {
+      "integrity": "sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ=="
     },
     "readable-stream@2.3.8": {
       "integrity": "sha512-8p0AUk4XODgIewSi0l8Epjs+EVnWiK7NoDIEGU0HhE7+ZyY8D1IMY7odu5lRrFXGg71L15KG8QrPmum45RTtdA==",
@@ -671,7 +691,7 @@
         "safe-buffer"
       ]
     },
-    "swr@2.3.4_react@19.2.0": {
+    "swr@2.3.4_react@19.2.7": {
       "integrity": "sha512-bYd2lrhc+VarcpkgWclcUi92wYCpOgMws9Sd1hG1ntAu0NEy+14CbotuFjshBU2kt9rYj9TSmDcybpxpeTU1fg==",
       "dependencies": [
         "dequal",
@@ -722,7 +742,7 @@
         "setimmediate"
       ]
     },
-    "use-sync-external-store@1.6.0_react@19.2.0": {
+    "use-sync-external-store@1.6.0_react@19.2.7": {
       "integrity": "sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==",
       "dependencies": [
         "react"
@@ -748,16 +768,22 @@
         "compress-commons",
         "readable-stream@3.6.2"
       ]
+    },
+    "zod@4.4.3": {
+      "integrity": "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ=="
     }
   },
   "workspace": {
     "dependencies": [
       "jsr:@std/dotenv@~0.225.5",
+      "npm:@clerk/backend@^2.23.2",
       "npm:@hono/clerk-auth@^3.0.3",
+      "npm:@modelcontextprotocol/server@2",
       "npm:@octokit/rest@20",
       "npm:exceljs@*",
       "npm:hono@4.10.5",
-      "npm:node-ssh@13.1.0"
+      "npm:node-ssh@13.1.0",
+      "npm:zod@^4.2.0"
     ]
   }
 }

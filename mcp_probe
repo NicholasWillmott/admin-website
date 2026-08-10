@@ -1,0 +1,218 @@
+#!/bin/bash
+
+# Probe the admin backend's /mcp endpoint over raw JSON-RPC — no connector, no
+# client, no session restart. Adapted from the FASTR platform's mcp_probe.
+#
+# Usage:
+#   ./mcp_probe <origin> --list                 list tools (name + summary)
+#   ./mcp_probe <origin> --schema <tool>        that tool's full input schema
+#   ./mcp_probe <origin> <tool> [json-args]     call a tool
+#   ./mcp_probe <origin> --discovery            OAuth discovery + 401 challenge
+#
+#   origin      local | prod | any http(s) origin
+#   json-args   JSON object of arguments (default {})
+#
+# Auth: set MCP_BEARER to send `Authorization: Bearer $MCP_BEARER`.
+#       Local dev booted with MCP_AUTH_BYPASS=1 needs no credential.
+#
+# NOTE: serving is stateless — initialize may return no Mcp-Session-Id, and
+# that is correct, not a failure. The header is sent only when captured.
+#
+# Examples:
+#   ./mcp_probe local --list
+#   ./mcp_probe local get_fleet_overview
+#   ./mcp_probe local get_server_status '{"server_id":"testing2"}'
+#   ./mcp_probe prod --discovery
+
+set -e
+
+PROTOCOL_VERSION="2025-06-18"
+
+usage() {
+    sed -n '3,25p' "$0" | sed 's/^# \{0,1\}//'
+    exit 1
+}
+
+[ $# -lt 2 ] && usage
+
+case "$1" in
+    local) ORIGIN="http://localhost:3001" ;;
+    prod) ORIGIN="https://status-api.fastr-analytics.org" ;;
+    http://*|https://*) ORIGIN="${1%/}" ;;
+    *) echo "ERROR: unrecognized origin '$1' (use local, prod, or an http(s) URL)"; exit 1 ;;
+esac
+TOOL="$2"
+ARGS="$3"
+[ -z "$ARGS" ] && ARGS='{}'
+
+command -v jq >/dev/null 2>&1 || { echo "ERROR: jq not found"; exit 1; }
+
+AUTH=()
+if [ -n "$MCP_BEARER" ]; then
+    AUTH=(-H "Authorization: Bearer $MCP_BEARER")
+fi
+
+########################################################################
+# --discovery: the OAuth chain's curl-able links. No credential needed.
+########################################################################
+
+if [ "$TOOL" = "--discovery" ]; then
+    echo "== $ORIGIN/.well-known/oauth-protected-resource/mcp"
+    curl -sf -m 15 "$ORIGIN/.well-known/oauth-protected-resource/mcp" | jq . \
+        || echo "  (failed — an OAuth client cannot start the flow without this)"
+    echo
+    echo "== $ORIGIN/.well-known/oauth-authorization-server"
+    AS=$(curl -sf -m 15 "$ORIGIN/.well-known/oauth-authorization-server" || true)
+    if [ -z "$AS" ]; then
+        echo "  (empty — the Clerk instance is most likely unreachable)"
+    else
+        echo "$AS" | jq '{issuer, registration_endpoint, authorization_endpoint}'
+        if [ "$(echo "$AS" | jq -r '.registration_endpoint // empty')" = "" ]; then
+            echo "  WARNING: no registration_endpoint — dynamic client registration is OFF."
+            echo "  Claude cannot register itself, so 'Connect' will spin and fail."
+        fi
+    fi
+    echo
+    echo "== unauthenticated POST $ORIGIN/mcp (expect 401 + WWW-Authenticate)"
+    CHALLENGE=$(curl -s -i -m 15 -X POST "$ORIGIN/mcp" \
+        -H 'Content-Type: application/json' \
+        -H 'Accept: application/json, text/event-stream' \
+        -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"'"$PROTOCOL_VERSION"'","capabilities":{},"clientInfo":{"name":"mcp_probe","version":"1"}}}')
+    echo "$CHALLENGE" | grep -iE '^HTTP/|^www-authenticate:' || true
+    if ! echo "$CHALLENGE" | head -1 | grep -q ' 401'; then
+        echo "  NOTE: not a 401 — this endpoint accepted an unauthenticated call."
+        echo "  Expected on local dev with MCP_AUTH_BYPASS=1; a real finding anywhere else."
+    fi
+    exit 0
+fi
+
+########################################################################
+# initialize — capture the session id IF one is issued (stateless: none)
+########################################################################
+
+HDRS=$(mktemp)
+cleanup_tmp() { rm -f "$HDRS"; }
+trap cleanup_tmp EXIT
+
+RESP=$(curl -s -m 30 -D "$HDRS" -w '\n%{http_code}' -X POST "$ORIGIN/mcp" "${AUTH[@]}" \
+    -H 'Content-Type: application/json' \
+    -H 'Accept: application/json, text/event-stream' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"'"$PROTOCOL_VERSION"'","capabilities":{},"clientInfo":{"name":"mcp_probe","version":"1"}}}')
+
+CODE=$(echo "$RESP" | tail -1)
+if [ "$CODE" != "200" ]; then
+    echo "ERROR: initialize returned HTTP $CODE"
+    echo "$RESP" | sed '$d' | head -5
+    case "$CODE" in
+        401) echo ""
+             echo "Set MCP_BEARER, or boot local dev with MCP_AUTH_BYPASS=1." ;;
+        403) echo ""
+             echo "Credential is VALID but the user is not an admin (isAdmin in Clerk)." ;;
+        503) echo ""
+             echo "The backend could not JUDGE the credential (Clerk unreachable/misconfigured)."
+             echo "Server-side — retry shortly; the credential is probably fine." ;;
+    esac
+    exit 1
+fi
+
+SID=$(grep -i '^mcp-session-id:' "$HDRS" | tr -d '\r' | awk '{print $2}')
+
+SID_HDR=()
+if [ -n "$SID" ]; then
+    SID_HDR=(-H "Mcp-Session-Id: $SID")
+fi
+
+# Responses may be plain JSON or SSE depending on serving mode — normalize
+unwrap() {
+    if grep -q '^data: ' <<<"$1"; then
+        sed -n 's/^data: //p' <<<"$1"
+    else
+        printf '%s\n' "$1"
+    fi
+}
+
+call() {
+    local raw
+    raw=$(curl -s -m 120 -X POST "$ORIGIN/mcp" "${AUTH[@]}" "${SID_HDR[@]}" \
+        -H 'Content-Type: application/json' \
+        -H 'Accept: application/json, text/event-stream' \
+        -H "Mcp-Protocol-Version: $PROTOCOL_VERSION" \
+        -d "$1")
+    unwrap "$raw"
+}
+
+end_session() {
+    # Stateless serving issues no session and answers DELETE with 405 — only
+    # tear down when a session id was actually captured.
+    if [ -n "$SID" ]; then
+        curl -s -m 10 -X DELETE "$ORIGIN/mcp" "${AUTH[@]}" "${SID_HDR[@]}" \
+            -H "Mcp-Protocol-Version: $PROTOCOL_VERSION" >/dev/null 2>&1 || true
+    fi
+    cleanup_tmp
+}
+trap end_session EXIT
+
+call '{"jsonrpc":"2.0","method":"notifications/initialized"}' >/dev/null
+
+########################################################################
+# --list / --schema / tools/call
+########################################################################
+
+if [ "$TOOL" = "--schema" ]; then
+    OUT=$(call '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
+    WANTED="$ARGS"
+    if [ "$WANTED" = "{}" ]; then
+        echo "ERROR: --schema needs a tool name: ./mcp_probe $1 --schema get_server_status"
+        exit 1
+    fi
+    FOUND=$(echo "$OUT" | jq --arg n "$WANTED" '.result.tools[] | select(.name==$n)')
+    if [ -z "$FOUND" ]; then
+        echo "ERROR: no tool named '$WANTED' — see './mcp_probe $1 --list'"
+        exit 1
+    fi
+    echo "$FOUND" | jq '{name, description, inputSchema}'
+    exit 0
+fi
+
+if [ "$TOOL" = "--list" ]; then
+    OUT=$(call '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
+    if echo "$OUT" | jq -e 'has("error")' >/dev/null 2>&1; then
+        echo "JSON-RPC ERROR: $(echo "$OUT" | jq -r '.error.message')"
+        exit 1
+    fi
+    echo "$OUT" | jq -r '.result.tools[] | "\(.name)\t\(.description // "" | split(". ")[0])"' \
+        | column -t -s $'\t'
+    echo ""
+    echo "$(echo "$OUT" | jq -r '.result.tools | length') tools"
+    exit 0
+fi
+
+if ! echo "$ARGS" | jq -e . >/dev/null 2>&1; then
+    echo "ERROR: json-args is not valid JSON: $ARGS"
+    exit 1
+fi
+
+REQ=$(jq -cn --arg name "$TOOL" --argjson args "$ARGS" \
+    '{jsonrpc:"2.0",id:3,method:"tools/call",params:{name:$name,arguments:$args}}')
+OUT=$(call "$REQ")
+
+if [ -z "$OUT" ]; then
+    echo "ERROR: empty response from tools/call"
+    exit 1
+fi
+
+# JSON-RPC-level failure (unknown tool, bad schema) — distinct from a tool
+# that ran and returned isError.
+if echo "$OUT" | jq -e '.error' >/dev/null 2>&1; then
+    echo "JSON-RPC ERROR: $(echo "$OUT" | jq -r '.error.message')"
+    echo "$OUT" | jq -r '.error.data // empty'
+    echo ""
+    echo "Tool names come from './mcp_probe $1 --list' — never invent them."
+    exit 1
+fi
+
+echo "$OUT" | jq -r '.result.content[]? | select(.type=="text") | .text'
+
+if [ "$(echo "$OUT" | jq -r '.result.isError // false')" = "true" ]; then
+    exit 1
+fi

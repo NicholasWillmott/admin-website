@@ -17,7 +17,7 @@ interface CategoriesData {
   categories: ServerCategory[];
 }
 
-async function readCategoriesData(): Promise<CategoriesData> {
+export async function readCategoriesData(): Promise<CategoriesData> {
   try {
     const text = await Deno.readTextFile(CATEGORIES_FILE);
     return JSON.parse(text);

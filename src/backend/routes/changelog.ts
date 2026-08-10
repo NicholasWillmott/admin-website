@@ -41,7 +41,7 @@ interface ParsedChangelogVersion {
   types: ParsedChangelogTypeGroup[];
 }
 
-function parseFullChangelog(text: string): ParsedChangelogVersion[] {
+export function parseFullChangelog(text: string): ParsedChangelogVersion[] {
   const lines = text.split("\n").filter(l => l.trim().startsWith("["));
   const parsed = lines.map(line => {
     const m = line.match(/^\[([^\]]+)\] \[([^\]]+)\] \[([^\]]+)\] - (.+)$/);

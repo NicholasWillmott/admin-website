@@ -68,7 +68,7 @@ interface WhatsNewPage {
   layoutPreset: WhatsNewLayoutPreset;
 }
 
-interface WhatsNewPost {
+export interface WhatsNewPost {
   id: string;
   version: string;
   title: WhatsNewText;
@@ -119,7 +119,7 @@ function normalizePost(p: WhatsNewPost): WhatsNewPost {
 // A missing file is legitimately "no posts yet"; anything else (corrupt JSON,
 // permission errors) must THROW — returning [] here would let the next save
 // silently overwrite every post.
-async function readPosts(): Promise<WhatsNewPost[]> {
+export async function readPosts(): Promise<WhatsNewPost[]> {
   let text: string;
   try {
     text = await Deno.readTextFile(POSTS_FILE);

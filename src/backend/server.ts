@@ -23,7 +23,31 @@ import indicatorsRouter from "./routes/indicators.ts";
 import accessLogRouter from "./routes/accessLog.ts";
 import adminsRouter from "./routes/admins.ts";
 import whatsNewRouter, { startWhatsNewImageSweep } from "./routes/whatsnew.ts";
+import oauthMetadataRouter from "./mcp/oauth_metadata.ts";
+import { MCP_CORS_HEADERS, mcpHttpHandler } from "./mcp/mcp_endpoint.ts";
 const app = new Hono();
+
+// ---- MCP connector + OAuth discovery -----------------------------------
+// MUST stay registered ahead of the global cors() and clerkMiddleware()
+// below (Hono runs matches in registration order, and a handler that
+// responds stops the chain). The discovery documents are what an OAuth
+// client reads BEFORE it has credentials, and /mcp authenticates bearer
+// tokens itself (mcp/mcp_auth.ts). Neither may pass through the globals:
+// the fixed-origin credentials CORS below is wrong for cross-origin token
+// clients, and Clerk's handshake redirects break JSON-RPC clients.
+app.route("/", oauthMetadataRouter); // /.well-known/*
+app.all("/mcp", async (c) => {
+  // Preflight answered before auth — browsers never attach Authorization
+  // to an OPTIONS preflight, so letting it hit the auth path 401s every
+  // browser-origin connector before its real request.
+  if (c.req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: MCP_CORS_HEADERS });
+  }
+  const res = await mcpHttpHandler(c.req.raw);
+  for (const [k, v] of Object.entries(MCP_CORS_HEADERS)) res.headers.set(k, v);
+  return res;
+});
+// ------------------------------------------------------------------------
 
 app.use("*", cors({
   origin: [
@@ -34,6 +58,12 @@ app.use("*", cors({
   credentials: true,
 }));
 
+// UPGRADE LANDMINE: @hono/clerk-auth 3.0.x pins acceptsToken to session
+// tokens, so an MCP OAuth bearer token hitting this middleware resolves
+// signed-out. v3.1+ switches to acceptsToken:"any", which would let machine
+// tokens produce an authenticated getAuth() on ordinary /api routes — before
+// upgrading, re-check requireAdmin against a machine token (the platform's
+// guard for this is platform/server/middleware/auth.ts:21-34).
 app.use("*", clerkMiddleware({
   publishableKey: Deno.env.get("VITE_CLERK_PUBLISHABLE_KEY"),
   secretKey: Deno.env.get("CLERK_SECRET_KEY"),

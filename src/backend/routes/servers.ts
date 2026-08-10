@@ -8,7 +8,7 @@ const router = new Hono();
 
 const LOCKS_FILE = "/mnt/fastr-config/server-locks.json";
 
-async function readLocks(): Promise<string[]> {
+export async function readLocks(): Promise<string[]> {
   try {
     return JSON.parse(await Deno.readTextFile(LOCKS_FILE));
   } catch {

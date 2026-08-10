@@ -6,10 +6,13 @@
   "imports": {
     "@octokit/rest": "npm:@octokit/rest@^20.0.0",
     "@hono/clerk-auth": "npm:@hono/clerk-auth@^3.0.3",
+    "@clerk/backend": "npm:@clerk/backend@^2.23.2",
+    "@modelcontextprotocol/server": "npm:@modelcontextprotocol/server@^2.0.0",
     "hono": "npm:hono@4.10.5",
     "node-ssh": "npm:node-ssh@13.1.0",
     "@std/dotenv": "jsr:@std/dotenv@^0.225.5",
-    "exceljs": "npm:exceljs"
+    "exceljs": "npm:exceljs",
+    "zod": "npm:zod@^4.2.0"
   },
   "tasks": {
     "start": "deno run --allow-net --allow-read --allow-write --allow-env --allow-run server.ts",

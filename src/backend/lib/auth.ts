@@ -17,7 +17,7 @@ export async function requireAdminOrInternal(c: Context) {
 const ADMIN_CACHE_TTL_MS = 60_000;
 const adminStatusCache = new Map<string, { promise: Promise<boolean>; expires: number }>();
 
-function getIsAdmin(userId: string): Promise<boolean> {
+export function getIsAdmin(userId: string): Promise<boolean> {
   const cached = adminStatusCache.get(userId);
   if (cached && cached.expires > Date.now()) {
     return cached.promise;
