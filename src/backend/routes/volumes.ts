@@ -19,7 +19,7 @@ interface DirEntry {
   sizeGB: number;
 }
 
-function parseDfOutput(output: string, mountPath: string): DfStats | null {
+export function parseDfOutput(output: string, mountPath: string): DfStats | null {
   const lines = output.trim().split("\n").slice(1);
   for (const line of lines) {
     const parts = line.trim().split(/\s+/);
@@ -39,7 +39,7 @@ function parseDfOutput(output: string, mountPath: string): DfStats | null {
   return null;
 }
 
-function parseDuOutput(output: string, mountPath: string): DirEntry[] {
+export function parseDuOutput(output: string, mountPath: string): DirEntry[] {
   const entries: DirEntry[] = [];
   const lines = output.trim().split("\n");
   for (const line of lines) {

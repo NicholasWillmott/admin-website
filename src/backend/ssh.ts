@@ -127,6 +127,7 @@ const ALLOWED_COMMANDS = [
   /^docker ps --format .+$/,
   /^docker images --format .+ [\w/]+$/,
   /^docker logs [\w-]+$/,
+  /^docker logs [\w-]+ --tail \d+$/,
   /^docker inspect -f '{{\.Id}}' [\w-]+$/,
   /^docker pull [\w/:._-]+$/,
 ];

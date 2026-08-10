@@ -38,6 +38,51 @@ export function registerContentTools(server: McpServer): void {
       return okJson({ versions: parseFullChangelog(text).slice(0, limit_versions) });
     }));
 
+  server.registerTool("search_changelog", {
+    title: "Search changelog",
+    description:
+      "Search every changelog entry across all versions by keyword or regex (case-insensitive) — answers 'when did we fix/add X?'. Matches are returned newest version first.",
+    inputSchema: z.object({
+      query: z.string(),
+      limit: z.number().int().min(1).max(200).default(50),
+    }),
+    annotations: { readOnlyHint: true },
+  }, ({ query, limit }) =>
+    runTool(async () => {
+      const text = await readChangelogAuto();
+      if (!text) {
+        throw new ToolFailure("Changelog unavailable (GitHub fetch failed).");
+      }
+      // Regex when valid, literal substring otherwise — same degradation as
+      // search_server_logs
+      let matcher: RegExp;
+      try {
+        matcher = new RegExp(query, "i");
+      } catch {
+        matcher = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      }
+      const matches: { version: string; type: string; audience: string; desc: string }[] = [];
+      for (const version of parseFullChangelog(text)) {
+        for (const group of version.types) {
+          for (const item of group.items) {
+            if (matcher.test(item.desc)) {
+              matches.push({
+                version: version.version,
+                type: group.type,
+                audience: item.audience,
+                desc: item.desc,
+              });
+            }
+          }
+        }
+      }
+      return okJson({
+        totalMatches: matches.length,
+        matches: matches.slice(0, limit),
+        note: matches.length > limit ? `Showing ${limit} of ${matches.length} — raise limit or narrow the query.` : undefined,
+      });
+    }));
+
   server.registerTool("get_whats_new_posts", {
     title: "What's New posts",
     description:

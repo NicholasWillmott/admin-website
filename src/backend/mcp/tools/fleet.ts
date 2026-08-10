@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
 import { readCategoriesData } from "../../routes/create.ts";
 import { readLocks } from "../../routes/servers.ts";
+import { parseDfOutput, parseDuOutput } from "../../routes/volumes.ts";
 import { getDropletIp, isSafeParam } from "../../lib/utils.ts";
 import { executeCommand, isCommandAllowed } from "../../ssh.ts";
 import {
@@ -19,6 +20,69 @@ import {
 // Fleet status tools. get_fleet_overview is the connector's entry point (the
 // instructions direct the model to call it first): it is cheap — registry +
 // two local files, no fan-out — and it is the only source of server_id values.
+
+// Fetch a container's recent logs over SSH, stdout and stderr COMBINED —
+// docker logs relays the container's stderr stream (where errors go) on the
+// ssh command's stderr, so searching stdout alone would miss every error.
+async function fetchDockerLogs(
+  serverId: string,
+  tailLines: number,
+): Promise<string> {
+  if (!isSafeParam(serverId)) {
+    throw new ToolFailure(
+      `Invalid server_id "${serverId}" — take ids from get_fleet_overview.`,
+    );
+  }
+  const command = `docker logs ${serverId} --tail ${tailLines}`;
+  if (!isCommandAllowed(command)) {
+    throw new ToolFailure("Command not allowed.");
+  }
+  const result = await executeCommand(getDropletIp(), command);
+  if (!result.success) {
+    throw new ToolFailure(
+      `docker logs failed for "${serverId}": ${result.stderr.slice(0, 300)}`,
+    );
+  }
+  const combined = result.stderr ? `${result.stdout}\n${result.stderr}` : result.stdout;
+  // Progress spinners write ANSI cursor-control sequences into the log
+  // stream; strip them so matches come back as clean text
+  // deno-lint-ignore no-control-regex
+  return combined.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
+}
+
+// User-supplied search patterns are tried as a case-insensitive regex first;
+// invalid regex syntax degrades to a literal substring match instead of
+// erroring, so "error(" searches for those characters rather than failing.
+function buildMatcher(pattern: string): RegExp {
+  try {
+    return new RegExp(pattern, "i");
+  } catch {
+    return new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+  }
+}
+
+// Run fn over items with bounded concurrency. SSH connections to the droplet
+// are multiplexed (ssh.ts ControlMaster), so parallel commands are cheap, but
+// ~40 simultaneous docker-logs dumps would still spike the droplet.
+async function mapConcurrent<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    async () => {
+      while (next < items.length) {
+        const i = next++;
+        results[i] = await fn(items[i]);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
 
 // Shape of an instance's /health_check document (subset we project; the full
 // document is returned verbatim by get_server_status)
@@ -169,5 +233,160 @@ export function registerFleetTools(server: McpServer): void {
         return 0;
       });
       return okJson({ versions: [...semverTags, ...tags.filter((t) => !isSemver(t))] });
+    }));
+
+  server.registerTool("search_server_logs", {
+    title: "Search server logs",
+    description:
+      "Search recent docker logs for a pattern (case-insensitive regex; plain text works too) — one instance, or the whole fleet when server_id is omitted. Returns matching lines grouped by instance.",
+    inputSchema: z.object({
+      pattern: z.string(),
+      server_id: z.string().optional().describe(
+        "Instance id from get_fleet_overview. Omit to search every instance.",
+      ),
+      tail_lines: z.number().int().min(100).max(10000).default(1000).describe(
+        "How many recent log lines per instance to search",
+      ),
+      max_matches: z.number().int().min(1).max(500).default(100).describe(
+        "Total matching lines to return across all instances",
+      ),
+    }),
+    annotations: { readOnlyHint: true },
+  }, ({ pattern, server_id, tail_lines, max_matches }) =>
+    runTool(async () => {
+      const matcher = buildMatcher(pattern);
+      const targets = server_id !== undefined
+        ? [server_id]
+        : (await fetchServersJson()).map((s) => s.id);
+      const perInstance = await mapConcurrent(targets, 8, async (id) => {
+        try {
+          const lines = (await fetchDockerLogs(id, tail_lines)).split("\n");
+          return { id, matches: lines.filter((l) => matcher.test(l)), error: null };
+        } catch (error) {
+          return {
+            id,
+            matches: [] as string[],
+            error: error instanceof ToolFailure ? error.message : String(error),
+          };
+        }
+      });
+      const sections: string[] = [];
+      const capped: string[] = [];
+      let shown = 0;
+      let totalMatches = 0;
+      for (const r of perInstance) {
+        totalMatches += r.matches.length;
+        if (r.matches.length === 0) continue;
+        const take = r.matches.slice(0, Math.max(0, max_matches - shown));
+        if (take.length === 0) {
+          // Cap already spent — name the instance instead of emitting an
+          // empty section, so the model knows where else to look
+          capped.push(`${r.id} (${r.matches.length})`);
+          continue;
+        }
+        shown += take.length;
+        sections.push(
+          `== ${r.id} (${r.matches.length} match(es) in last ${tail_lines} lines)\n${take.join("\n")}`,
+        );
+      }
+      const failed = perInstance.filter((r) => r.error !== null);
+      if (sections.length === 0) {
+        sections.push(`No matches for /${pattern}/i in the last ${tail_lines} lines.`);
+      }
+      if (shown < totalMatches) {
+        sections.push(`Showing ${shown} of ${totalMatches} matches — narrow the pattern or pass server_id.`);
+      }
+      if (capped.length) {
+        sections.push(`Also matched (not shown): ${capped.join(", ")}`);
+      }
+      if (failed.length) {
+        sections.push(`Could not read logs from: ${failed.map((r) => r.id).join(", ")}`);
+      }
+      return okText(sections.join("\n\n"));
+    }));
+
+  server.registerTool("get_error_summary", {
+    title: "Server error summary",
+    description:
+      "Scan one instance's recent docker logs for error-like lines (error/exception/fatal/unhandled/panic) and bucket them by normalized message with counts — a fast answer to 'what is breaking on this instance?'. For raw lines or fleet-wide search use search_server_logs.",
+    inputSchema: z.object({
+      server_id: z.string(),
+      tail_lines: z.number().int().min(100).max(20000).default(5000),
+    }),
+    annotations: { readOnlyHint: true },
+  }, ({ server_id, tail_lines }) =>
+    runTool(async () => {
+      const lines = (await fetchDockerLogs(server_id, tail_lines)).split("\n");
+      const errorRe = /error|exception|fatal|unhandled|panic/i;
+      // Bucket by shape, not by exact text: timestamps, uuids and numbers vary
+      // per occurrence, so they are collapsed before grouping
+      const normalize = (line: string) =>
+        line
+          .replace(/\d{4}-\d{2}-\d{2}[T ][\d:.]+Z?/g, "<ts>")
+          .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<uuid>")
+          .replace(/\b\d+\b/g, "#")
+          .trim()
+          .slice(0, 160);
+      const buckets = new Map<string, { count: number; example: string }>();
+      let errorLines = 0;
+      for (const line of lines) {
+        if (!line.trim() || !errorRe.test(line)) continue;
+        errorLines++;
+        const key = normalize(line);
+        const bucket = buckets.get(key);
+        if (bucket) bucket.count++;
+        else buckets.set(key, { count: 1, example: line.trim().slice(0, 300) });
+      }
+      const top = [...buckets.entries()]
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 30)
+        .map(([patternKey, b]) => ({ count: b.count, pattern: patternKey, example: b.example }));
+      return okJson({
+        server_id,
+        linesScanned: lines.length,
+        errorLines,
+        distinctPatterns: buckets.size,
+        topPatterns: top,
+      });
+    }));
+
+  server.registerTool("get_disk_breakdown", {
+    title: "Droplet disk breakdown",
+    description:
+      "Disk usage for every data volume on the droplet: totals (df) plus per-directory sizes (du), largest first — answers 'which instance is using the space?'.",
+    inputSchema: z.object({}),
+    annotations: { readOnlyHint: true },
+  }, () =>
+    runTool(async () => {
+      const lsResult = await executeCommand(getDropletIp(), "ls /mnt");
+      if (!lsResult.success) {
+        throw new ToolFailure(`Could not list volumes: ${lsResult.stderr.slice(0, 300)}`);
+      }
+      const volumes = lsResult.stdout.trim().split("\n").map((s) => s.trim()).filter(Boolean);
+      const breakdown = await mapConcurrent(volumes, 4, async (name) => {
+        const mountPath = `/mnt/${name}`;
+        const dfCommand = `df -BG ${mountPath}`;
+        const duCommand = `du -BG --max-depth=1 ${mountPath}`;
+        if (!isCommandAllowed(dfCommand) || !isCommandAllowed(duCommand)) {
+          return { name, error: "Command not allowed" };
+        }
+        const [dfResult, duResult] = await Promise.all([
+          executeCommand(getDropletIp(), dfCommand),
+          executeCommand(getDropletIp(), duCommand),
+        ]);
+        const df = dfResult.success ? parseDfOutput(dfResult.stdout, mountPath) : null;
+        const directories = duResult.success
+          ? parseDuOutput(duResult.stdout, mountPath).sort((a, b) => b.sizeGB - a.sizeGB)
+          : [];
+        return {
+          name,
+          df,
+          // df is null when the path is not a dedicated mount (it sits on
+          // another filesystem) — the du breakdown is still valid
+          dfNote: df === null ? "not a dedicated mount — no volume-level totals" : undefined,
+          directories,
+        };
+      });
+      return okJson({ volumes: breakdown });
     }));
 }

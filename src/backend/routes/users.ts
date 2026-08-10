@@ -12,7 +12,7 @@ interface LanguageReportState {
     lastRunAt: number | null;
 }
 
-async function readReportState(): Promise<LanguageReportState> {
+export async function readReportState(): Promise<LanguageReportState> {
     try {
         return JSON.parse(await Deno.readTextFile(LANGUAGE_REPORT_FILE));
     } catch {
