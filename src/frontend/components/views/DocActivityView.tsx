@@ -29,6 +29,10 @@ interface Row {
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// Edit-session tracking went live July 2026 — earlier months can never have entries,
+// so don't show columns for them.
+const TRACKING_START = '2026-07';
+
 // Last n calendar months (UTC) as 'YYYY-MM', oldest first, ending at the current month
 function lastMonths(n: number): string[] {
     const now = new Date();
@@ -48,7 +52,8 @@ function monthLabel(month: string): string {
 }
 
 export function DocActivityView(props: DocActivityViewProps) {
-    const monthCols = lastMonths(13);
+    // 'YYYY-MM' strings compare correctly lexicographically
+    const monthCols = lastMonths(13).filter(m => m >= TRACKING_START);
     const [kindFilter, setKindFilter] = createSignal<KindFilter>('all');
     const [sortKey, setSortKey] = createSignal<string>('total');
     const [sortDir, setSortDir] = createSignal<SortDir>('asc');
