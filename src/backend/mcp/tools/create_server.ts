@@ -92,6 +92,9 @@ const INPUT_SCHEMA = z.object({
   category: z.string().optional().describe(
     "Existing category name from get_fleet_overview. Omit for uncategorized.",
   ),
+  country_iso3: z.string().describe(
+    'REQUIRED — the instance BOOT FAIL-STOPS without it. Three uppercase letters (e.g. "NGA") or "SOMALILAND". Testing instances conventionally use "SOM".',
+  ),
   language: z.enum(["english", "french", "portuguese"]).default("english"),
   calendar: z.enum(["gregorian", "ethiopian"]).default("gregorian"),
   open_access: z.boolean().default(false),
@@ -104,7 +107,7 @@ export function registerCreateServerTool(server: McpServer): void {
   server.registerTool("create_server", {
     title: "Create a new FASTR instance",
     description:
-      "Provision a new FASTR instance: DNS record, wb config, directories, nginx, SSL certificate, label/language/calendar/open-access config, category, then start the container — the same checks and steps as the admin UI's Create Server modal. Ask the user for every option rather than guessing (label, server_id, volume, category, language, calendar, open_access). ALWAYS call with confirm:false first and show the user the preview; only re-call with confirm:true after they explicitly approve. This creates real infrastructure and issues a real SSL certificate.",
+      "Provision a new FASTR instance: DNS record, wb config, directories, nginx, SSL certificate, label/country/language/calendar/open-access config, category, then start the container — the same checks and steps as the admin UI's Create Server modal. Ask the user for every option rather than guessing (label, server_id, volume, category, country_iso3, language, calendar, open_access). ALWAYS call with confirm:false first and show the user the preview; only re-call with confirm:true after they explicitly approve. This creates real infrastructure and issues a real SSL certificate.",
     inputSchema: INPUT_SCHEMA,
   }, (input) =>
     runTool(async () => {
@@ -120,6 +123,14 @@ export function registerCreateServerTool(server: McpServer): void {
       if (!LABEL_SAFE_RE.test(label)) {
         return errText(
           'Invalid label — it may not contain double quotes, backslashes, $ or backticks.',
+        );
+      }
+      // The platform refuses to boot without a valid country code (its
+      // exposed_env_vars.ts fail-stop) — creating without one yields a
+      // crash-looping container, which is how this parameter got added
+      if (!/^[A-Z]{3}$|^SOMALILAND$/.test(input.country_iso3)) {
+        return errText(
+          `Invalid country_iso3 "${input.country_iso3}" — three uppercase letters (e.g. NGA) or SOMALILAND.`,
         );
       }
       const volumes = await listVolumes();
@@ -157,6 +168,7 @@ export function registerCreateServerTool(server: McpServer): void {
         `server_id: ${serverId} (https://${serverId}.fastr-analytics.org)`,
         `volume: ${volume}${input.volume === undefined ? " (default — first on droplet)" : ""}`,
         `category: ${input.category ?? "(none)"}`,
+        `country_iso3: ${input.country_iso3}`,
         `language: ${input.language}`,
         `calendar: ${input.calendar}`,
         `open_access: ${input.open_access}`,
@@ -239,9 +251,13 @@ export function registerCreateServerTool(server: McpServer): void {
         if (!labelResult.success) return fail("Set label", labelResult.detail);
         completed.push("label");
 
-        // 7. config — language sets BOTH flags (mutually exclusive, kept
-        // coherent, same as the update/language route); calendar/open-access
-        // only when non-default, same as the modal
+        // 7. config. Country FIRST — the container boot fail-stops without
+        // it, so it must be set before "wb run". Language sets BOTH flags
+        // (mutually exclusive, kept coherent, same as the update/language
+        // route); calendar/open-access only when non-default, same as the
+        // modal.
+        const country = await runWb(`wb c update ${serverId} --country-iso3 ${input.country_iso3}`);
+        if (!country.success) return fail("Set country", country.detail);
         if (input.language !== "english") {
           for (const command of [
             `wb c update ${serverId} --french ${input.language === "french"}`,

@@ -8,6 +8,7 @@ import {
   initSslApi,
   updateServerLabelApi,
   updateServerLanguageApi,
+  updateServerCountryIso3Api,
   updateServerCalendarApi,
   updateServerOpenAccessApi,
   runServerApi,
@@ -63,6 +64,7 @@ export function CreateServerModal(props: CreateServerModalProps) {
   const [subdomain, setSubdomain] = createSignal('');
   const [category, setCategory] = createSignal('');
   const [volume, setVolume] = createSignal('');
+  const [countryIso3, setCountryIso3] = createSignal('');
   const [language, setLanguage] = createSignal<'english' | 'french' | 'portuguese'>('english');
   const [ethiopian, setEthiopian] = createSignal(false);
   const [openAccess, setOpenAccess] = createSignal(false);
@@ -78,6 +80,15 @@ export function CreateServerModal(props: CreateServerModalProps) {
     if (!sub) return null;
     if (sub.length > 63) return 'Subdomain must be 63 characters or fewer';
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(sub)) return 'Only lowercase letters, numbers, and hyphens allowed. Cannot start or end with a hyphen';
+    return null;
+  };
+
+  // Required: the platform container fail-stops at boot without a valid
+  // ISO_COUNTRY_CODE, so a server created without one just crash-loops
+  const countryError = () => {
+    const code = countryIso3().trim();
+    if (!code) return null;
+    if (!/^[A-Z]{3}$|^SOMALILAND$/.test(code)) return 'Three uppercase letters (e.g. NGA) or SOMALILAND';
     return null;
   };
 
@@ -175,6 +186,9 @@ export function CreateServerModal(props: CreateServerModalProps) {
     if (!ok6) { setFinished(true); return; }
 
     const ok7 = await runStep(6, async () => {
+      // Country first — the container can't boot without it (see countryError)
+      const cr = await updateServerCountryIso3Api(sub, countryIso3().trim(), token);
+      if (!cr.success) return cr;
       if (language() !== 'english') {
         const r = await updateServerLanguageApi(sub, language() === 'french', language() === 'portuguese', token);
         if (!r.success) return r;
@@ -214,6 +228,8 @@ export function CreateServerModal(props: CreateServerModalProps) {
     !serverName().trim() ||
     !subdomain().trim() ||
     !!subdomainError() ||
+    !countryIso3().trim() ||
+    !!countryError() ||
     checking() ||
     hasConflicts() ||
     props.sshOperationInProgress();
@@ -293,6 +309,19 @@ export function CreateServerModal(props: CreateServerModalProps) {
                   {(cat) => <option value={cat.name}>{cat.name}</option>}
                 </For>
               </select>
+
+              <label for="cs-country" style="margin-top: 12px">Country (ISO3)</label>
+              <input
+                id="cs-country"
+                type="text"
+                class="version-input"
+                value={countryIso3()}
+                onInput={(e) => setCountryIso3(e.currentTarget.value.toUpperCase())}
+                placeholder="e.g. NGA (SOM for testing servers)"
+              />
+              {countryError() && (
+                <p style="color: #dc3545; font-size: 12px; margin: 4px 0 0">{countryError()}</p>
+              )}
 
               <div class="config-rows" style="margin-top: 16px">
                 <div class="config-row">
