@@ -219,9 +219,11 @@ function App() {
     }
   );
 
-  // get all raw user logs — lazy: only fetches when userLogs view is active
+  // get all raw user logs — lazy: only fetches when a view needing them is active.
+  // The doc activity view needs them too: raw user_logs hold the last ~7 days
+  // that the weekly rollup hasn't moved into user_logs_aggregate yet.
   const [allRawUserLogs] = createResource(
-    () => activeView() === "userLogs" && servers() ? servers() : null,
+    () => (activeView() === "userLogs" || activeView() === "docActivity") && servers() ? servers() : null,
     async (serverList) => {
       const token = await getToken();
       return fetchAllServerUserLogsAll(serverList!, token);
@@ -608,7 +610,8 @@ function App() {
             <DocActivityView
               servers={servers()}
               aggregateLogs={aggregateLogs()}
-              loading={aggregateLogs.loading}
+              rawLogs={allRawUserLogs()}
+              loading={aggregateLogs.loading || allRawUserLogs.loading}
             />
           </Show>
 

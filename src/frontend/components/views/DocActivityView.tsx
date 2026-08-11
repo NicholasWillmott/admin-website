@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
-import type { Server, ServerUserLogsAggregate } from '../../types.ts';
+import type { Server, ServerUserLogs, ServerUserLogsAggregate } from '../../types.ts';
 
 const SESSION_ENDPOINTS: Record<string, 'report' | 'deck'> = {
     reportEditSession: 'report',
@@ -12,6 +12,9 @@ type SortDir = 'asc' | 'desc';
 interface DocActivityViewProps {
     servers: Server[] | undefined;
     aggregateLogs: ServerUserLogsAggregate | undefined;
+    // Raw user_logs rows — the last ~7 days that the weekly rollup hasn't moved
+    // into user_logs_aggregate yet. Merged in so the current week is visible.
+    rawLogs: ServerUserLogs | undefined;
     loading: boolean;
 }
 
@@ -76,18 +79,27 @@ export function DocActivityView(props: DocActivityViewProps) {
     const cells = createMemo(() => {
         const filter = kindFilter();
         const byServer = new Map<string, Map<string, Cell>>();
+        const add = (sid: string, endpoint: string, month: string, count: number, email: string) => {
+            const kind = SESSION_ENDPOINTS[endpoint];
+            if (!kind) return;
+            if (filter !== 'all' && kind !== filter) return;
+            let months = byServer.get(sid);
+            if (!months) { months = new Map(); byServer.set(sid, months); }
+            let cell = months.get(month);
+            if (!cell) { cell = { sessions: 0, editors: new Set() }; months.set(month, cell); }
+            cell.sessions += count;
+            cell.editors.add(email);
+        };
         for (const [sid, serverLogs] of Object.entries(props.aggregateLogs ?? {})) {
             for (const log of serverLogs ?? []) {
-                const kind = SESSION_ENDPOINTS[log.endpoint];
-                if (!kind) continue;
-                if (filter !== 'all' && kind !== filter) continue;
-                const month = log.week_start.slice(0, 7);
-                let months = byServer.get(sid);
-                if (!months) { months = new Map(); byServer.set(sid, months); }
-                let cell = months.get(month);
-                if (!cell) { cell = { sessions: 0, editors: new Set() }; months.set(month, cell); }
-                cell.sessions += log.count;
-                cell.editors.add(log.user_email);
+                add(sid, log.endpoint, log.week_start.slice(0, 7), log.count, log.user_email);
+            }
+        }
+        // Raw rows are the sessions the rollup hasn't aggregated (and deleted)
+        // yet, so summing both sources never counts a session twice.
+        for (const [sid, serverLogs] of Object.entries(props.rawLogs ?? {})) {
+            for (const log of serverLogs ?? []) {
+                add(sid, log.endpoint, log.timestamp.slice(0, 7), 1, log.user_email);
             }
         }
         return byServer;
