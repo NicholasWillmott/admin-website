@@ -21,6 +21,8 @@ export interface ServerLogs {
   success: boolean;
   logs: string;
   containerId?: string | null;
+  containerState?: string | null;
+  exitCode?: number | null;
   error: string;
 }
 

@@ -35,6 +35,17 @@ import {
 } from '../../../services.ts';
 import { addToast } from '../../../stores/toastStore.ts';
 
+type StartupPollResult =
+  | { status: 'online' }
+  | { status: 'crashed'; exitCode: number | null; logsTail: string }
+  | { status: 'timeout' };
+
+// Last few non-empty log lines, flattened to one line for a toast.
+function lastLogLines(logs: string, lines = 3, maxChars = 300): string {
+  const tail = logs.split('\n').map(l => l.trim()).filter(Boolean).slice(-lines).join(' | ');
+  return tail.length > maxChars ? '…' + tail.slice(-maxChars) : tail;
+}
+
 interface ServersViewProps {
   servers: Accessor<Server[] | undefined>;
   serversLoading: boolean;
@@ -228,32 +239,38 @@ export function ServersView(props: ServersViewProps) {
   // wb restart removes and recreates the container, so a new container ID is the
   // proof the restart actually ran — the old container's logs already contain the
   // startup line and would otherwise match immediately.
-  const pollServerLogsForStartup = async (serverId: string, baselineContainerId: string | null) => {
-    const maxAttempts = 400;
+  // Containers run without a docker restart policy, so an app that crashes on
+  // boot lands in state 'exited' and stays there — detect that and bail out
+  // immediately instead of polling out the clock.
+  const pollServerLogsForStartup = async (
+    serverId: string,
+    baselineContainerId: string | null,
+    maxAttempts = 24, // ~2 minutes at 5s per attempt
+  ): Promise<StartupPollResult> => {
     let attempts = 0;
 
-    const checkLogs = async (): Promise<boolean> => {
+    const checkLogs = async (): Promise<StartupPollResult> => {
       attempts++;
       try {
         const token = await getToken();
         const result = await fetchServerLogs(serverId, token);
-        if (
-          result?.success &&
-          result.containerId &&
-          result.containerId !== baselineContainerId &&
-          result.logs.includes('Listening on http://0.0.0.0:8000/')
-        ) {
-          return true;
+        if (result?.success && result.containerId && result.containerId !== baselineContainerId) {
+          if (result.containerState === 'exited' || result.containerState === 'dead') {
+            return { status: 'crashed', exitCode: result.exitCode ?? null, logsTail: lastLogLines(result.logs) };
+          }
+          if (result.logs.includes('Listening on http://0.0.0.0:8000/')) {
+            return { status: 'online' };
+          }
         }
         if (attempts >= maxAttempts) {
           console.error(`Server ${serverId} did not start after ${maxAttempts} attempts`);
-          return false;
+          return { status: 'timeout' };
         }
         await new Promise(resolve => setTimeout(resolve, 5000));
         return await checkLogs();
       } catch (error) {
         console.error(`Error checking logs for ${serverId}:`, error);
-        if (attempts >= maxAttempts) return false;
+        if (attempts >= maxAttempts) return { status: 'timeout' };
         await new Promise(resolve => setTimeout(resolve, 5000));
         return await checkLogs();
       }
@@ -271,11 +288,14 @@ export function ServersView(props: ServersViewProps) {
       const baselineContainerId = await fetchContainerId(serverId);
       const result = await restartServerApi(serverId, token);
       if (result.success) {
-        const isOnline = await pollServerLogsForStartup(serverId, baselineContainerId);
-        if (isOnline) {
+        const startup = await pollServerLogsForStartup(serverId, baselineContainerId);
+        if (startup.status === 'online') {
           setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'online' }));
           addToast(`Server ${serverId} restarted successfully and is now online.`, "success");
           props.refetchStatuses();
+        } else if (startup.status === 'crashed') {
+          setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'idle' }));
+          addToast(`Server ${serverId} crashed on startup (exit code ${startup.exitCode ?? 'unknown'}): ${startup.logsTail || 'no log output'}`, "error", 15000);
         } else {
           setServerRestartStatuses(prev => ({ ...prev, [serverId]: 'idle' }));
           addToast(`Server ${serverId} restart command sent, but failed to detect online status.`, "error");
@@ -308,12 +328,19 @@ export function ServersView(props: ServersViewProps) {
         addToast(`Failed to restart servers: ${result.error}`, "error");
         return;
       }
-      // Poll all servers in parallel
+      // Poll all servers in parallel. wb restart runs the servers sequentially,
+      // so the last server's restart may not even begin until the others have
+      // finished — scale the timeout by queue length rather than using the
+      // single-restart cap.
+      const maxAttempts = 24 * serverIds.length;
       await Promise.all(serverIds.map(async (id, index) => {
-        const isOnline = await pollServerLogsForStartup(id, baselineContainerIds[index]);
-        if (isOnline) {
+        const startup = await pollServerLogsForStartup(id, baselineContainerIds[index], maxAttempts);
+        if (startup.status === 'online') {
           setServerRestartStatuses(prev => ({ ...prev, [id]: 'online' }));
           addToast(`Server ${id} restarted successfully and is now online.`, "success");
+        } else if (startup.status === 'crashed') {
+          setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
+          addToast(`Server ${id} crashed on startup (exit code ${startup.exitCode ?? 'unknown'}): ${startup.logsTail || 'no log output'}`, "error", 15000);
         } else {
           setServerRestartStatuses(prev => ({ ...prev, [id]: 'idle' }));
           addToast(`Server ${id} restart command sent, but failed to detect online status.`, "error");

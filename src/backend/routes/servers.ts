@@ -421,7 +421,7 @@ router.get("/:id/logs", async (c) => {
     }
 
     const command = `docker logs ${serverId}`;
-    const inspectCommand = `docker inspect -f '{{.Id}}' ${serverId}`;
+    const inspectCommand = `docker inspect -f '{{.Id}} {{.State.Status}} {{.State.ExitCode}}' ${serverId}`;
 
     if (!isCommandAllowed(command) || !isCommandAllowed(inspectCommand)) {
         return c.json({ success: false, logs: '', containerId: null, error: "Command not allowed" });
@@ -430,14 +430,23 @@ router.get("/:id/logs", async (c) => {
     try {
         // Container ID lets the frontend tell a freshly restarted container apart
         // from the old one (wb restart removes and recreates the container).
+        // State + exit code let it tell a crashed container from a slow-starting one.
         const inspectResult = await executeCommand(getDropletIp(), inspectCommand);
-        const containerId = inspectResult.success ? inspectResult.stdout.trim() : null;
+        let containerId: string | null = null;
+        let containerState: string | null = null;
+        let exitCode: number | null = null;
+        if (inspectResult.success) {
+            const [id, state, code] = inspectResult.stdout.trim().split(/\s+/);
+            containerId = id || null;
+            containerState = state || null;
+            exitCode = code !== undefined && code !== "" ? Number(code) : null;
+        }
 
         const result = await executeCommand(getDropletIp(), command);
         if (!result.success) {
-            return c.json({ success: false, logs: '', containerId, error: result.stderr });
+            return c.json({ success: false, logs: '', containerId, containerState, exitCode, error: result.stderr });
         }
-        return c.json({ success: true, logs: result.stdout, containerId, error: '' });
+        return c.json({ success: true, logs: result.stdout, containerId, containerState, exitCode, error: '' });
     } catch (error) {
         return c.json({ success: false, logs: '', containerId: null, error: String(error) });
     }
