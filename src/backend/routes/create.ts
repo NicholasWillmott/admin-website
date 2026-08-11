@@ -100,18 +100,9 @@ router.delete("/create/category/:name", async (c) => {
   return c.json({ success: true });
 });
 
-// Assign a server to a category
-router.post("/create/assign-category", async (c) => {
-  const authError = await requireAdmin(c);
-  if (authError) return authError;
-
-  const body = await c.req.json<{ serverId: string; category: string }>();
-  const { serverId, category } = body;
-
-  if (!isSafeParam(serverId)) {
-    return c.json({ success: false, error: "Invalid server ID" });
-  }
-
+// Move a server into a category (or out of all of them when category is
+// empty). Shared with the MCP create_server tool.
+export async function assignServerToCategory(serverId: string, category: string): Promise<void> {
   const data = await readCategoriesData();
   // Remove from any existing category first
   for (const cat of data.categories) {
@@ -125,28 +116,53 @@ router.post("/create/assign-category", async (c) => {
     }
   }
   await writeCategoriesData(data);
-  return c.json({ success: true });
-});
+}
 
-// Pre-flight conflict check for a new server
-router.get("/create/check/:serverId", async (c) => {
+// Assign a server to a category
+router.post("/create/assign-category", async (c) => {
   const authError = await requireAdmin(c);
   if (authError) return authError;
 
-  const serverId = c.req.param('serverId');
+  const body = await c.req.json<{ serverId: string; category: string }>();
+  const { serverId, category } = body;
+
   if (!isSafeParam(serverId)) {
     return c.json({ success: false, error: "Invalid server ID" });
   }
 
+  await assignServerToCategory(serverId, category);
+  return c.json({ success: true });
+});
+
+// Whether wb list-nginx / wb list-ssl output mentions this server's hostname.
+// Both commands print decorated lines ("  testing2.fastr-analytics.org → port
+// 9013", "Certificate Name: testing2.fastr-analytics.org") wrapped in ANSI
+// color codes, so an exact line === serverId comparison can never match — the
+// nginx/ssl (and bare-name DNS) checks were silently ineffective until
+// 2026-08-10. Match the full hostname as a token: the boundary guard keeps
+// "ai" from matching "afghanistan-ai.fastr-analytics.org".
+function outputMentionsHost(output: string, serverId: string): boolean {
+  // deno-lint-ignore no-control-regex
+  const plain = output.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
+  return new RegExp(`(^|[^\\w-])${serverId}\\.fastr-analytics\\.org`, "m").test(plain);
+}
+
+// Pre-flight conflict checks for a new server id: true = that thing already
+// exists. Shared by the check route below and the MCP create_server tool.
+// Individual check failures degrade to false (no conflict), same as always —
+// the wb add/init steps still fail loudly if a degraded check missed something.
+export async function checkServerConflicts(
+  serverId: string,
+  volume: string | undefined,
+): Promise<Record<string, boolean>> {
   const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
   const dropletIp = getDropletIp();
 
-  const volume = c.req.query('volume');
-
   const checks: Promise<boolean>[] = [
-    // DNS record check
+    // DNS record check — the DO API's name filter needs the FULL record name;
+    // a bare subdomain silently matches nothing
     fetch(
-      `https://api.digitalocean.com/v2/domains/fastr-analytics.org/records?name=${serverId}&type=A`,
+      `https://api.digitalocean.com/v2/domains/fastr-analytics.org/records?name=${serverId}.fastr-analytics.org&type=A`,
       { headers: { "Authorization": `Bearer ${doToken}` } }
     ).then(r => r.json()).then(d => (d.domain_records?.length ?? 0) > 0).catch(() => false),
 
@@ -154,10 +170,10 @@ router.get("/create/check/:serverId", async (c) => {
     executeCommand(dropletIp, `wb c show ${serverId}`).then(r => r.success).catch(() => false),
 
     // nginx check
-    executeCommand(dropletIp, `wb list-nginx`).then(r => r.stdout.split('\n').map((s: string) => s.trim()).includes(serverId)).catch(() => false),
+    executeCommand(dropletIp, `wb list-nginx`).then(r => outputMentionsHost(r.stdout, serverId)).catch(() => false),
 
     // SSL check
-    executeCommand(dropletIp, `wb list-ssl`).then(r => r.stdout.split('\n').map((s: string) => s.trim()).includes(serverId)).catch(() => false),
+    executeCommand(dropletIp, `wb list-ssl`).then(r => outputMentionsHost(r.stdout, serverId)).catch(() => false),
 
     // central servers.json check
     fetch("https://central.fastr-analytics.org/servers.json")
@@ -176,18 +192,31 @@ router.get("/create/check/:serverId", async (c) => {
     );
   }
 
-  const [dnsResult, configResult, nginxResult, sslResult, serversJsonResult, directoryResult] = await Promise.all(checks);
+  const [dns, config, nginx, ssl, serversJson, directory] = await Promise.all(checks);
+  return {
+    dns,
+    config,
+    nginx,
+    ssl,
+    serversJson,
+    ...(volume ? { directory } : {}),
+  };
+}
 
+// Pre-flight conflict check for a new server
+router.get("/create/check/:serverId", async (c) => {
+  const authError = await requireAdmin(c);
+  if (authError) return authError;
+
+  const serverId = c.req.param('serverId');
+  if (!isSafeParam(serverId)) {
+    return c.json({ success: false, error: "Invalid server ID" });
+  }
+
+  const volume = c.req.query('volume');
   return c.json({
     success: true,
-    conflicts: {
-      dns: dnsResult,
-      config: configResult,
-      nginx: nginxResult,
-      ssl: sslResult,
-      serversJson: serversJsonResult,
-      ...(volume ? { directory: directoryResult } : {}),
-    },
+    conflicts: await checkServerConflicts(serverId, volume),
   });
 });
 
