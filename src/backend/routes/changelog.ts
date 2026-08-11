@@ -64,7 +64,13 @@ export function parseFullChangelog(text: string): ParsedChangelogVersion[] {
   }));
 }
 
+// Guarded to match /parsed. The content itself is public (it mirrors CHANGELOG_AUTO.txt
+// from the public platform repo), so this is not protecting a secret today — it stops an
+// anonymous caller driving unbounded 250KB+ GitHub fetches through this server, and it
+// keeps the route correct if that repo is ever made private.
 router.get("/changelog", async (c) => {
+  const authError = await requireAdminOrInternal(c);
+  if (authError) return authError;
   const text = await readChangelogAuto();
   return text ? c.text(text) : c.text("", 404);
 });

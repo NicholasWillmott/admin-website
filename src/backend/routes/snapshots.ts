@@ -13,6 +13,13 @@ router.delete("/server/snapshot/:id", async (c) => {
     const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
     const snapshotId = c.req.param("id");
 
+    // Must not contain "." or "/": an encoded traversal like "..%2Fdroplets%2F<id>" is
+    // normalised by the URL parser and would turn this into a DELETE against a different
+    // DigitalOcean resource entirely, using the account token.
+    if (!/^[a-fA-F0-9-]{8,64}$/.test(snapshotId)) {
+        return c.json({ success: false, error: "Invalid snapshot id" }, 400);
+    }
+
     if (!doToken) {
         return c.json({ success: false, error: "DigitalOcean API token not found" });
     }
@@ -32,6 +39,9 @@ router.delete("/server/snapshot/:id", async (c) => {
             const result = await response.json();
             return c.json({ success: false, error: result.message || "Failed to delete snapshot" });
         }
+        // DO documents 204, but any other 2xx is still a success — without this the handler
+        // falls off the end and Hono returns an empty 500.
+        return c.json({ success: true, message: `Snapshot deleted successfully` });
     } catch (error) {
         return c.json({ success: false, error: String(error) }, 500);
     }

@@ -897,7 +897,14 @@ router.post("/superadmin-email", async (c) => {
         const weekEnd = fmt(new Date());
 
         const body = await c.req.json().catch(() => ({}));
-        const requestedEmails: string[] | undefined = Array.isArray(body?.emails) ? body.emails : undefined;
+        // The caller may NARROW the recipient list to a subset of H_USERS, but never widen it.
+        // This email carries fleet-wide PII (signup names + addresses, per-instance user counts,
+        // AI spend, top-AI-user emails) and the route is reachable with the internal key, so an
+        // unfiltered body.emails would let any caller post the lot to an arbitrary address.
+        const requestedEmails: string[] | undefined = Array.isArray(body?.emails)
+            ? body.emails.filter((e: unknown): e is string =>
+                typeof e === "string" && H_USERS.has(e.trim().toLowerCase()))
+            : undefined;
 
         const [allUsers, servers] = await Promise.all([
             fetchAllUsers(),
@@ -905,6 +912,12 @@ router.post("/superadmin-email", async (c) => {
         ]);
 
         const adminEmails = requestedEmails ?? [...H_USERS];
+
+        // Fail loudly rather than "succeeding" with zero sends when a caller supplied a list
+        // that was entirely off the allowlist.
+        if (adminEmails.length === 0) {
+            return c.json({ error: "No valid recipients — addresses must be on the known admin list" }, 400);
+        }
 
         const recentSignups = allUsers
             .filter(u => u.created_at >= weekAgoMs && !H_USERS.has(getPrimaryEmail(u)))
@@ -1076,8 +1089,6 @@ router.post("/instance-admin-emails", async (c) => {
             results.push({ server, logs, projects, health, projectActivity });
         }
 
-        const testOverrideEmail = "nicholaswillmottvball@gmail.com";
-
         const newKnownProjects: Record<string, string[]> = {};
         const newKnownUserCounts: Record<string, number> = {};
         const newKnownVersions: Record<string, string> = {};
@@ -1166,13 +1177,8 @@ router.post("/instance-admin-emails", async (c) => {
         }
 
         let emailsSent = 0;
-        let testOverrideUsed = false;
 
-        for (const [adminEmail, instances] of adminToInstances) {
-            if (testOverrideEmail && testOverrideUsed) continue;
-            const recipient = testOverrideEmail ?? adminEmail;
-            if (testOverrideEmail) testOverrideUsed = true;
-
+        for (const [recipient, instances] of adminToInstances) {
             if (instances.length === 1) {
                 const inst = instances[0];
                 await sendEmail([recipient], inst.emailSubject, inst.html);
