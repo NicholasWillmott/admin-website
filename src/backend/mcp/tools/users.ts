@@ -5,7 +5,9 @@ import { readReportState } from "../../routes/users.ts";
 import {
   fetchClerkJson,
   fetchFleetEndpoint,
+  fetchInstanceJson,
   fetchServersJson,
+  mapConcurrent,
   okJson,
   runTool,
   ToolFailure,
@@ -71,6 +73,124 @@ function projectUser(u: ClerkApiUser) {
     lastSignInAt: ms(u.last_sign_in_at),
     lastActiveAt: ms(u.last_active_at),
   };
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Language bucketing — shared by get_language_report and build_mailing_list
+///////////////////////////////////////////////////////////////////////////////
+
+// Bucket order is also the CSV column order, and both must match what
+// POST /api/users/language-report emits (routes/users.ts) — the two produce
+// files that get opened side by side.
+const BUCKETS = [
+  "french-only",
+  "portuguese-only",
+  "english-only",
+  "multiple",
+  "neither",
+] as const;
+type Bucket = typeof BUCKETS[number];
+
+const BUCKET_CSV_HEADER =
+  "french_servers,portuguese_servers,english_servers,multiple,neither";
+
+interface FleetLanguages {
+  servers: { id: string; isDemoOrTesting: boolean }[];
+  /** instance id -> "fr" | "pt" | "en" */
+  serverLang: Map<string, string>;
+  /** instance id -> lowercased registered emails (health_check.serverUsers) */
+  usersByServer: Map<string, Set<string>>;
+  unreachable: string[];
+}
+
+// Registration (who has an account where) + the instance's language. Language
+// is mutually exclusive per instance, pt winning over fr — the same precedence
+// the deployer uses when setting INSTANCE_LANGUAGE.
+async function loadFleetLanguages(): Promise<FleetLanguages> {
+  const [registry, healthByServer] = await Promise.all([
+    fetchServersJson(),
+    fetchFleetEndpoint("health_check"),
+  ]);
+  const servers = registry.filter((s) => s.mode !== "central");
+  const serverLang = new Map<string, string>();
+  const usersByServer = new Map<string, Set<string>>();
+  const unreachable: string[] = [];
+  for (const s of servers) {
+    serverLang.set(s.id, s.portuguese ? "pt" : s.french ? "fr" : "en");
+    const health = healthByServer[s.id] as { serverUsers?: string[] } | null;
+    if (health === null) {
+      unreachable.push(s.id);
+      continue;
+    }
+    usersByServer.set(
+      s.id,
+      new Set((health.serverUsers ?? []).map((u) => u.trim().toLowerCase())),
+    );
+  }
+  return {
+    servers: servers.map((s) => ({
+      id: s.id,
+      isDemoOrTesting: s.id.startsWith("testing") || s.id.startsWith("demo"),
+    })),
+    serverLang,
+    usersByServer,
+    unreachable,
+  };
+}
+
+function instancesFor(email: string, fleet: FleetLanguages): string[] {
+  const found: string[] = [];
+  for (const [id, users] of fleet.usersByServer) {
+    if (users.has(email)) found.push(id);
+  }
+  return found.sort();
+}
+
+function bucketFor(email: string, fleet: FleetLanguages): Bucket {
+  const langs = new Set(
+    instancesFor(email, fleet).map((id) => fleet.serverLang.get(id) ?? "en"),
+  );
+  if (langs.size > 1) return "multiple";
+  if (langs.has("fr")) return "french-only";
+  if (langs.has("pt")) return "portuguese-only";
+  if (langs.has("en")) return "english-only";
+  return "neither";
+}
+
+// Parallel-column CSV: each column is an independent list padded with "".
+// Row i carries no cross-column meaning — this is the shape the existing
+// export uses, so downstream consumers already expect it.
+function bucketedCsv(
+  emails: string[],
+  fleet: FleetLanguages,
+): { csv: string; counts: Record<Bucket, number> } {
+  const cols: Record<Bucket, string[]> = {
+    "french-only": [],
+    "portuguese-only": [],
+    "english-only": [],
+    multiple: [],
+    neither: [],
+  };
+  for (const email of emails) cols[bucketFor(email, fleet)].push(email);
+  const height = Math.max(0, ...BUCKETS.map((b) => cols[b].length));
+  const lines = [BUCKET_CSV_HEADER];
+  for (let i = 0; i < height; i++) {
+    lines.push(BUCKETS.map((b) => cols[b][i] ?? "").join(","));
+  }
+  return {
+    csv: lines.join("\n") + "\n",
+    counts: Object.fromEntries(
+      BUCKETS.map((b) => [b, cols[b].length]),
+    ) as Record<Bucket, number>,
+  };
+}
+
+// Every email anywhere in the pasted text. Deliberately layout-agnostic: the
+// list has already changed column shape once (4-col with "both" -> 5-col with
+// "multiple", 2026-06-30), and an old export must still be usable as input.
+function harvestEmails(text: string): Set<string> {
+  const found = text.match(/[^@,\s"]+@[^@,\s"]+\.[^@,\s"]+/g) ?? [];
+  return new Set(found.map((e) => e.trim().toLowerCase()));
 }
 
 export function registerUserTools(server: McpServer): void {
@@ -236,31 +356,12 @@ export function registerUserTools(server: McpServer): void {
           "The stored support list is empty (it lives on the droplet volume, so this is expected when running locally). Seed/generate it from the admin UI's Users view first.",
         );
       }
-      const [servers, healthByServer] = await Promise.all([
-        fetchServersJson(),
-        fetchFleetEndpoint("health_check"),
-      ]);
-      // Same categorization as the POST /language-report route: language is
-      // mutually exclusive per server, so a user lands in one language bucket,
-      // "multiple" if they span languages, "neither" if on no server
-      const serverLang = new Map(servers.map((s) => [
-        s.id,
-        s.portuguese ? "pt" : s.french ? "fr" : "en",
-      ]));
-      const usersByServer = new Map<string, Set<string>>();
-      const unreachable: string[] = [];
-      for (const s of servers) {
-        const health = healthByServer[s.id] as { serverUsers?: string[] } | null;
-        if (health === null) {
-          unreachable.push(s.id);
-          continue;
-        }
-        usersByServer.set(
-          s.id,
-          new Set((health.serverUsers ?? []).map((u) => u.toLowerCase())),
-        );
-      }
-      const buckets: Record<string, string[]> = {
+      // Language is mutually exclusive per server, so a user lands in one
+      // language bucket, "multiple" if they span languages, "neither" if on
+      // no server. Shared with build_mailing_list and mirrors the
+      // POST /language-report route.
+      const fleet = await loadFleetLanguages();
+      const buckets: Record<Bucket, string[]> = {
         "french-only": [],
         "portuguese-only": [],
         "english-only": [],
@@ -269,20 +370,7 @@ export function registerUserTools(server: McpServer): void {
       };
       for (const raw of state.emails) {
         const email = raw.toLowerCase();
-        const langs = new Set<string>();
-        for (const [id, userSet] of usersByServer) {
-          if (userSet.has(email)) langs.add(serverLang.get(id) ?? "en");
-        }
-        const cat = langs.size > 1
-          ? "multiple"
-          : langs.has("fr")
-          ? "french-only"
-          : langs.has("pt")
-          ? "portuguese-only"
-          : langs.has("en")
-          ? "english-only"
-          : "neither";
-        buckets[cat].push(email);
+        buckets[bucketFor(email, fleet)].push(email);
       }
       return okJson({
         trackedEmails: state.emails.length,
@@ -291,11 +379,37 @@ export function registerUserTools(server: McpServer): void {
           Object.entries(buckets).map(([k, v]) => [k, v.length]),
         ),
         buckets,
-        unreachable: unreachable.length
-          ? { servers: unreachable, note: "Users only on these servers may be miscategorized as 'neither'." }
+        unreachable: fleet.unreachable.length
+          ? { servers: fleet.unreachable, note: "Users only on these servers may be miscategorized as 'neither'." }
           : undefined,
       });
     }));
+
+  server.registerTool("build_mailing_list", {
+    title: "Refresh the support mailing list",
+    description:
+      "Given the mailing list you have today as CSV, find everyone active on any instance within the last N months who is NOT already on it, and return two CSVs: the new users alone, and the merged full list. Both use the language-bucket column layout (french_servers,portuguese_servers,english_servers,multiple,neither), so the output is a drop-in replacement for the existing export. Any input column layout is accepted — every email in the text counts as already-listed. Activity is the per-instance getCurrentUser login trail, which instances retain back to roughly 2026-04-05 only, so a window longer than that returns the same answer (the response reports the earliest activity actually seen). Language comes from which instances a user is registered on, not from where they were active. Read-only: does not modify the stored support list.",
+    inputSchema: z.object({
+      current_list_csv: z.string().min(1).describe(
+        "The mailing list as it stands today, as CSV text. Column layout does not matter.",
+      ),
+      months: z.number().int().min(1).max(24).default(6).describe(
+        "Activity window in months, counted back from today. Default 6.",
+      ),
+      exclude_demo_and_testing: z.boolean().default(false).describe(
+        "Drop new users whose only instances are demo/testing boxes. Off by default so nothing is silently withheld; the response always lists them either way.",
+      ),
+    }),
+    annotations: { readOnlyHint: true },
+  }, ({ current_list_csv, months, exclude_demo_and_testing }) =>
+    runTool(async () =>
+      okJson(
+        await buildMailingList(
+          current_list_csv,
+          months,
+          exclude_demo_and_testing,
+        ),
+      )));
 
   server.registerTool("list_admins", {
     title: "List admin-website admins",
@@ -326,4 +440,123 @@ export function registerUserTools(server: McpServer): void {
         })),
       });
     }));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// build_mailing_list — core
+///////////////////////////////////////////////////////////////////////////////
+
+// Exported so the computation can be exercised directly against the live fleet
+// without standing up the MCP transport.
+export async function buildMailingList(
+  currentListCsv: string,
+  months: number,
+  excludeDemoAndTesting: boolean,
+): Promise<Record<string, unknown>> {
+  const existing = harvestEmails(currentListCsv);
+  if (existing.size === 0) {
+    throw new ToolFailure(
+      "No email addresses found in current_list_csv. Paste the CSV contents themselves, not a filename or a summary.",
+    );
+  }
+  const cutoff = new Date(Date.now() - months * 30 * 24 * 60 * 60 * 1000)
+    .toISOString().slice(0, 10);
+
+  const fleet = await loadFleetLanguages();
+
+  // /user_logs is the getCurrentUser login trail and is never purged, unlike
+  // user_logs_aggregate — which excludes getCurrentUser entirely and so cannot
+  // see a user who only signs in and reads.
+  const logsUnreachable: string[] = [];
+  const lastActive = new Map<string, string>();
+  // Each worker returns the oldest day it saw; reduced after the fan-out
+  // rather than folded into an outer variable, which the closure would hide
+  // from control-flow narrowing.
+  const earliestPerServer = await mapConcurrent(
+    fleet.servers,
+    8,
+    async ({ id }): Promise<string | null> => {
+      let payload: unknown;
+      try {
+        payload = await fetchInstanceJson(id, "user_logs");
+      } catch {
+        logsUnreachable.push(id);
+        return null;
+      }
+      const rows = (Array.isArray(payload)
+        ? payload
+        : (payload as { logs?: unknown[] })?.logs ?? []) as {
+          user_email?: string;
+          timestamp?: string;
+        }[];
+      let earliest: string | null = null;
+      for (const row of rows) {
+        const day = (row.timestamp ?? "").slice(0, 10);
+        const email = (row.user_email ?? "").trim().toLowerCase();
+        if (!day || !email) continue;
+        if (earliest === null || day < earliest) earliest = day;
+        if (day < cutoff) continue;
+        const prev = lastActive.get(email);
+        if (prev === undefined || day > prev) lastActive.set(email, day);
+      }
+      return earliest;
+    },
+  );
+  const earliestSeen = earliestPerServer
+    .filter((d): d is string => d !== null)
+    .sort()[0] ?? null;
+
+  const active = [...lastActive.keys()].sort();
+  let newcomers = active.filter((e) => !existing.has(e));
+  const demoOrTesting = new Set(
+    fleet.servers.filter((s) => s.isDemoOrTesting).map((s) => s.id),
+  );
+  const onlyDemoOrTesting = newcomers.filter((e) => {
+    const on = instancesFor(e, fleet);
+    return on.length > 0 && on.every((id) => demoOrTesting.has(id));
+  });
+  if (excludeDemoAndTesting) {
+    const drop = new Set(onlyDemoOrTesting);
+    newcomers = newcomers.filter((e) => !drop.has(e));
+  }
+  const full = [...new Set([...existing, ...newcomers])].sort();
+
+  const newCsv = bucketedCsv(newcomers, fleet);
+  const fullCsv = bucketedCsv(full, fleet);
+  const unreachable = [...new Set([...fleet.unreachable, ...logsUnreachable])];
+
+  return {
+    window: {
+      months,
+      cutoff,
+      earliestActivityAvailable: earliestSeen,
+      note: earliestSeen !== null && earliestSeen > cutoff
+        ? `Instances only retain activity back to ${earliestSeen}, later than the ${months}-month cutoff of ${cutoff}. The effective window is ${earliestSeen} to today.`
+        : null,
+    },
+    counts: {
+      alreadyOnList: existing.size,
+      activeInWindow: active.length,
+      newUsers: newcomers.length,
+      fullList: full.length,
+    },
+    newUsersByBucket: newCsv.counts,
+    fullListByBucket: fullCsv.counts,
+    newUsersCsv: newCsv.csv,
+    fullListCsv: fullCsv.csv,
+    newUsersOnlyOnDemoOrTesting: {
+      emails: onlyDemoOrTesting,
+      excluded: excludeDemoAndTesting,
+      note: excludeDemoAndTesting
+        ? "Excluded from both CSVs."
+        : "Included in both CSVs. Re-run with exclude_demo_and_testing:true to drop them.",
+    },
+    unreachable: unreachable.length
+      ? {
+        servers: unreachable,
+        note:
+          "These instances answered nothing, so their users may be missing from the active set and miscategorized as 'neither'.",
+      }
+      : undefined,
+  };
 }
