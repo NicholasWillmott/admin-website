@@ -98,12 +98,12 @@ function getClerkClient(): ReturnType<typeof createClerkClient> {
 export async function resolveMcpAdmin(
   authorizationHeader: string | null,
 ): Promise<McpPrincipal | "not_admin" | null> {
-  // Local-dev escape hatch for probe runs off the droplet. Never set in
-  // production — it skips Clerk entirely.
-  if (Deno.env.get("MCP_AUTH_BYPASS") === "1") {
-    return { userId: "dev", email: "dev@offline.local" };
-  }
-
+  // DELIBERATELY no env-var escape hatch here. There was one (MCP_AUTH_BYPASS)
+  // for local probe runs; it was removed because `build` rsyncs src/backend/.env
+  // to the droplet wholesale, so a var added for a debugging session ships to
+  // production — where it would return a principal before the token is read,
+  // exposing every tool to unauthenticated callers. Verifying a Clerk OAuth
+  // token below is the only way in. To exercise /mcp locally, use a real token.
   if (!authorizationHeader?.startsWith(BEARER_PREFIX)) {
     return null;
   }

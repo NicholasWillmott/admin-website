@@ -11,6 +11,8 @@ import {
   fetchFleetEndpoint,
   fetchInstanceJson,
   fetchServersJson,
+  listImageVersions,
+  mapConcurrent,
   okJson,
   okText,
   runTool,
@@ -59,29 +61,6 @@ function buildMatcher(pattern: string): RegExp {
   } catch {
     return new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
   }
-}
-
-// Run fn over items with bounded concurrency. SSH connections to the droplet
-// are multiplexed (ssh.ts ControlMaster), so parallel commands are cheap, but
-// ~40 simultaneous docker-logs dumps would still spike the droplet.
-async function mapConcurrent<T, R>(
-  items: T[],
-  concurrency: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let next = 0;
-  const workers = Array.from(
-    { length: Math.min(concurrency, items.length) },
-    async () => {
-      while (next < items.length) {
-        const i = next++;
-        results[i] = await fn(items[i]);
-      }
-    },
-  );
-  await Promise.all(workers);
-  return results;
 }
 
 // Shape of an instance's /health_check document (subset we project; the full
@@ -207,33 +186,7 @@ export function registerFleetTools(server: McpServer): void {
     }),
     annotations: { readOnlyHint: true },
   }, ({ type }) =>
-    runTool(async () => {
-      const tagPrefix = type === "central" ? "wb-fastr-central-v" : "wb-fastr-server-v";
-      const command = `docker images --format "{{.Tag}}" timroberton/comb`;
-      if (!isCommandAllowed(command)) {
-        return errText("Command not allowed.");
-      }
-      const result = await executeCommand(getDropletIp(), command);
-      if (!result.success) {
-        throw new ToolFailure(`docker images failed: ${result.stderr}`);
-      }
-      const tags = result.stdout
-        .split("\n")
-        .filter((tag) => tag.startsWith(tagPrefix))
-        .map((tag) => tag.replace(tagPrefix, ""));
-      // Same ordering as routes/docker.ts /versions: semver desc, then
-      // ad-hoc tags in docker's newest-first listing order
-      const isSemver = (tag: string) => /^\d+\.\d+\.\d+/.test(tag);
-      const semverTags = tags.filter(isSemver).sort((a, b) => {
-        const aParts = a.split(".").map(Number);
-        const bParts = b.split(".").map(Number);
-        for (let i = 0; i < 3; i++) {
-          if (bParts[i] !== aParts[i]) return bParts[i] - aParts[i];
-        }
-        return 0;
-      });
-      return okJson({ versions: [...semverTags, ...tags.filter((t) => !isSemver(t))] });
-    }));
+    runTool(async () => okJson({ versions: await listImageVersions(type) })));
 
   server.registerTool("search_server_logs", {
     title: "Search server logs",

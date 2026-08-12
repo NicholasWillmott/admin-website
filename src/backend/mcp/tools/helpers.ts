@@ -1,6 +1,7 @@
 /// <reference lib="deno.ns" />
 import type { CallToolResult } from "@modelcontextprotocol/server";
-import { isSafeParam } from "../../lib/utils.ts";
+import { getDropletIp, isSafeParam } from "../../lib/utils.ts";
+import { executeCommand, isCommandAllowed } from "../../ssh.ts";
 
 // Shared plumbing for the MCP tools. The one-line fetches here deliberately
 // duplicate what the Hono route handlers do inline (routes/servers.ts etc.)
@@ -150,6 +151,67 @@ export async function fetchClerkJson(pathAndQuery: string): Promise<unknown> {
     throw new ToolFailure(`Clerk API answered ${response.status} for ${pathAndQuery.split("?")[0]}.`);
   }
   return await response.json();
+}
+
+// Run fn over items with bounded concurrency. SSH connections to the droplet
+// are multiplexed (ssh.ts ControlMaster), so parallel commands are cheap, but
+// ~40 simultaneous docker-logs dumps would still spike the droplet.
+export async function mapConcurrent<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    async () => {
+      while (next < items.length) {
+        const i = next++;
+        results[i] = await fn(items[i]);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Droplet image tags
+///////////////////////////////////////////////////////////////////////////////
+
+// Versions of the FASTR image present on the droplet for one server type,
+// ordered exactly as routes/docker.ts /versions orders them: semver
+// descending, then ad-hoc tags in docker's own newest-first listing order.
+// Shared by get_versions and update_server deliberately — a version the model
+// was shown must be a version the update will accept, and two copies of this
+// filter would eventually disagree.
+export async function listImageVersions(
+  type: "server" | "central",
+): Promise<string[]> {
+  const tagPrefix = type === "central" ? "wb-fastr-central-v" : "wb-fastr-server-v";
+  const command = `docker images --format "{{.Tag}}" timroberton/comb`;
+  if (!isCommandAllowed(command)) {
+    throw new ToolFailure("Command not allowed.");
+  }
+  const result = await executeCommand(getDropletIp(), command);
+  if (!result.success) {
+    throw new ToolFailure(`docker images failed: ${result.stderr}`);
+  }
+  const tags = result.stdout
+    .split("\n")
+    .filter((tag) => tag.startsWith(tagPrefix))
+    .map((tag) => tag.replace(tagPrefix, ""));
+  const isSemver = (tag: string) => /^\d+\.\d+\.\d+/.test(tag);
+  const semverTags = tags.filter(isSemver).sort((a, b) => {
+    const aParts = a.split(".").map(Number);
+    const bParts = b.split(".").map(Number);
+    for (let i = 0; i < 3; i++) {
+      if (bParts[i] !== aParts[i]) return bParts[i] - aParts[i];
+    }
+    return 0;
+  });
+  return [...semverTags, ...tags.filter((t) => !isSemver(t))];
 }
 
 ///////////////////////////////////////////////////////////////////////////////
