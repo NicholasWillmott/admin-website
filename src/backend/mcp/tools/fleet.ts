@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
 import { readCategoriesData } from "../../routes/create.ts";
 import { readLocks } from "../../routes/servers.ts";
+import { H_USERS } from "../../h_users.ts";
 import { parseDfOutput, parseDuOutput } from "../../routes/volumes.ts";
 import { getDropletIp, isSafeParam } from "../../lib/utils.ts";
 import { executeCommand, isCommandAllowed } from "../../ssh.ts";
@@ -341,5 +342,145 @@ export function registerFleetTools(server: McpServer): void {
         };
       });
       return okJson({ volumes: breakdown });
+    }));
+
+  server.registerTool("get_dormant_instances", {
+    title: "Instances nobody is using",
+    description:
+      "Instances that are running and healthy but that real users have stopped signing into — the failure a status check cannot see, because a dormant instance looks identical to a busy one. Per instance: days since the last real sign-in, distinct users in the window, accounts and projects provisioned, and whether it has ever been used at all. FASTR staff are excluded from the activity signal by default, so an instance kept warm only by the team still reads as dormant. Activity is the getCurrentUser login trail, retained back to roughly 2026-04-05 only — the response reports the earliest data actually available, so a long window may be silently truncated.",
+    inputSchema: z.object({
+      days: z.number().int().min(1).max(365).default(30).describe(
+        "Dormant means no real user has signed in within this many days.",
+      ),
+      include_demo_and_testing: z.boolean().default(false).describe(
+        "Include demo/testing boxes, which are expected to be quiet.",
+      ),
+      count_internal_staff: z.boolean().default(false).describe(
+        "Count FASTR team sign-ins as real activity. Off by default — a country instance only the team logs into is not in use.",
+      ),
+    }),
+    annotations: { readOnlyHint: true },
+  }, ({ days, include_demo_and_testing, count_internal_staff }) =>
+    runTool(async () => {
+      const cutoff = new Date(Date.now() - days * 86_400_000)
+        .toISOString().slice(0, 10);
+
+      const [registry, locked, healthByServer] = await Promise.all([
+        fetchServersJson(),
+        readLocks().catch(() => [] as string[]),
+        fetchFleetEndpoint("health_check"),
+      ]);
+      const lockedSet = new Set(locked);
+      const servers = registry.filter((s) =>
+        s.mode !== "central" &&
+        (include_demo_and_testing ||
+          !(s.id.startsWith("testing") || s.id.startsWith("demo")))
+      );
+
+      const rows = await mapConcurrent(servers, 8, async (s) => {
+        const health = healthByServer[s.id] as {
+          serverUsers?: string[];
+          totalUsers?: number;
+          projects?: unknown[];
+          running?: boolean;
+          serverVersion?: string;
+        } | null;
+        let payload: unknown = null;
+        let logsReachable = true;
+        try {
+          payload = await fetchInstanceJson(s.id, "user_logs");
+        } catch {
+          logsReachable = false;
+        }
+        const logs = (Array.isArray(payload)
+          ? payload
+          : (payload as { logs?: unknown[] })?.logs ?? []) as {
+            user_email?: string;
+            timestamp?: string;
+          }[];
+
+        let lastSignIn: string | null = null;
+        let earliest: string | null = null;
+        const usersInWindow = new Set<string>();
+        for (const row of logs) {
+          const day = (row.timestamp ?? "").slice(0, 10);
+          const email = (row.user_email ?? "").trim().toLowerCase();
+          if (!day || !email) continue;
+          // The team logging in to check on an instance is not the country
+          // using it — that distinction is the whole point of this tool.
+          if (!count_internal_staff && H_USERS.has(email)) continue;
+          if (earliest === null || day < earliest) earliest = day;
+          if (lastSignIn === null || day > lastSignIn) lastSignIn = day;
+          if (day >= cutoff) usersInWindow.add(email);
+        }
+
+        const status = (health === null && !logsReachable)
+          ? "unreachable"
+          : lastSignIn === null
+          ? "never_used"
+          : usersInWindow.size === 0
+          ? "dormant"
+          : "active";
+
+        return {
+          id: s.id,
+          label: s.label,
+          status,
+          registeredUsers: health?.serverUsers?.length ?? health?.totalUsers ?? null,
+          projectCount: health?.projects?.length ?? null,
+          lastRealSignIn: lastSignIn,
+          daysSinceLastRealSignIn: lastSignIn === null ? null : Math.floor(
+            (Date.now() - Date.parse(`${lastSignIn}T00:00:00Z`)) / 86_400_000,
+          ),
+          distinctUsersInWindow: usersInWindow.size,
+          serverVersion: health?.serverVersion ?? s.serverVersion,
+          running: health?.running ?? null,
+          locked: lockedSet.has(s.id) || undefined,
+          earliest,
+        };
+      });
+
+      const earliestSeen = rows
+        .map((r) => r.earliest)
+        .filter((d): d is string => d !== null)
+        .sort()[0] ?? null;
+      // Impact-first: an instance with 245 provisioned users going quiet
+      // matters more than one with 8, whatever the elapsed days.
+      const byImpact = (a: typeof rows[number], b: typeof rows[number]) =>
+        (b.registeredUsers ?? 0) - (a.registeredUsers ?? 0) ||
+        (b.daysSinceLastRealSignIn ?? 0) - (a.daysSinceLastRealSignIn ?? 0);
+      const pick = (status: string) =>
+        rows.filter((r) => r.status === status).sort(byImpact)
+          .map(({ earliest: _e, ...rest }) => rest);
+
+      const dormant = pick("dormant");
+      const neverUsed = pick("never_used");
+      const unreachable = pick("unreachable");
+
+      return okJson({
+        window: {
+          days,
+          cutoff,
+          earliestActivityAvailable: earliestSeen,
+          note: earliestSeen !== null && earliestSeen > cutoff
+            ? `Instances only retain sign-ins back to ${earliestSeen}, later than the ${days}-day cutoff of ${cutoff}. "Never used" here means "not since ${earliestSeen}".`
+            : null,
+        },
+        countingInternalStaffAsActivity: count_internal_staff,
+        summary: {
+          examined: rows.length,
+          active: rows.filter((r) => r.status === "active").length,
+          dormant: dormant.length,
+          neverUsed: neverUsed.length,
+          unreachable: unreachable.length,
+          usersOnDormantInstances: dormant.reduce(
+            (n, r) => n + (r.registeredUsers ?? 0),
+            0,
+          ),
+        },
+        dormant,
+        neverUsed,
+        unreachable: unreachable.length ? unreachable : undefined,
+      });
     }));
 }
