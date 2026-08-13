@@ -2,7 +2,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
 import { getDropletIp } from "../../lib/utils.ts";
-import { executeCommand, isCommandAllowed } from "../../ssh.ts";
+import { executeCommand } from "../../ssh.ts";
 import {
   assignServerToCategory,
   checkServerConflicts,
@@ -38,9 +38,6 @@ const LABEL_SAFE_RE = /^[^"$`\\]+$/;
 type WbResult = { success: boolean; detail: string };
 
 async function runWb(command: string): Promise<WbResult> {
-  if (!isCommandAllowed(command)) {
-    return { success: false, detail: `Command not allowed: ${command}` };
-  }
   const result = await executeCommand(getDropletIp(), command);
   return {
     success: result.success,

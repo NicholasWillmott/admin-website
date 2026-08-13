@@ -2,9 +2,23 @@
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
 import { isSafeParam, getServerInfo, getDropletIp } from "../lib/utils.ts";
-import { executeCommand, isCommandAllowed } from "../ssh.ts";
+import { executeCommand, READ_TIMEOUT_MS } from "../ssh.ts";
 
 const router = new Hono();
+
+// How many log lines /:id/logs returns when the caller doesn't ask for a specific
+// number. Enough to debug a startup, far short of a container's full history.
+const DEFAULT_LOG_TAIL = 500;
+const MAX_LOG_TAIL = 5000;
+
+// Callers pass ?tail=N. 0 is meaningful — the restart watcher polls this route purely
+// for the container id and doesn't want the log body at all.
+function clampTail(raw: string | undefined): number {
+    if (raw == null || raw === "") return DEFAULT_LOG_TAIL;
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 0) return DEFAULT_LOG_TAIL;
+    return Math.min(n, MAX_LOG_TAIL);
+}
 
 const LOCKS_FILE = "/mnt/fastr-config/server-locks.json";
 
@@ -84,10 +98,6 @@ router.post("/:id/restart", async (c) => {
     const command = server.mode === "central" ? `wb run-central ${serverId}` : `wb restart ${serverId}`;
     console.log(command);
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "Command not allowed" }, 403);
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -113,10 +123,6 @@ router.post("/bulk-restart", async (c) => {
     }
 
     const command = "wb restart " + ids.join(" ");
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "Command not allowed" }, 403);
-    }
 
     // Don't await — wb restart runs servers sequentially and can take a long time.
     // Awaiting it causes the HTTP connection to drop ("TypeError: Failed to fetch")
@@ -208,10 +214,6 @@ router.post("/:id/update", async (c) => {
     const command = `wb c update ${serverId} --server ${version}`;
     console.log(command);
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "Command not allowed" }, 403);
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -238,10 +240,6 @@ router.post("/bulk-update", async (c) => {
     }
 
     const command = "wb c update " + ids.join(" ") + " --server " + version;
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "command not allowed" }, 403);
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);
@@ -271,10 +269,6 @@ router.post("/update/language", async (c) => {
         `wb c update ${serverId} --french ${french}`,
         `wb c update ${serverId} --portuguese ${portuguese}`,
     ];
-
-    if (commands.some((command) => !isCommandAllowed(command))) {
-        return c.json({ error: "command not allowed" }, 403);
-    }
 
     try {
         const ip = getDropletIp();
@@ -311,10 +305,6 @@ router.post("/update/calendar", async (c) => {
 
     const command = `wb c update ${serverId} --ethiopian ${ethiopian}`
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "command not allowed" }, 403);
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -337,10 +327,6 @@ router.post("/update/fiscal-year", async (c) => {
     const fiscalYear: string = body.fiscalYear;
 
     const command = `wb c update ${serverId} --fiscal-year ${fiscalYear}`
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "command not allowed" }, 403);
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);
@@ -366,10 +352,6 @@ router.post("/update/country-iso3", async (c) => {
 
     const command = `wb c update ${serverId} --country-iso3 ${countryIso3}`
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "command not allowed" }, 403);
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -392,10 +374,6 @@ router.post("/update/open-access", async (c) => {
     const openAccess: boolean = body.openAccess;
 
     const command = `wb c update ${serverId} --open-access ${openAccess}`
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "command not allowed" }, 403);
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);
@@ -420,18 +398,22 @@ router.get("/:id/logs", async (c) => {
         return c.json({ success: false, logs: '', error: "Invalid server ID" });
     }
 
-    const command = `docker logs ${serverId}`;
-    const inspectCommand = `docker inspect -f '{{.Id}} {{.State.Status}} {{.State.ExitCode}}' ${serverId}`;
+    // ALWAYS bound the log fetch. Without --tail, docker returns the container's
+    // entire log since start — buffered whole in the backend, then shipped to the
+    // browser. Callers that poll this route (restart watcher) or only want the
+    // container id pass a small tail; the log viewer asks for more.
+    const tail = clampTail(c.req.query("tail"));
 
-    if (!isCommandAllowed(command) || !isCommandAllowed(inspectCommand)) {
-        return c.json({ success: false, logs: '', containerId: null, error: "Command not allowed" });
-    }
+    const command = `docker logs ${serverId} --tail ${tail}`;
+    const inspectCommand = `docker inspect -f '{{.Id}} {{.State.Status}} {{.State.ExitCode}}' ${serverId}`;
 
     try {
         // Container ID lets the frontend tell a freshly restarted container apart
         // from the old one (wb restart removes and recreates the container).
         // State + exit code let it tell a crashed container from a slow-starting one.
-        const inspectResult = await executeCommand(getDropletIp(), inspectCommand);
+        const inspectResult = await executeCommand(getDropletIp(), inspectCommand, {
+            timeoutMs: READ_TIMEOUT_MS,
+        });
         let containerId: string | null = null;
         let containerState: string | null = null;
         let exitCode: number | null = null;
@@ -442,7 +424,9 @@ router.get("/:id/logs", async (c) => {
             exitCode = code !== undefined && code !== "" ? Number(code) : null;
         }
 
-        const result = await executeCommand(getDropletIp(), command);
+        const result = await executeCommand(getDropletIp(), command, {
+            timeoutMs: READ_TIMEOUT_MS,
+        });
         if (!result.success) {
             return c.json({ success: false, logs: '', containerId, containerState, exitCode, error: result.stderr });
         }
@@ -496,10 +480,6 @@ router.post("/update/label", async (c) => {
 
     const command = `wb c update ${serverId} --label "${newLabel}"`;
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -522,10 +502,6 @@ router.post("/update/volume", async (c) => {
     const volume = body.volume;
 
     const command = `wb c update ${serverId} --volume ${volume}`;
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);
@@ -554,10 +530,6 @@ router.post("/run", async (c) => {
     const server = await getServerInfo(serverId);
     const command = server?.mode === "central" ? `wb run-central ${serverId}` : `wb run ${serverId}`;
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -584,10 +556,6 @@ router.post("/bulk-stop", async (c) => {
 
     const command = "wb stop " + ids.join(" ");
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "Command not allowed" }, 403);
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -609,10 +577,6 @@ router.post("/stop", async (c) => {
     const serverId = body.serverId;
 
     const command = `wb stop ${serverId}`;
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);

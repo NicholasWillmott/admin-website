@@ -4,6 +4,28 @@ export interface CommandResult {
     stdout: string;
     stderr: string;
     code: number;
+    /** True when the command was killed by our own timeout rather than exiting on its own. */
+    timedOut?: boolean;
+}
+
+// Exit code for a command the allowlist refused. 126 is the shell's conventional
+// "found but not executable" — distinct from any code a real wb/docker run returns.
+export const COMMAND_NOT_ALLOWED_CODE = 126;
+
+// Default ceiling for a single SSH command. Generous because the slowest legitimate
+// operations are genuinely slow: `wb restart all` cycles instances sequentially and
+// `wb init-ssl` waits on certbot. The point is to bound a wedged connection, not to
+// police normal runtimes — fast read-only commands pass a much shorter timeout.
+const DEFAULT_TIMEOUT_MS = 10 * 60_000;
+
+// Short timeout for read-only commands (docker logs/ps/inspect, df, du, ls). These
+// are on interactive paths, so a hang here is what makes the dashboard stick.
+export const READ_TIMEOUT_MS = 60_000;
+
+export interface ExecuteOptions {
+    /** Kill the ssh child after this many ms. Defaults to DEFAULT_TIMEOUT_MS. */
+    timeoutMs?: number;
+    privateKeyPath?: string;
 }
 
 // Get control socket path for SSH multiplexing
@@ -17,8 +39,24 @@ function getControlPath(host: string): string {
 export async function executeCommand(
     host: string,
     command: string,
-    privateKeyPath?: string
+    opts: ExecuteOptions = {},
 ): Promise<CommandResult> {
+    // The allowlist is enforced HERE rather than at each call site. It used to be the
+    // caller's job, which meant ~20 places had to remember it and a couple didn't —
+    // safety that depends on a convention isn't a boundary. Nothing reaches the remote
+    // shell without passing this check.
+    if (!isCommandAllowed(command)) {
+        console.error(`BLOCKED (not in allowlist) on ${host}: ${command}`);
+        return {
+            success: false,
+            stdout: "",
+            stderr: `Command not allowed: ${command}`,
+            code: COMMAND_NOT_ALLOWED_CODE,
+        };
+    }
+
+    const { timeoutMs = DEFAULT_TIMEOUT_MS, privateKeyPath } = opts;
+
     let keyPath = privateKeyPath || Deno.env.get("SSH_KEY_PATH") || "~/.ssh/id_rsa";
 
     // Expand ~ to home directory
@@ -43,8 +81,11 @@ export async function executeCommand(
             "-o", "ControlMaster=auto",
             "-o", `ControlPath=${controlPath}`,
             "-o", "ControlPersist=10m",
+            // 30s x 4 = give up on a silent peer after ~2 minutes. This was
+            // CountMax=120 (a full hour), which meant a dead connection held the
+            // request open long past any point the answer was still useful.
             "-o", "ServerAliveInterval=30",
-            "-o", "ServerAliveCountMax=120",
+            "-o", "ServerAliveCountMax=4",
             `root@${host}`,
             command
         ],
@@ -53,17 +94,46 @@ export async function executeCommand(
     });
 
     const process = sshCommand.spawn();
-    const { code, stdout, stderr } = await process.output();
 
-    const stdoutText = new TextDecoder().decode(stdout);
-    const stderrText = new TextDecoder().decode(stderr);
+    // Belt and braces over ServerAlive: those keepalives only fire when the TCP peer
+    // goes silent. A connection that stays up while the remote command itself hangs
+    // would otherwise wait forever, so kill the child outright at the deadline.
+    let timedOut = false;
+    const timer = setTimeout(() => {
+        timedOut = true;
+        try {
+            process.kill("SIGKILL");
+        } catch {
+            // Already exited between the deadline firing and this call — nothing to kill.
+        }
+    }, timeoutMs);
 
-    return {
-        success: code === 0,
-        stdout: stdoutText,
-        stderr: stderrText,
-        code: code,
-    };
+    try {
+        const { code, stdout, stderr } = await process.output();
+
+        const stdoutText = new TextDecoder().decode(stdout);
+        const stderrText = new TextDecoder().decode(stderr);
+
+        if (timedOut) {
+            console.error(`TIMEOUT after ${timeoutMs}ms on ${host}: ${command}`);
+            return {
+                success: false,
+                stdout: stdoutText,
+                stderr: stderrText || `Command timed out after ${timeoutMs}ms`,
+                code,
+                timedOut: true,
+            };
+        }
+
+        return {
+            success: code === 0,
+            stdout: stdoutText,
+            stderr: stderrText,
+            code: code,
+        };
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 // Whitelist of allowed commands to prevent command injection
@@ -126,7 +196,9 @@ const ALLOWED_COMMANDS = [
   /^docker ps$/,
   /^docker ps --format .+$/,
   /^docker images --format .+ [\w/]+$/,
-  /^docker logs [\w-]+$/,
+  // --tail is REQUIRED, deliberately: the bare form returns the container's whole
+  // log since start, which the backend buffers entirely and ships to the caller.
+  // Leaving it off the allowlist means an unbounded fetch can't be expressed.
   /^docker logs [\w-]+ --tail \d+$/,
   /^docker inspect -f '{{\.Id}} {{\.State\.Status}} {{\.State\.ExitCode}}' [\w-]+$/,
   /^docker pull [\w/:._-]+$/,

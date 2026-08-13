@@ -1,7 +1,7 @@
 /// <reference lib="deno.ns" />
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { getDropletIp, isSafeParam } from "../../lib/utils.ts";
-import { executeCommand, isCommandAllowed } from "../../ssh.ts";
+import { executeCommand, READ_TIMEOUT_MS } from "../../ssh.ts";
 
 // Shared plumbing for the MCP tools. The one-line fetches here deliberately
 // duplicate what the Hono route handlers do inline (routes/servers.ts etc.)
@@ -191,10 +191,7 @@ export async function listImageVersions(
 ): Promise<string[]> {
   const tagPrefix = type === "central" ? "wb-fastr-central-v" : "wb-fastr-server-v";
   const command = `docker images --format "{{.Tag}}" timroberton/comb`;
-  if (!isCommandAllowed(command)) {
-    throw new ToolFailure("Command not allowed.");
-  }
-  const result = await executeCommand(getDropletIp(), command);
+  const result = await executeCommand(getDropletIp(), command, { timeoutMs: READ_TIMEOUT_MS });
   if (!result.success) {
     throw new ToolFailure(`docker images failed: ${result.stderr}`);
   }

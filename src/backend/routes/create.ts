@@ -2,7 +2,7 @@
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
 import { isSafeParam, getDropletIp } from "../lib/utils.ts";
-import { executeCommand, isCommandAllowed } from "../ssh.ts";
+import { executeCommand } from "../ssh.ts";
 
 const router = new Hono();
 
@@ -272,10 +272,6 @@ router.post("/create/server", async (c) => {
 
     const command = `wb c add ${serverId}`;
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -297,10 +293,6 @@ router.post("/create/nginx", async (c) => {
     const serverId = body.serverId;
 
     const command = `wb init-nginx ${serverId}`;
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);
@@ -324,10 +316,6 @@ router.post("/create/ssl", async (c) => {
 
     const command = `wb init-ssl ${serverId}`;
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -349,10 +337,6 @@ router.post("/create/dirs", async (c) => {
     const serverId = body.serverId;
 
     const command = `wb init-dirs ${serverId}`;
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);

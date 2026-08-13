@@ -2,7 +2,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
 import { getDropletIp } from "../../lib/utils.ts";
-import { executeCommand, isCommandAllowed } from "../../ssh.ts";
+import { executeCommand, READ_TIMEOUT_MS } from "../../ssh.ts";
 import { parseDfOutput } from "../../routes/volumes.ts";
 import {
   fetchServersJson,
@@ -91,10 +91,7 @@ export function registerVolumeTools(server: McpServer): void {
       }
 
       const lsCommand = "ls /mnt";
-      if (!isCommandAllowed(lsCommand)) {
-        throw new ToolFailure("Command not allowed.");
-      }
-      const lsResult = await executeCommand(getDropletIp(), lsCommand);
+      const lsResult = await executeCommand(getDropletIp(), lsCommand, { timeoutMs: READ_TIMEOUT_MS });
       if (!lsResult.success) {
         throw new ToolFailure(
           `Could not list volumes: ${lsResult.stderr.slice(0, 300)}`,
@@ -121,11 +118,8 @@ export function registerVolumeTools(server: McpServer): void {
       const volumes = await mapConcurrent(names, 4, async (name) => {
         const mountPath = `/mnt/${name}`;
         const dfCommand = `df -BG ${mountPath}`;
-        if (!isCommandAllowed(dfCommand)) {
-          return { name, error: "Command not allowed" };
-        }
         const [dfResult, doVolume] = await Promise.all([
-          executeCommand(getDropletIp(), dfCommand),
+          executeCommand(getDropletIp(), dfCommand, { timeoutMs: READ_TIMEOUT_MS }),
           fetchDoVolume(name),
         ]);
         const df = dfResult.success ? parseDfOutput(dfResult.stdout, mountPath) : null;

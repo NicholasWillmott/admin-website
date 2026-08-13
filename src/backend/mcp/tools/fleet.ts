@@ -6,7 +6,7 @@ import { readLocks } from "../../routes/servers.ts";
 import { H_USERS } from "../../h_users.ts";
 import { parseDfOutput, parseDuOutput } from "../../routes/volumes.ts";
 import { getDropletIp, isSafeParam } from "../../lib/utils.ts";
-import { executeCommand, isCommandAllowed } from "../../ssh.ts";
+import { executeCommand, READ_TIMEOUT_MS } from "../../ssh.ts";
 import {
   errText,
   fetchFleetEndpoint,
@@ -37,10 +37,9 @@ async function fetchDockerLogs(
     );
   }
   const command = `docker logs ${serverId} --tail ${tailLines}`;
-  if (!isCommandAllowed(command)) {
-    throw new ToolFailure("Command not allowed.");
-  }
-  const result = await executeCommand(getDropletIp(), command);
+  const result = await executeCommand(getDropletIp(), command, {
+    timeoutMs: READ_TIMEOUT_MS,
+  });
   if (!result.success) {
     throw new ToolFailure(
       `docker logs failed for "${serverId}": ${result.stderr.slice(0, 300)}`,
@@ -165,17 +164,22 @@ export function registerFleetTools(server: McpServer): void {
       if (!isSafeParam(server_id)) {
         return errText(`Invalid server_id "${server_id}" — take ids from get_fleet_overview.`);
       }
-      const command = `docker logs ${server_id}`;
-      if (!isCommandAllowed(command)) {
-        return errText("Command not allowed.");
-      }
-      const result = await executeCommand(getDropletIp(), command);
+      // Bound the fetch with --tail rather than pulling the container's whole
+      // history over SSH and slicing it here — the discarded lines cost the same
+      // memory and transfer as the kept ones.
+      const command = `docker logs ${server_id} --tail ${tail_lines}`;
+      const result = await executeCommand(getDropletIp(), command, {
+        timeoutMs: READ_TIMEOUT_MS,
+      });
       if (!result.success) {
         throw new ToolFailure(`docker logs failed: ${result.stderr}`);
       }
-      const lines = result.stdout.split("\n");
-      const tail = lines.slice(Math.max(0, lines.length - tail_lines));
-      return okText(tail.join("\n"));
+      // Combine both streams for the same reason fetchDockerLogs does: docker
+      // relays the container's stderr on the ssh command's stderr, so stdout
+      // alone silently drops every error line.
+      return okText(
+        result.stderr ? `${result.stdout}\n${result.stderr}` : result.stdout,
+      );
     }));
 
   server.registerTool("get_versions", {
@@ -321,12 +325,9 @@ export function registerFleetTools(server: McpServer): void {
         const mountPath = `/mnt/${name}`;
         const dfCommand = `df -BG ${mountPath}`;
         const duCommand = `du -BG --max-depth=1 ${mountPath}`;
-        if (!isCommandAllowed(dfCommand) || !isCommandAllowed(duCommand)) {
-          return { name, error: "Command not allowed" };
-        }
         const [dfResult, duResult] = await Promise.all([
-          executeCommand(getDropletIp(), dfCommand),
-          executeCommand(getDropletIp(), duCommand),
+          executeCommand(getDropletIp(), dfCommand, { timeoutMs: READ_TIMEOUT_MS }),
+          executeCommand(getDropletIp(), duCommand, { timeoutMs: READ_TIMEOUT_MS }),
         ]);
         const df = dfResult.success ? parseDfOutput(dfResult.stdout, mountPath) : null;
         const directories = duResult.success

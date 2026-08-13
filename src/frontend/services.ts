@@ -30,9 +30,24 @@ export async function fetchServerCardData(): Promise<Server[]> {
   return response.json();
 }
 
-export async function fetchServerLogs(serverId: string, token: string | null): Promise<ServerLogs | null> {
+// How many log lines each caller needs. docker logs is unbounded by default —
+// the full container history since start — so every call states its budget.
+export const LOG_TAIL = {
+  /** Container id / state only; the log body is discarded by the caller. */
+  none: 0,
+  /** Restart watcher: enough to catch the startup banner and a crash tail. */
+  poll: 200,
+  /** Logs modal, where an admin is actually reading them. */
+  viewer: 2000,
+} as const;
+
+export async function fetchServerLogs(
+  serverId: string,
+  token: string | null,
+  tail: number = LOG_TAIL.poll,
+): Promise<ServerLogs | null> {
   try {
-    const response = await fetch(`${API_BASE}/api/servers/${serverId}/logs`, {
+    const response = await fetch(`${API_BASE}/api/servers/${serverId}/logs?tail=${tail}`, {
       headers: getAuthHeaders(token),
     });
     if (!response.ok) return null;

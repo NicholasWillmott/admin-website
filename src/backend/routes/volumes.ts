@@ -1,7 +1,7 @@
 /// <reference lib="deno.ns" />
 import { Hono } from "hono";
 import { requireAdmin, requireAdminOrInternal } from "../lib/auth.ts";
-import { executeCommand, isCommandAllowed } from "../ssh.ts";
+import { executeCommand, READ_TIMEOUT_MS } from "../ssh.ts";
 
 const router = new Hono();
 
@@ -68,11 +68,7 @@ router.get("/list", async (c) => {
   }
 
   const command = "ls /mnt";
-  if (!isCommandAllowed(command)) {
-    return c.json({ success: false, error: "Command not allowed" }, 403);
-  }
-
-  const result = await executeCommand(dropletIp, command);
+  const result = await executeCommand(dropletIp, command, { timeoutMs: READ_TIMEOUT_MS });
   if (!result.success) {
     return c.json({ success: false, error: result.stderr || "Failed to list /mnt" }, 500);
   }
@@ -101,13 +97,9 @@ router.get("/usage", async (c) => {
   const dfCommand = `df -BG ${mountPath}`;
   const duCommand = `du -BG --max-depth=1 ${mountPath}`;
 
-  if (!isCommandAllowed(dfCommand) || !isCommandAllowed(duCommand)) {
-    return c.json({ success: false, error: "Command not allowed" }, 403);
-  }
-
   const [dfResult, duResult] = await Promise.all([
-    executeCommand(dropletIp, dfCommand),
-    executeCommand(dropletIp, duCommand),
+    executeCommand(dropletIp, dfCommand, { timeoutMs: READ_TIMEOUT_MS }),
+    executeCommand(dropletIp, duCommand, { timeoutMs: READ_TIMEOUT_MS }),
   ]);
 
   const dfStats = dfResult.success ? parseDfOutput(dfResult.stdout, mountPath) : null;
@@ -134,10 +126,6 @@ router.get("/usage", async (c) => {
 // a failure here is visible instead of silently swallowed.
 async function expandFilesystem(dropletIp: string, volumeName: string): Promise<void> {
   const fsCmd = `resize2fs /dev/disk/by-id/scsi-0DO_Volume_${volumeName}`;
-  if (!isCommandAllowed(fsCmd)) {
-    console.error(`[volumes/resize] resize2fs command not allowed: ${fsCmd}`);
-    return;
-  }
   const fsRes = await executeCommand(dropletIp, fsCmd);
   if (fsRes.success) {
     console.log(`[volumes/resize] resize2fs ok for "${volumeName}": ${fsRes.stdout.trim()}`);

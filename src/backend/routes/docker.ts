@@ -2,7 +2,7 @@
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
 import { isSafeParam, getDropletIp } from "../lib/utils.ts";
-import { executeCommand, isCommandAllowed } from "../ssh.ts";
+import { executeCommand } from "../ssh.ts";
 
 const router = new Hono();
 
@@ -22,10 +22,6 @@ router.post("/docker/pull/:version", async (c) => {
         ? `timroberton/comb:wb-fastr-central-v${versionToPull}`
         : `timroberton/comb:wb-fastr-server-v${versionToPull}`;
     const command = `docker pull ${imageTag}`;
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "Command not allowed" }, 403);
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);
@@ -48,10 +44,6 @@ router.get("/versions", async (c) => {
     const tagPrefix = serverType === "central" ? "wb-fastr-central-v" : "wb-fastr-server-v";
 
     const command = `docker images --format "{{.Tag}}" timroberton/comb`;
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ error: "Command not allowed" }, 403);
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);

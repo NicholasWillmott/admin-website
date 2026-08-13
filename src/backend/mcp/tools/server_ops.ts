@@ -2,7 +2,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
 import { getDropletIp, isSafeParam } from "../../lib/utils.ts";
-import { executeCommand, isCommandAllowed } from "../../ssh.ts";
+import { executeCommand, READ_TIMEOUT_MS } from "../../ssh.ts";
 import { readLocks } from "../../routes/servers.ts";
 import {
   fetchServersJson,
@@ -63,9 +63,8 @@ async function withSshLock<T>(fn: () => Promise<T>): Promise<T> {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function runWb(command: string): Promise<{ success: boolean; detail: string }> {
-  if (!isCommandAllowed(command)) {
-    return { success: false, detail: `Command not allowed: ${command}` };
-  }
+  // Deliberately the DEFAULT (long) timeout, not READ_TIMEOUT_MS — this runs
+  // wb restart/run/stop/update, which legitimately take minutes.
   const result = await executeCommand(getDropletIp(), command);
   return {
     success: result.success,
@@ -123,10 +122,7 @@ type ContainerState = { id: string; status: string; exitCode: string };
 async function inspectContainer(serverId: string): Promise<ContainerState | null> {
   const command =
     `docker inspect -f '{{.Id}} {{.State.Status}} {{.State.ExitCode}}' ${serverId}`;
-  if (!isCommandAllowed(command)) {
-    throw new ToolFailure(`Command not allowed: ${command}`);
-  }
-  const result = await executeCommand(getDropletIp(), command);
+  const result = await executeCommand(getDropletIp(), command, { timeoutMs: READ_TIMEOUT_MS });
   if (!result.success) return null;
   const [id, status, exitCode] = result.stdout.trim().split(/\s+/);
   if (!id) return null;
@@ -135,8 +131,7 @@ async function inspectContainer(serverId: string): Promise<ContainerState | null
 
 async function crashLogTail(serverId: string): Promise<string> {
   const command = `docker logs ${serverId} --tail ${CRASH_LOG_TAIL_LINES}`;
-  if (!isCommandAllowed(command)) return "";
-  const result = await executeCommand(getDropletIp(), command);
+  const result = await executeCommand(getDropletIp(), command, { timeoutMs: READ_TIMEOUT_MS });
   // docker logs relays the container's stderr, so the interesting output is
   // there even on a successful call
   return `${result.stdout}\n${result.stderr}`.trim().slice(-2000);

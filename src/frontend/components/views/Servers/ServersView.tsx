@@ -13,6 +13,7 @@ import type { Server, FiscalYear, ServerRestartStatus, BackupInfo, HealthCheckRe
 import type { ServerCategory } from '../../../services.ts';
 import {
   fetchServerLogs,
+  LOG_TAIL,
   fetchServerBackups,
   downloadBackupFile,
   downloadEntireBackup,
@@ -185,7 +186,7 @@ export function ServersView(props: ServersViewProps) {
     setLogsModalServerId(serverId);
     setLogsLoading(true);
     const token = await getToken();
-    const result = await fetchServerLogs(serverId, token);
+    const result = await fetchServerLogs(serverId, token, LOG_TAIL.viewer);
     if (result?.success) {
       setModalLogs(result.logs);
     } else {
@@ -228,7 +229,8 @@ export function ServersView(props: ServersViewProps) {
   const fetchContainerId = async (serverId: string): Promise<string | null> => {
     try {
       const token = await getToken();
-      const result = await fetchServerLogs(serverId, token);
+      // tail 0 — this only reads containerId, so don't pay to ship the log body.
+      const result = await fetchServerLogs(serverId, token, LOG_TAIL.none);
       return result?.containerId ?? null;
     } catch {
       return null;
@@ -253,7 +255,7 @@ export function ServersView(props: ServersViewProps) {
       attempts++;
       try {
         const token = await getToken();
-        const result = await fetchServerLogs(serverId, token);
+        const result = await fetchServerLogs(serverId, token, LOG_TAIL.poll);
         if (result?.success && result.containerId && result.containerId !== baselineContainerId) {
           if (result.containerState === 'exited' || result.containerState === 'dead') {
             return { status: 'crashed', exitCode: result.exitCode ?? null, logsTail: lastLogLines(result.logs) };

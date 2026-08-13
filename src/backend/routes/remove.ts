@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { requireAdmin } from "../lib/auth.ts";
 import { isSafeParam, getDropletIp } from "../lib/utils.ts";
-import { executeCommand, isCommandAllowed } from "../ssh.ts";
+import { executeCommand } from "../ssh.ts";
 
 const router = new Hono();
 
@@ -71,10 +71,6 @@ router.delete("/remove/server", async (c) => {
 
     const command = `wb c remove ${serverId} --force`;
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -96,10 +92,6 @@ router.delete("/remove/nginx", async (c) => {
     const serverId = body.serverId;
 
     const command = `wb remove-nginx ${serverId}`;
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);
@@ -123,10 +115,6 @@ router.delete("/remove/ssl", async (c) => {
 
     const command = `printf "revoke ${serverId}\\n" | wb remove-ssl ${serverId}`;
 
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
-
     try {
         const result = await executeCommand(getDropletIp(), command);
         return c.json({
@@ -148,10 +136,6 @@ router.delete("/remove/dirs", async (c) => {
     const serverId = body.serverId;
 
     const command = `wb remove-dirs ${serverId} --force`;
-
-    if (!isCommandAllowed(command)) {
-        return c.json({ success: false, error: "Invalid command" });
-    }
 
     try {
         const result = await executeCommand(getDropletIp(), command);
