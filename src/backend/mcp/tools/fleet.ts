@@ -347,29 +347,42 @@ export function registerFleetTools(server: McpServer): void {
   server.registerTool("get_dormant_instances", {
     title: "Instances nobody is using",
     description:
-      "Instances that are running and healthy but that real users have stopped signing into — the failure a status check cannot see, because a dormant instance looks identical to a busy one. Per instance: days since the last real sign-in, distinct users in the window, accounts and projects provisioned, and whether it has ever been used at all. FASTR staff are excluded from the activity signal by default, so an instance kept warm only by the team still reads as dormant. Activity is the getCurrentUser login trail, retained back to roughly 2026-04-05 only — the response reports the earliest data actually available, so a long window may be silently truncated.",
+      "Instances that are running and healthy but that nobody is really using — the failure a status check cannot see. Separates two distinct problems: instances where NO ONE IS SIGNING IN (nobody is showing up at all), and instances where people sign in regularly but PRODUCE NOTHING (no or few report/deck editing sessions). The second group is usually much larger and is invisible to every other check. FASTR staff are excluded from both signals, so an instance kept warm by the team still reads as unused. Sign-in history is retained back to roughly 2026-04-05; edit-session tracking only began 2026-07, so the doc-activity window may be shorter than the one you ask for — the response states both.",
     inputSchema: z.object({
       days: z.number().int().min(1).max(365).default(30).describe(
-        "Dormant means no real user has signed in within this many days.",
+        "The window. No sign-in within it means nobody is showing up; few edit sessions within it means nothing is being produced.",
+      ),
+      low_doc_sessions: z.number().int().min(0).max(1000).default(5).describe(
+        "At or below this many editing sessions in the window counts as 'little' doc activity. Zero sessions is reported separately regardless.",
       ),
       include_demo_and_testing: z.boolean().default(false).describe(
         "Include demo/testing boxes, which are expected to be quiet.",
       ),
       count_internal_staff: z.boolean().default(false).describe(
-        "Count FASTR team sign-ins as real activity. Off by default — a country instance only the team logs into is not in use.",
+        "Count FASTR team sign-ins as real activity. Off by default — a country instance only the team logs into is not in use. Edit sessions never include staff; the platform drops them at write time.",
       ),
     }),
     annotations: { readOnlyHint: true },
-  }, ({ days, include_demo_and_testing, count_internal_staff }) =>
+  }, ({ days, low_doc_sessions, include_demo_and_testing, count_internal_staff }) =>
     runTool(async () => {
       const cutoff = new Date(Date.now() - days * 86_400_000)
         .toISOString().slice(0, 10);
+      // Edit-session tracking went live July 2026; no earlier month can have data.
+      const DOC_TRACKING_START = "2026-07-01";
+      const docFrom = cutoff > DOC_TRACKING_START ? cutoff : DOC_TRACKING_START;
+      const SESSION_ENDPOINTS = new Set(["reportEditSession", "deckEditSession"]);
 
-      const [registry, locked, healthByServer] = await Promise.all([
-        fetchServersJson(),
-        readLocks().catch(() => [] as string[]),
-        fetchFleetEndpoint("health_check"),
-      ]);
+      const [registry, locked, healthByServer, rawByServer, aggByServer] =
+        await Promise.all([
+          fetchServersJson(),
+          readLocks().catch(() => [] as string[]),
+          fetchFleetEndpoint("health_check"),
+          // user_logs_all is a superset of user_logs — the same table without
+          // the getCurrentUser filter — so one fan-out yields both the full
+          // sign-in trail and the last ~7 days of edit sessions.
+          fetchFleetEndpoint("user_logs_all"),
+          fetchFleetEndpoint("user_logs_aggregate"),
+        ]);
       const lockedSet = new Set(locked);
       const servers = registry.filter((s) =>
         s.mode !== "central" &&
@@ -377,7 +390,7 @@ export function registerFleetTools(server: McpServer): void {
           !(s.id.startsWith("testing") || s.id.startsWith("demo")))
       );
 
-      const rows = await mapConcurrent(servers, 8, async (s) => {
+      const rows = servers.map((s) => {
         const health = healthByServer[s.id] as {
           serverUsers?: string[];
           totalUsers?: number;
@@ -385,54 +398,97 @@ export function registerFleetTools(server: McpServer): void {
           running?: boolean;
           serverVersion?: string;
         } | null;
-        let payload: unknown = null;
-        let logsReachable = true;
-        try {
-          payload = await fetchInstanceJson(s.id, "user_logs");
-        } catch {
-          logsReachable = false;
-        }
-        const logs = (Array.isArray(payload)
-          ? payload
-          : (payload as { logs?: unknown[] })?.logs ?? []) as {
+        const rawPayload = rawByServer[s.id];
+        const aggPayload = aggByServer[s.id];
+
+        const rawRows = (Array.isArray(rawPayload)
+          ? rawPayload
+          : (rawPayload as { logs?: unknown[] } | null)?.logs ?? []) as {
             user_email?: string;
+            endpoint?: string;
             timestamp?: string;
+          }[];
+        const aggRows = (Array.isArray(aggPayload)
+          ? aggPayload
+          : (aggPayload as { logs?: unknown[] } | null)?.logs ?? []) as {
+            user_email?: string;
+            endpoint?: string;
+            week_start?: string;
+            count?: number;
           }[];
 
         let lastSignIn: string | null = null;
         let earliest: string | null = null;
         const usersInWindow = new Set<string>();
-        for (const row of logs) {
-          const day = (row.timestamp ?? "").slice(0, 10);
-          const email = (row.user_email ?? "").trim().toLowerCase();
-          if (!day || !email) continue;
-          // The team logging in to check on an instance is not the country
-          // using it — that distinction is the whole point of this tool.
-          if (!count_internal_staff && H_USERS.has(email)) continue;
-          if (earliest === null || day < earliest) earliest = day;
-          if (lastSignIn === null || day > lastSignIn) lastSignIn = day;
-          if (day >= cutoff) usersInWindow.add(email);
+        let docSessions = 0;
+        const docEditors = new Set<string>();
+        let lastDocActivity: string | null = null;
+
+        for (const r of rawRows) {
+          const day = (r.timestamp ?? "").slice(0, 10);
+          const email = (r.user_email ?? "").trim().toLowerCase();
+          if (!day || !email || !r.endpoint) continue;
+          if (r.endpoint === "getCurrentUser") {
+            // The team checking on an instance is not the country using it.
+            if (!count_internal_staff && H_USERS.has(email)) continue;
+            if (earliest === null || day < earliest) earliest = day;
+            if (lastSignIn === null || day > lastSignIn) lastSignIn = day;
+            if (day >= cutoff) usersInWindow.add(email);
+          } else if (SESSION_ENDPOINTS.has(r.endpoint)) {
+            if (lastDocActivity === null || day > lastDocActivity) lastDocActivity = day;
+            if (day < docFrom) continue;
+            docSessions += 1;
+            docEditors.add(email);
+          }
+        }
+        // Older edit sessions live only in the weekly rollup. A week is counted
+        // when its start falls inside the window, so a week straddling the
+        // cutoff is excluded rather than double counted.
+        for (const r of aggRows) {
+          if (!r.endpoint || !SESSION_ENDPOINTS.has(r.endpoint)) continue;
+          const week = r.week_start ?? "";
+          const email = (r.user_email ?? "").trim().toLowerCase();
+          if (!week || !email) continue;
+          if (lastDocActivity === null || week > lastDocActivity) lastDocActivity = week;
+          if (week < docFrom) continue;
+          docSessions += r.count ?? 0;
+          docEditors.add(email);
         }
 
-        const status = (health === null && !logsReachable)
+        const unreachable = health === null && rawPayload === null;
+        const signInState = unreachable
           ? "unreachable"
           : lastSignIn === null
-          ? "never_used"
+          ? "never_signed_in"
           : usersInWindow.size === 0
-          ? "dormant"
-          : "active";
+          ? "no_recent_sign_ins"
+          : "signing_in";
+
+        const category = unreachable
+          ? "unreachable"
+          : signInState !== "signing_in"
+          ? "no_user_activity"
+          : docSessions === 0
+          ? "no_doc_activity"
+          : docSessions <= low_doc_sessions
+          ? "little_doc_activity"
+          : "healthy";
 
         return {
           id: s.id,
           label: s.label,
-          status,
+          category,
+          signInState,
           registeredUsers: health?.serverUsers?.length ?? health?.totalUsers ?? null,
           projectCount: health?.projects?.length ?? null,
           lastRealSignIn: lastSignIn,
           daysSinceLastRealSignIn: lastSignIn === null ? null : Math.floor(
             (Date.now() - Date.parse(`${lastSignIn}T00:00:00Z`)) / 86_400_000,
           ),
-          distinctUsersInWindow: usersInWindow.size,
+          usersSigningInWindow: usersInWindow.size,
+          docSessionsInWindow: docSessions,
+          docEditorsInWindow: docEditors.size,
+          lastDocActivity,
           serverVersion: health?.serverVersion ?? s.serverVersion,
           running: health?.running ?? null,
           locked: lockedSet.has(s.id) || undefined,
@@ -449,37 +505,55 @@ export function registerFleetTools(server: McpServer): void {
       const byImpact = (a: typeof rows[number], b: typeof rows[number]) =>
         (b.registeredUsers ?? 0) - (a.registeredUsers ?? 0) ||
         (b.daysSinceLastRealSignIn ?? 0) - (a.daysSinceLastRealSignIn ?? 0);
-      const pick = (status: string) =>
-        rows.filter((r) => r.status === status).sort(byImpact)
+      const pick = (category: string) =>
+        rows.filter((r) => r.category === category).sort(byImpact)
           .map(({ earliest: _e, ...rest }) => rest);
 
-      const dormant = pick("dormant");
-      const neverUsed = pick("never_used");
+      const noUserActivity = pick("no_user_activity");
+      const noDocActivity = pick("no_doc_activity");
+      const littleDocActivity = pick("little_doc_activity");
       const unreachable = pick("unreachable");
 
       return okJson({
         window: {
           days,
           cutoff,
-          earliestActivityAvailable: earliestSeen,
-          note: earliestSeen !== null && earliestSeen > cutoff
-            ? `Instances only retain sign-ins back to ${earliestSeen}, later than the ${days}-day cutoff of ${cutoff}. "Never used" here means "not since ${earliestSeen}".`
-            : null,
+          signIn: {
+            earliestActivityAvailable: earliestSeen,
+            note: earliestSeen !== null && earliestSeen > cutoff
+              ? `Sign-ins are only retained back to ${earliestSeen}, later than the ${days}-day cutoff of ${cutoff}. "Never signed in" means "not since ${earliestSeen}".`
+              : null,
+          },
+          docActivity: {
+            countedFrom: docFrom,
+            note: docFrom > cutoff
+              ? `Edit-session tracking only began ${DOC_TRACKING_START}, so doc activity is counted from ${docFrom}, not ${cutoff}. An instance that produced heavily before then and stopped looks the same as one that never started.`
+              : null,
+          },
         },
         countingInternalStaffAsActivity: count_internal_staff,
+        lowDocSessionsThreshold: low_doc_sessions,
         summary: {
           examined: rows.length,
-          active: rows.filter((r) => r.status === "active").length,
-          dormant: dormant.length,
-          neverUsed: neverUsed.length,
+          healthy: rows.filter((r) => r.category === "healthy").length,
+          noUserActivity: noUserActivity.length,
+          noDocActivity: noDocActivity.length,
+          littleDocActivity: littleDocActivity.length,
           unreachable: unreachable.length,
-          usersOnDormantInstances: dormant.reduce(
+          usersOnInstancesWithNoUserActivity: noUserActivity.reduce(
+            (n, r) => n + (r.registeredUsers ?? 0),
+            0,
+          ),
+          usersOnInstancesProducingNothing: noDocActivity.reduce(
             (n, r) => n + (r.registeredUsers ?? 0),
             0,
           ),
         },
-        dormant,
-        neverUsed,
+        // Nobody is showing up at all — the severe case.
+        noUserActivity,
+        // People sign in but produce nothing. Invisible to a sign-in check.
+        noDocActivity,
+        littleDocActivity,
         unreachable: unreachable.length ? unreachable : undefined,
       });
     }));
