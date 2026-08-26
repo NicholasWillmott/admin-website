@@ -7,4 +7,5 @@ export const H_USERS = new Set([
     "nick@usefuldata.com.au",
     "cnoonan@worldbank.org",
     "sjiwani@worldbank.org",
+    "rneill@r4d.org",
 ]);
