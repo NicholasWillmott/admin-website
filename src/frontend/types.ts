@@ -275,6 +275,9 @@ export interface WhatsNewPage {
   imageUrl?: string; // required for image presets
   mediaSize?: WhatsNewMediaSize; // default "full"
   layoutPreset: WhatsNewLayoutPreset;
+  // Global admins only; everyone else gets the post without this page.
+  // Mirrors platform lib/types/whats_new.ts — keep in sync
+  adminsOnly?: boolean;
 }
 
 export interface WhatsNewPost {

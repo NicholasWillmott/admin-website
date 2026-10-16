@@ -6648,6 +6648,23 @@ h1 {
   cursor: not-allowed;
 }
 
+/* Per-page audience: marks a page only global admins receive */
+.whats-new-tab-admin {
+  margin-left: 6px;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+}
+
+.whats-new-audience-summary {
+  margin-top: -4px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
 /* Fields left, actual-size preview right; the preview wraps below when the
    window can't fit 800px beside the fields (it never shrinks) */
 .whats-new-editor-grid {

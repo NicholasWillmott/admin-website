@@ -174,6 +174,9 @@ export function WhatsNewView(props: WhatsNewViewProps) {
   const nextMinor = () => bumpVersion(latestVersion(), 'minor');
   const defaultVersion = () => nextMinor() || latestVersion();
   const activePageData = () => draft()?.pages[activePage()];
+  // Page-level audience only bites when the post itself is open to everyone
+  const pageAudienceApplies = () => !draft()?.adminsOnly;
+  const adminPageCount = () => draft()?.pages.filter(p => p.adminsOnly).length ?? 0;
 
   // Next minor/patch first (the publish-ahead workflow), then recent released
   // versions; versions that already carry a post are flagged since duplicates
@@ -463,6 +466,9 @@ export function WhatsNewView(props: WhatsNewViewProps) {
     if (d.publishAt && !localInputToIso(d.publishAt)) {
       return addToast('Invalid publish date', 'error');
     }
+    if (!d.adminsOnly && d.pages.every(p => p.adminsOnly)) {
+      return addToast('Every page is admins only — leave at least one page for everyone, or tick Admins only for the whole post', 'error');
+    }
 
     setSaving(true);
     try {
@@ -482,6 +488,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
             // preset back restores it) but never persist it
             ...(needsImage && p.imageUrl ? { imageUrl: p.imageUrl } : {}),
             ...(needsImage && p.mediaSize && p.mediaSize !== 'full' ? { mediaSize: p.mediaSize } : {}),
+            ...(p.adminsOnly ? { adminsOnly: true } : {}),
           };
           if (p.title?.en.trim()) page.title = cleanText(p.title, true);
           return page;
@@ -579,6 +586,11 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                         </span>
                         <Show when={post.adminsOnly}>
                           <span class="whats-new-status admins">Admins</span>
+                        </Show>
+                        <Show when={!post.adminsOnly && post.pages.some(p => p.adminsOnly)}>
+                          <span class="whats-new-status admins" title="Some pages are shown to admins only">
+                            + admin pages
+                          </span>
                         </Show>
                         <span class="whats-new-list-item-date">{formatDate(post.updatedAt)}</span>
                       </div>
@@ -727,6 +739,9 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                           onClick={() => setActivePage(i())}
                         >
                           Page {i() + 1}
+                          <Show when={pageAudienceApplies() && d().pages[i()].adminsOnly}>
+                            <span class="whats-new-tab-admin" title="Admins only">Admin</span>
+                          </Show>
                         </button>
                       )}
                     </For>
@@ -738,6 +753,12 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                       onClick={addPage}
                     >+</button>
                   </div>
+                  <Show when={pageAudienceApplies() && adminPageCount() > 0}>
+                    <div class="whats-new-audience-summary">
+                      Admins see all {d().pages.length} pages · everyone else sees{' '}
+                      {d().pages.length - adminPageCount()}
+                    </div>
+                  </Show>
 
                   <div class="whats-new-editor-grid">
                     <Show when={activePageData()}>
@@ -754,6 +775,30 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                             </div>
                           </div>
                           <div class="whats-new-page-inputs">
+                            <div class="whats-new-field">
+                              <label>Shown to</label>
+                              <Show
+                                when={pageAudienceApplies()}
+                                fallback={
+                                  <span class="whats-new-size-caption">
+                                    Admins only — the whole post is
+                                  </span>
+                                }
+                              >
+                                <div class="whats-new-pos-toggle">
+                                  <button
+                                    type="button"
+                                    class={!pg().adminsOnly ? 'active' : ''}
+                                    onClick={() => updatePage(activePage(), { adminsOnly: undefined })}
+                                  >Everyone</button>
+                                  <button
+                                    type="button"
+                                    class={pg().adminsOnly ? 'active' : ''}
+                                    onClick={() => updatePage(activePage(), { adminsOnly: true })}
+                                  >Admins only</button>
+                                </div>
+                              </Show>
+                            </div>
                             <div class="whats-new-field">
                               <label>Page heading (optional)</label>
                               <input
@@ -919,7 +964,12 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                       )}
                     </Show>
                     <div class="whats-new-preview">
-                      <div class="whats-new-preview-label">Preview (as it appears in the platform)</div>
+                      <div class="whats-new-preview-label">
+                        Preview (as it appears in the platform)
+                        <Show when={pageAudienceApplies() && activePageData()?.adminsOnly}>
+                          {' '}· hidden from non-admins
+                        </Show>
+                      </div>
                       <Show when={activePageData()}>
                         {(pg) => (
                           <WhatsNewPreview

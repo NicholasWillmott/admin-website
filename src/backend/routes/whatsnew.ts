@@ -66,6 +66,7 @@ interface WhatsNewPage {
   imageUrl?: string; // required for image presets
   mediaSize?: WhatsNewMediaSize; // default "full"
   layoutPreset: WhatsNewLayoutPreset;
+  adminsOnly?: boolean; // global admins only; stored only when true
 }
 
 export interface WhatsNewPost {
@@ -202,7 +203,7 @@ function cleanText(
   };
 }
 
-function validatePostInput(body: unknown): { error: string } | { post: Omit<WhatsNewPost, "id" | "createdAt" | "updatedAt"> } {
+export function validatePostInput(body: unknown): { error: string } | { post: Omit<WhatsNewPost, "id" | "createdAt" | "updatedAt"> } {
   const b = body as Partial<WhatsNewPost> | null;
   if (!b || typeof b !== "object") return { error: "Invalid body" };
   const titleResult = cleanText(b.title, "Title", { required: true, trim: true, maxLen: MAX_TITLE_LEN });
@@ -237,6 +238,9 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
     if (page.mediaSize !== undefined && !MEDIA_SIZES.includes(page.mediaSize)) {
       return { error: "Invalid media size" };
     }
+    if (page.adminsOnly !== undefined && typeof page.adminsOnly !== "boolean") {
+      return { error: "Invalid page audience" };
+    }
     const needsImage = page.layoutPreset !== "textOnly";
     if (needsImage && !page.imageUrl) {
       return { error: "Image layouts need uploaded media — upload an image or video, or choose Text only" };
@@ -247,7 +251,13 @@ function validatePostInput(body: unknown): { error: string } | { post: Omit<What
       layoutPreset: page.layoutPreset,
       ...(needsImage ? { imageUrl: page.imageUrl } : {}),
       ...(needsImage && page.mediaSize && page.mediaSize !== "full" ? { mediaSize: page.mediaSize } : {}),
+      ...(page.adminsOnly === true ? { adminsOnly: true } : {}),
     });
+  }
+  // The platform withholds a post from non-admins once every page is cut, so
+  // an all-admin-pages post is an admins-only post that doesn't say so
+  if (b.adminsOnly !== true && pages.every((p) => p.adminsOnly)) {
+    return { error: "Every page is admins only — leave at least one page for everyone, or tick Admins only for the whole post" };
   }
   return {
     post: {
