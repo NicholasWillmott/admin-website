@@ -2,6 +2,7 @@
 import { Hono } from "hono";
 
 import { requireAdmin } from "../lib/auth.ts";
+import { listMountedVolumes } from "./volumes.ts";
 
 const router = new Hono();
 
@@ -128,49 +129,66 @@ router.post("/server/snapshot", async (c) => {
     }
 });
 
-// List all snapshots for one or more named volumes
+// List snapshots for every volume mounted on the droplet, plus any extra names in
+// VOLUME_NAMES (e.g. a volume that has been unmounted but still has snapshots worth seeing).
+// A volume that no longer exists on DigitalOcean is skipped rather than failing the list.
 router.get("/servers/snapshots", async (c) => {
     const authError = await requireAdmin(c);
     if (authError) return authError;
 
     const doToken = Deno.env.get("DIGITALOCEAN_API_TOKEN");
-    const volumeNamesRaw: string = Deno.env.get("VOLUME_NAMES") ?? "";
-    const volumeNames: string[] = volumeNamesRaw.split(",").map((n: string) => n.trim()).filter(Boolean);
+    if (!doToken) {
+        return c.json({ success: false, error: 'Missing DigitalOcean credentials' }, 500);
+    }
 
-    if (!doToken || volumeNames.length === 0) {
-        return c.json({ success: false, error: 'Missing DigitalOcean credentials or VOLUME_NAMES' }, 500);
+    const extraNames = (Deno.env.get("VOLUME_NAMES") ?? "")
+        .split(",").map((n: string) => n.trim()).filter(Boolean);
+
+    const warnings: string[] = [];
+    const dropletIp = Deno.env.get("DROPLET_IP");
+    let mounted: string[] = [];
+    if (dropletIp) {
+        const result = await listMountedVolumes(dropletIp);
+        if (result.success) mounted = result.volumes;
+        else warnings.push(`Could not list mounted volumes: ${result.error}`);
+    }
+
+    const volumeNames = [...new Set([...mounted, ...extraNames])];
+    if (volumeNames.length === 0) {
+        return c.json({ success: false, error: 'No volumes found (droplet /mnt is empty and VOLUME_NAMES is unset)' }, 500);
     }
 
     try {
-        // Resolve each volume name to its ID
-        const volumeIds = await Promise.all(
+        const perVolume = await Promise.all(
             volumeNames.map(async (name) => {
-                const response = await fetch(
+                const lookup = await fetch(
                     `https://api.digitalocean.com/v2/volumes?name=${encodeURIComponent(name)}`,
                     { headers: { 'Authorization': `Bearer ${doToken}` } }
                 );
-                if (!response.ok) throw new Error(`Failed to look up volume "${name}"`);
-                const data = await response.json();
-                const volume = data.volumes?.[0];
-                if (!volume) throw new Error(`Volume "${name}" not found`);
-                return volume.id as string;
-            })
-        );
+                if (!lookup.ok) {
+                    warnings.push(`Failed to look up volume "${name}"`);
+                    return [];
+                }
+                const volumeId = (await lookup.json()).volumes?.[0]?.id as string | undefined;
+                if (!volumeId) {
+                    warnings.push(`Volume "${name}" not found on DigitalOcean`);
+                    return [];
+                }
 
-        // Fetch snapshots for each resolved volume ID
-        const results = await Promise.all(
-            volumeIds.map(async (volumeId) => {
                 const response = await fetch(
                     `https://api.digitalocean.com/v2/volumes/${volumeId}/snapshots?per_page=200`,
                     { headers: { 'Authorization': `Bearer ${doToken}` } }
                 );
-                if (!response.ok) throw new Error(`Failed to fetch snapshots for volume ID ${volumeId}`);
-                const data = await response.json();
-                return data.snapshots || [];
+                if (!response.ok) {
+                    warnings.push(`Failed to fetch snapshots for volume "${name}"`);
+                    return [];
+                }
+                return (await response.json()).snapshots || [];
             })
         );
 
-        return c.json({ success: true, snapshots: results.flat() });
+        if (warnings.length > 0) console.warn('Volume snapshot listing:', warnings.join('; '));
+        return c.json({ success: true, snapshots: perVolume.flat(), volumes: volumeNames, warnings });
     } catch (error) {
         console.error('Error fetching volume snapshots:', error);
         return c.json({ success: false, error: String(error) }, 500);

@@ -57,6 +57,18 @@ export function parseDuOutput(output: string, mountPath: string): DirEntry[] {
   return entries;
 }
 
+// Volumes mounted on the droplet (each is a dir under /mnt, named after the DO volume)
+export async function listMountedVolumes(
+  dropletIp: string,
+): Promise<{ success: true; volumes: string[] } | { success: false; error: string }> {
+  const result = await executeCommand(dropletIp, "ls /mnt", { timeoutMs: READ_TIMEOUT_MS });
+  if (!result.success) {
+    return { success: false, error: result.stderr || "Failed to list /mnt" };
+  }
+  const volumes = result.stdout.trim().split("\n").map(s => s.trim()).filter(Boolean);
+  return { success: true, volumes };
+}
+
 // GET /api/volumes/list
 router.get("/list", async (c) => {
   const authError = await requireAdmin(c);
@@ -67,14 +79,11 @@ router.get("/list", async (c) => {
     return c.json({ success: false, error: "DROPLET_IP not configured" }, 500);
   }
 
-  const command = "ls /mnt";
-  const result = await executeCommand(dropletIp, command, { timeoutMs: READ_TIMEOUT_MS });
+  const result = await listMountedVolumes(dropletIp);
   if (!result.success) {
-    return c.json({ success: false, error: result.stderr || "Failed to list /mnt" }, 500);
+    return c.json({ success: false, error: result.error }, 500);
   }
-
-  const volumes = result.stdout.trim().split("\n").map(s => s.trim()).filter(Boolean);
-  return c.json({ success: true, volumes });
+  return c.json({ success: true, volumes: result.volumes });
 });
 
 // GET /api/volumes/usage?volume=volume_nyc3_abc

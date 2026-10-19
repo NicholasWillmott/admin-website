@@ -260,6 +260,7 @@ export async function fetchVolumeSnapshots(token: string | null): Promise<any[]>
     headers: getAuthHeaders(token),
   });
   const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Failed to load snapshots');
   return data.snapshots || [];
 }
 
