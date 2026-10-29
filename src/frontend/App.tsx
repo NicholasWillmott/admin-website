@@ -60,6 +60,7 @@ import { addToast } from './stores/toastStore.ts';
 import { Users } from "./components/views/users/Users.tsx";
 import { UserLogsView } from "./components/views/UserLogsView.tsx";
 import { DocActivityView } from "./components/views/DocActivityView.tsx";
+import { ModuleDefaultsView } from "./components/views/ModuleDefaultsView.tsx";
 
 function App() {
   const { getToken } = useAuth();
@@ -590,6 +591,10 @@ function App() {
               servers={servers()}
               getToken={getToken}
             />
+          </Show>
+
+          <Show when={activeView() === "moduleDefaults"}>
+            <ModuleDefaultsView getToken={getToken} />
           </Show>
 
           <Show when={activeView() === "moduleEditor"}>

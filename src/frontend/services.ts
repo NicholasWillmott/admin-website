@@ -1,5 +1,5 @@
 import { addToast } from './stores/toastStore.ts';
-import type { Server, FiscalYear, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits, AccessLogEntry, SiteAdminsData, WhatsNewPost } from './types.ts';
+import type { Server, FiscalYear, ServerLogs, ServerStatuses, BackupInfo, HealthCheckResponse, ClerkUser, ClerkSession, UserLog, ServerUserLogs, UserLogAggregate, ServerUserLogsAggregate, VolumeUsage, AiUsageLog, ServerAiUsageLogs, ModelPricing, ChangelogVersion, SentEmailSummary, PgStatStatementsResponse, PgStatStatementsParams, ServerWeeklyUsage, AllServerWeeklyUsage, AiLimitHit, ServerAiLimitHits, AccessLogEntry, SiteAdminsData, WhatsNewPost, ModuleDefaultsResponse } from './types.ts';
 
 export const API_BASE = import.meta.env.VITE_API_BASE || "https://status-api.fastr-analytics.org";
 
@@ -806,6 +806,19 @@ export async function fetchServerPgStatStatements(
     console.error(`Failed to fetch pg_stat_statements for ${serverId}:`, error);
     return null;
   }
+}
+
+export async function fetchModuleDefaults(
+  token: string | null,
+): Promise<ModuleDefaultsResponse> {
+  const response = await fetch(`${API_BASE}/api/module-defaults`, {
+    headers: getAuthHeaders(token),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error ?? `Module defaults answered ${response.status}`);
+  }
+  return await response.json();
 }
 
 const LITELLM_PRICING_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";

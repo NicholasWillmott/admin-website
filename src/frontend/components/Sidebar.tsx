@@ -63,6 +63,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'System',
     items: [
       { id: 'pgStatements', label: 'Postgres Statements', iconPath: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5' },
+      { id: 'moduleDefaults', label: 'Module Defaults', iconPath: 'M4 6h16M4 12h16M4 18h16M8 4v4M16 10v4M10 16v4' },
       { id: 'moduleEditor', label: 'Module Definitions', iconPath: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
       { id: 'changelog', label: 'History', iconPath: 'M12 8v4l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18' },
       { id: 'whatsNew', label: "What's New", iconPath: 'M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0' },

@@ -201,7 +201,7 @@ export interface ChangelogVersion {
   types: ChangelogTypeGroup[];
 }
 
-export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs" | "docActivity" | "accessLog" | "siteAdmins" | "whatsNew";
+export type ViewType = "servers" | "snapshots" | "moduleEditor" | "users" | "volumeUsage" | "aiUsage" | "pgStatements" | "changelog" | "userLogs" | "docActivity" | "accessLog" | "siteAdmins" | "whatsNew" | "moduleDefaults";
 
 export type WhatsNewLanguage = "en" | "fr" | "pt";
 
@@ -351,4 +351,52 @@ export interface SentEmailSummary {
   recipients: string[];
   instanceLabel?: string;
   instanceId?: string;
+}
+
+// Country module-defaults baselines: mirrors src/backend/routes/moduleDefaults.ts
+// (contract in src/backend/lib/module_defaults.ts).
+export interface StoredModuleDefaults {
+  step1: { hmis: boolean; hfa: boolean; iceh: boolean } | null;
+  moduleIds: string[];
+  parameterSelections: Record<string, Record<string, string>>;
+}
+
+export interface ModuleDefaultsSnapshot {
+  instanceId: string;
+  platformVersion: string;
+  modulesGitRef: string;
+  stored: StoredModuleDefaults;
+  effective: Record<string, Record<string, string>>;
+  modules: {
+    id: string;
+    label: string;
+    parameters: { replacementString: string; description: string; defaultValue: string }[];
+  }[];
+}
+
+export interface ModuleDefaultsBaselineEntry {
+  label: string;
+  iso3: string | null;
+  snapshotAt: string;
+  platformVersion: string;
+  modulesGitRef: string;
+  stored: StoredModuleDefaults;
+  effective: Record<string, Record<string, string>>;
+}
+
+export interface ModuleDefaultsCountry {
+  id: string;
+  label: string;
+  iso3: string | null;
+  serverVersion: string;
+  french?: boolean;
+  state: "ok" | "not_v2" | "unreachable";
+  error?: string;
+  snapshot?: ModuleDefaultsSnapshot;
+  baseline: ModuleDefaultsBaselineEntry | null;
+}
+
+export interface ModuleDefaultsResponse {
+  countries: ModuleDefaultsCountry[];
+  baselineError?: string;
 }
