@@ -2,17 +2,22 @@
 // Computes the fleet's global module parameter defaults (contract in
 // lib/module_defaults.ts): the most common value per parameter across every
 // v2 country, from each instance's /module_defaults_snapshot. Prints the
-// result; writes module_defaults_global.json only with --out, for a person
-// to commit to fastr-resource-hub. Run through ./compute_module_defaults_global.
+// result. --commit publishes module_defaults_global.json to fastr-resource-hub
+// through the GitHub API; --out <path> writes it locally instead. Run through
+// ./compute_module_defaults_global.
 //
-// The published file is frozen, so writing refuses when one is already
-// published unless --replace. A partial count would skew the result, so
-// writing also refuses when any v2 country could not be read.
+// The published file is frozen, so publishing or writing refuses when one is
+// already published unless --replace. A partial count would skew the result,
+// so both also refuse when any v2 country could not be read.
 //
 // Needs the PRODUCTION STATUS_API_KEY in the environment; the backend .env
-// holds a dev key, so it is deliberately not read from there.
+// holds a dev key, so it is deliberately not read from there. --commit needs
+// GITHUB_PAT_RESOURCE_HUB (Contents read and write on fastr-resource-hub),
+// from the environment or the backend .env.
 
+import { load } from "@std/dotenv";
 import {
+  commitGlobalFile,
   computeGlobalParameters,
   fetchGlobalFile,
   fetchRegistry,
@@ -20,6 +25,7 @@ import {
   isCountryInstance,
   isV2,
   type ModuleDefaultsSnapshot,
+  readGlobalFileSha,
   toGlobalFile,
 } from "./lib/module_defaults.ts";
 import { mapConcurrent } from "./mcp/tools/helpers.ts";
@@ -32,10 +38,19 @@ function argValue(name: string): string | undefined {
 }
 
 const outPath = argValue("--out");
+const commit = Deno.args.includes("--commit");
 const replace = Deno.args.includes("--replace");
 const statusApiKey = Deno.env.get("STATUS_API_KEY");
 if (!statusApiKey) {
   console.error("STATUS_API_KEY is not set.");
+  Deno.exit(1);
+}
+const githubToken = Deno.env.get("GITHUB_PAT_RESOURCE_HUB") ??
+  (await load()).GITHUB_PAT_RESOURCE_HUB;
+if (commit && !githubToken) {
+  console.error(
+    "--commit needs GITHUB_PAT_RESOURCE_HUB, in the environment or src/backend/.env.",
+  );
   Deno.exit(1);
 }
 
@@ -118,8 +133,10 @@ console.log(
   }.`,
 );
 
-if (!outPath) {
-  console.log("\nNothing written. Pass --out <path> to write the file.");
+if (!outPath && !commit) {
+  console.log(
+    "\nNothing written. Pass --commit to publish it, or --out <path> to write it locally.",
+  );
   Deno.exit(0);
 }
 if (failed.length > 0) {
@@ -130,7 +147,13 @@ if (failed.length > 0) {
   );
   Deno.exit(1);
 }
-if ((await fetchGlobalFile()) !== null && !replace) {
+// The commit path checks through the contents API (authoritative, and its
+// sha guards the commit); the local path through the raw file.
+const publishedSha = commit ? await readGlobalFileSha(githubToken!) : undefined;
+const published = commit
+  ? publishedSha !== undefined
+  : (await fetchGlobalFile()) !== null;
+if (published && !replace) {
   console.error(
     "\nNot writing: module_defaults_global.json is already published and frozen. Pass --replace to recompute it deliberately.",
   );
@@ -142,7 +165,22 @@ const file = toGlobalFile(
   computed,
   new Date().toISOString(),
 );
-await Deno.writeTextFile(outPath, JSON.stringify(file, null, 2) + "\n");
-console.log(
-  `\nWrote ${outPath}. Commit it to the root of fastr-resource-hub (main) to publish it.`,
-);
+if (outPath) {
+  await Deno.writeTextFile(outPath, JSON.stringify(file, null, 2) + "\n");
+  console.log(`\nWrote ${outPath}.`);
+}
+if (commit) {
+  const url = await commitGlobalFile(
+    file,
+    publishedSha,
+    `Module defaults: ${
+      published ? "recompute" : "publish"
+    } global parameter defaults from ${snapshots.length} countries`,
+    githubToken!,
+  );
+  console.log(`\nPublished: ${url}`);
+} else {
+  console.log(
+    "Commit it to the root of fastr-resource-hub (main) to publish it.",
+  );
+}

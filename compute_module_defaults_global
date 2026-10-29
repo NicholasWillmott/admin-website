@@ -1,14 +1,16 @@
 #!/bin/bash
 
 # Compute the fleet's global module parameter defaults (the most common value
-# per parameter across v2 countries) and write module_defaults_global.json
-# for you to commit to the fastr-resource-hub repo. Prints the result; writes
-# only with --out. Refuses to write when a file is already published unless
-# --replace, because the published file is frozen.
+# per parameter across v2 countries). Prints the result; --commit publishes
+# module_defaults_global.json to fastr-resource-hub through the GitHub API
+# (GITHUB_PAT_RESOURCE_HUB, from the environment or src/backend/.env), and
+# --out <path> writes it locally. Refuses to write when a file is already
+# published unless --replace, because the published file is frozen.
 #
 # Usage:
 #   STATUS_API_KEY=... ./compute_module_defaults_global
-#   STATUS_API_KEY=... ./compute_module_defaults_global --out ~/Work/fastr-resource-hub/module_defaults_global.json
+#   STATUS_API_KEY=... ./compute_module_defaults_global --commit
+#   STATUS_API_KEY=... ./compute_module_defaults_global --out ./module_defaults_global.json
 #
 # The production key is on every instance container:
 #   STATUS_API_KEY="$(ssh root@159.223.167.134 'docker exec ghana printenv STATUS_API_KEY')"

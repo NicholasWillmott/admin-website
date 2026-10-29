@@ -1,4 +1,5 @@
 /// <reference lib="deno.ns" />
+import { Octokit } from "@octokit/rest";
 
 // The fleet's global module parameter defaults. For each module parameter,
 // the value most v2 countries had when it was computed, frozen into
@@ -7,12 +8,15 @@
 // The platform's module-defaults editor marks and resets params that differ
 // from it; this site shows every country's live values beside it
 // (routes/moduleDefaults.ts) and computes it (compute_module_defaults_global.ts,
-// which writes the file for a person to commit). Shapes mirror the platform's
+// which commits the file through the GitHub API or writes it for a person
+// to commit). Shapes mirror the platform's
 // ModuleDefaultsSnapshot and ModuleDefaultsGlobalFile in
 // lib/types/run_generation.ts.
 
+const RESOURCE_HUB_OWNER = "FASTR-Analytics";
+const RESOURCE_HUB_REPO = "fastr-resource-hub";
 const RESOURCE_HUB_RAW =
-  "https://raw.githubusercontent.com/FASTR-Analytics/fastr-resource-hub/refs/heads/main";
+  `https://raw.githubusercontent.com/${RESOURCE_HUB_OWNER}/${RESOURCE_HUB_REPO}/refs/heads/main`;
 export const GLOBAL_FILE_NAME = "module_defaults_global.json";
 
 const SNAPSHOT_TIMEOUT_MS = 30_000;
@@ -200,4 +204,50 @@ export function toGlobalFile(
       ]),
     ),
   };
+}
+
+// The writer's read: through the contents API (no CDN lag), returning the sha
+// a replacing commit must name. undefined = not published yet.
+export async function readGlobalFileSha(
+  token: string,
+): Promise<string | undefined> {
+  const octokit = new Octokit({ auth: token });
+  try {
+    const { data } = await octokit.rest.repos.getContent({
+      owner: RESOURCE_HUB_OWNER,
+      repo: RESOURCE_HUB_REPO,
+      path: GLOBAL_FILE_NAME,
+    });
+    if (Array.isArray(data) || data.type !== "file") {
+      throw new Error(`${GLOBAL_FILE_NAME} is not a file`);
+    }
+    return data.sha;
+  } catch (error) {
+    if ((error as { status?: number }).status === 404) return undefined;
+    throw error;
+  }
+}
+
+// Commit the file to the resource hub's default branch. Naming the sha that
+// was read makes a concurrent writer fail this commit rather than be
+// overwritten by it.
+export async function commitGlobalFile(
+  file: GlobalFile,
+  sha: string | undefined,
+  message: string,
+  token: string,
+): Promise<string> {
+  const octokit = new Octokit({ auth: token });
+  const bytes = new TextEncoder().encode(JSON.stringify(file, null, 2) + "\n");
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const { data } = await octokit.rest.repos.createOrUpdateFileContents({
+    owner: RESOURCE_HUB_OWNER,
+    repo: RESOURCE_HUB_REPO,
+    path: GLOBAL_FILE_NAME,
+    message,
+    content: btoa(binary),
+    sha,
+  });
+  return data.commit.html_url ?? data.commit.sha ?? "";
 }
