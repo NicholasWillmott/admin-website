@@ -7,12 +7,12 @@ interface ModuleDefaultsViewProps {
 }
 
 // Fleet matrix of every country's module defaults (the platform's
-// `run_generation_defaults` store) against its frozen baseline in the
-// resource hub. Read-only: resets happen in each instance's own editor.
-// Row model and drift rule in moduleDefaultsMatrix.ts.
+// `run_generation_defaults` store) against the fleet's global parameter
+// defaults in the resource hub. Read-only: resets happen in each instance's
+// own editor. Row model and comparison rule in moduleDefaultsMatrix.ts.
 
 export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
-  const [onlyDrift, setOnlyDrift] = createSignal(false);
+  const [onlyDiffering, setOnlyDiffering] = createSignal(false);
   const [search, setSearch] = createSignal('');
 
   const [data, { refetch }] = createResource(async () => {
@@ -21,14 +21,14 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
   });
 
   const countries = () => data()?.countries ?? [];
-  const sections = createMemo(() => buildSections(countries()));
+  const sections = createMemo(() => buildSections(countries(), data()?.global ?? null));
 
-  const driftCountByCountry = createMemo(() => {
+  const differingByCountry = createMemo(() => {
     const counts: Record<string, number> = {};
     for (const s of sections()) {
       for (const r of s.rows) {
         for (const [id, cell] of Object.entries(r.cells)) {
-          if (cell?.drift) counts[id] = (counts[id] ?? 0) + 1;
+          if (cell?.differsFromGlobal) counts[id] = (counts[id] ?? 0) + 1;
         }
       }
     }
@@ -41,7 +41,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
       .map((s) => ({
         ...s,
         rows: s.rows.filter((r) =>
-          (!onlyDrift() || Object.values(r.cells).some((cell) => cell?.drift)) &&
+          (!onlyDiffering() || Object.values(r.cells).some((cell) => cell?.differsFromGlobal)) &&
           (!q ||
             r.label.toLowerCase().includes(q) ||
             (r.sublabel ?? '').toLowerCase().includes(q) ||
@@ -54,9 +54,8 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
   const summary = () => {
     const all = countries();
     const live = all.filter((c) => c.state === 'ok');
-    const withBaseline = live.filter((c) => c.baseline);
-    const drifted = withBaseline.filter((c) => (driftCountByCountry()[c.id] ?? 0) > 0);
-    return { all: all.length, live: live.length, withBaseline: withBaseline.length, drifted: drifted.length };
+    const differing = live.filter((c) => (differingByCountry()[c.id] ?? 0) > 0);
+    return { all: all.length, live: live.length, differing: differing.length };
   };
 
   return (
@@ -73,8 +72,8 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
               onInput={(e) => setSearch(e.currentTarget.value)}
             />
             <label class="mdd-toggle">
-              <input type="checkbox" checked={onlyDrift()} onChange={(e) => setOnlyDrift(e.currentTarget.checked)} />
-              Only changed from baseline
+              <input type="checkbox" checked={onlyDiffering()} onChange={(e) => setOnlyDiffering(e.currentTarget.checked)} />
+              Only differing from global
             </label>
             <button class="mdd-button" onClick={() => refetch()} disabled={data.loading}>
               Refresh
@@ -94,23 +93,30 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
         </Show>
 
         <Show when={!data.loading && data()}>
-          <Show when={data()?.baselineError}>
+          <Show when={data()?.globalError}>
             <div class="mdd-alert mdd-alert-error">
-              Could not read the baseline file: {data()?.baselineError}
+              Could not read the global defaults file: {data()?.globalError}
+            </div>
+          </Show>
+          <Show when={!data()?.global && !data()?.globalError}>
+            <div class="mdd-alert mdd-alert-warning">
+              Global defaults are not published yet. Run ./compute_module_defaults_global and commit
+              module_defaults_global.json to fastr-resource-hub.
             </div>
           </Show>
 
           <div class="mdd-meta">
             <span><strong>{summary().live}</strong> of {summary().all} countries read</span>
-            <span><strong>{summary().withBaseline}</strong> with a baseline</span>
-            <span class={summary().drifted > 0 ? 'mdd-meta-warn' : ''}>
-              <strong>{summary().drifted}</strong> changed from baseline
+            <Show when={data()?.global}>
+              {(g) => <span>Global defaults computed <strong>{g().computedAt.slice(0, 10)}</strong> from {g().countries.length} countries</span>}
+            </Show>
+            <span class={summary().differing > 0 ? 'mdd-meta-warn' : ''}>
+              <strong>{summary().differing}</strong> countries differ from a global default
             </span>
           </div>
 
           <div class="mdd-legend">
-            <span><span class="mdd-swatch mdd-swatch-drift" /> Changed from the country's baseline (hover for the baseline value)</span>
-            <span><span class="mdd-swatch mdd-swatch-custom" /> Differs from the module definition default</span>
+            <span><span class="mdd-swatch mdd-swatch-drift" /> Differs from the global default (the value most countries had when it was computed)</span>
           </div>
 
           <Show
@@ -122,7 +128,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
                 <thead>
                   <tr>
                     <th class="mdd-sticky mdd-col-label">Setting</th>
-                    <th class="mdd-sticky mdd-col-def">Definition default</th>
+                    <th class="mdd-sticky mdd-col-def">Global default</th>
                     <For each={countries()}>
                       {(c) => (
                         <th class="mdd-col-country" title={c.error ?? ''}>
@@ -132,9 +138,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
                               ? `v${c.serverVersion}, not on v2`
                               : c.state === 'unreachable'
                               ? 'unreachable'
-                              : c.baseline
-                              ? `${driftCountByCountry()[c.id] ?? 0} changed · baseline ${c.baseline.snapshotAt.slice(0, 10)}`
-                              : 'no baseline'}
+                              : `${differingByCountry()[c.id] ?? 0} differ`}
                           </div>
                           <Show when={c.snapshot}>
                             {(s) => <div class="mdd-country-ref">modules {shortRef(s().modulesGitRef)}</div>}
@@ -162,16 +166,19 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
                                   <div class="mdd-row-sublabel">{row.sublabel}</div>
                                 </Show>
                               </td>
-                              <td class="mdd-sticky mdd-col-def mdd-mono">{row.definitionText}</td>
+                              <td class="mdd-sticky mdd-col-def">
+                                <div class="mdd-mono">{row.globalText}</div>
+                                <Show when={row.globalNote}>
+                                  <div class="mdd-row-sublabel">{row.globalNote}</div>
+                                </Show>
+                              </td>
                               <For each={countries()}>
                                 {(c) => {
                                   const cell = () => row.cells[c.id];
                                   return (
                                     <td
-                                      class={`mdd-cell ${cell()?.drift ? 'mdd-cell-drift' : ''} ${
-                                        cell()?.differsFromDefinition ? 'mdd-cell-custom' : ''
-                                      }`}
-                                      title={cell()?.drift ? `Baseline: ${cell()?.baselineText}` : cell()?.text ?? ''}
+                                      class={`mdd-cell ${cell()?.differsFromGlobal ? 'mdd-cell-drift' : ''}`}
+                                      title={cell()?.differsFromGlobal ? `Global default: ${row.globalText}` : cell()?.text ?? ''}
                                     >
                                       {cell()?.text ?? '—'}
                                     </td>

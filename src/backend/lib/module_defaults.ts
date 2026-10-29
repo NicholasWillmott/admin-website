@@ -1,21 +1,19 @@
 /// <reference lib="deno.ns" />
-import { Octokit } from "@octokit/rest";
 
-// Country module-defaults baselines. Each v2 country's module defaults (the
-// platform's `run_generation_defaults` store) were frozen once into
-// module_defaults_baseline.json in the public resource hub. The platform's
-// module-defaults editor marks and resets drift against it; this site shows
-// every country's live values beside it (routes/moduleDefaults.ts) and owns
-// the only writer, the fill-missing snapshot script
-// (snapshot_module_defaults.ts), which adds countries and never overwrites
-// one. Shapes mirror the platform's ModuleDefaultsSnapshotResponse and
-// ModuleDefaultsBaselineFile in lib/types/run_generation.ts.
+// The fleet's global module parameter defaults. For each module parameter,
+// the value most v2 countries had when it was computed, frozen into
+// module_defaults_global.json in the public resource hub. Parameters only:
+// default families and pre-selected modules stay each country's own choice.
+// The platform's module-defaults editor marks and resets params that differ
+// from it; this site shows every country's live values beside it
+// (routes/moduleDefaults.ts) and computes it (compute_module_defaults_global.ts,
+// which writes the file for a person to commit). Shapes mirror the platform's
+// ModuleDefaultsSnapshot and ModuleDefaultsGlobalFile in
+// lib/types/run_generation.ts.
 
-export const RESOURCE_HUB_OWNER = "FASTR-Analytics";
-export const RESOURCE_HUB_REPO = "fastr-resource-hub";
-export const BASELINE_PATH = "module_defaults_baseline.json";
-const BASELINE_RAW_URL =
-  `https://raw.githubusercontent.com/${RESOURCE_HUB_OWNER}/${RESOURCE_HUB_REPO}/refs/heads/main/${BASELINE_PATH}`;
+const RESOURCE_HUB_RAW =
+  "https://raw.githubusercontent.com/FASTR-Analytics/fastr-resource-hub/refs/heads/main";
+export const GLOBAL_FILE_NAME = "module_defaults_global.json";
 
 const SNAPSHOT_TIMEOUT_MS = 30_000;
 
@@ -39,34 +37,31 @@ export interface ModuleDefaultsSnapshot {
   modulesGitRef: string;
   stored: StoredModuleDefaults;
   effective: Record<string, Record<string, string>>;
-}
-
-export interface SnapshotModuleDefinition {
-  id: string;
-  label: string;
-  parameters: {
-    replacementString: string;
-    description: string;
-    defaultValue: string;
+  modules: {
+    id: string;
+    label: string;
+    parameters: {
+      replacementString: string;
+      description: string;
+      defaultValue: string;
+    }[];
   }[];
 }
 
-export type ModuleDefaultsSnapshotResponse = ModuleDefaultsSnapshot & {
-  modules: SnapshotModuleDefinition[];
-};
-
-export interface BaselineEntry extends ModuleDefaultsSnapshot {
-  label: string;
-  iso3: string | null;
-  snapshotAt: string;
+export interface GlobalParam {
+  value: string;
+  agreeing: number;
+  counted: number;
 }
 
-export interface BaselineFile {
+export interface GlobalFile {
   version: 1;
-  countries: Record<string, BaselineEntry>;
+  computedAt: string;
+  countries: string[];
+  parameters: Record<string, Record<string, GlobalParam>>;
 }
 
-// Demo and test instances are not countries: never baselined, never shown.
+// Demo and test instances are not countries: never counted, never shown.
 export function isCountryInstance(server: RegistryServerLite): boolean {
   return !server.id.includes("test") && !server.id.startsWith("demo");
 }
@@ -87,7 +82,7 @@ export async function fetchRegistry(): Promise<RegistryServerLite[]> {
 export async function fetchSnapshot(
   serverId: string,
   statusApiKey: string,
-): Promise<ModuleDefaultsSnapshotResponse> {
+): Promise<ModuleDefaultsSnapshot> {
   const res = await fetch(
     `https://${serverId}.fastr-analytics.org/module_defaults_snapshot`,
     {
@@ -103,90 +98,106 @@ export async function fetchSnapshot(
 }
 
 // The published file, read the way the platform reads it (raw, uncached).
-// null = no file yet; a file that is there but malformed throws, so the
-// script can never "fill" over it.
-export async function fetchBaselineFile(): Promise<BaselineFile | null> {
-  const res = await fetch(`${BASELINE_RAW_URL}?t=${Date.now()}`, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  });
+// null = not published yet.
+export async function fetchGlobalFile(): Promise<GlobalFile | null> {
+  const res = await fetch(
+    `${RESOURCE_HUB_RAW}/${GLOBAL_FILE_NAME}?t=${Date.now()}`,
+    { cache: "no-store", signal: AbortSignal.timeout(10_000) },
+  );
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`baseline file answered ${res.status}`);
-  return parseBaselineFile(await res.json());
+  if (!res.ok) throw new Error(`global defaults file answered ${res.status}`);
+  const data = await res.json();
+  if (
+    data?.version !== 1 || typeof data.parameters !== "object" ||
+    !data.parameters
+  ) {
+    throw new Error("global defaults file is not version 1");
+  }
+  return data as GlobalFile;
 }
 
-export function toBaselineEntry(
-  server: RegistryServerLite,
-  snapshot: ModuleDefaultsSnapshotResponse,
-  snapshotAt: string,
-): BaselineEntry {
+export interface ComputedParam extends GlobalParam {
+  definitionDefault: string;
+  distribution: Record<string, number>;
+  tie: boolean;
+}
+
+type Tally = Map<string, Map<string, Map<string, number>>>;
+
+function bump(t: Tally, mod: string, key: string, value: string): void {
+  if (!t.has(mod)) t.set(mod, new Map());
+  const byKey = t.get(mod)!;
+  if (!byKey.has(key)) byKey.set(key, new Map());
+  const counts = byKey.get(key)!;
+  counts.set(value, (counts.get(value) ?? 0) + 1);
+}
+
+function topValues(counts: Map<string, number>): { max: number; tied: string[] } {
+  const max = Math.max(...counts.values());
+  const tied = [...counts.entries()].filter(([, n]) => n === max).map(([v]) => v)
+    .sort();
+  return { max, tied };
+}
+
+// The most common effective value per param across the given countries,
+// counting only countries that offer the param. A tie goes to the definition
+// default when it is among the tied values, else to the lowest value in sort
+// order, and is reported so a person can decide before committing.
+export function computeGlobalParameters(
+  snapshots: ModuleDefaultsSnapshot[],
+): Record<string, Record<string, ComputedParam>> {
+  const values: Tally = new Map();
+  const definitionDefaults: Tally = new Map();
+  for (const s of snapshots) {
+    for (const m of s.modules) {
+      for (const param of m.parameters) {
+        const value = s.effective[m.id]?.[param.replacementString];
+        if (value === undefined) continue;
+        bump(values, m.id, param.replacementString, value);
+        bump(definitionDefaults, m.id, param.replacementString, param.defaultValue);
+      }
+    }
+  }
+
+  const out: Record<string, Record<string, ComputedParam>> = {};
+  for (const [mod, byKey] of values) {
+    out[mod] = {};
+    for (const [key, counts] of byKey) {
+      const definitionDefault = topValues(definitionDefaults.get(mod)!.get(key)!)
+        .tied[0];
+      const { max, tied } = topValues(counts);
+      out[mod][key] = {
+        value: tied.includes(definitionDefault) ? definitionDefault : tied[0],
+        agreeing: max,
+        counted: [...counts.values()].reduce((a, b) => a + b, 0),
+        definitionDefault,
+        distribution: Object.fromEntries(counts),
+        tie: tied.length > 1,
+      };
+    }
+  }
+  return out;
+}
+
+export function toGlobalFile(
+  countries: string[],
+  computed: Record<string, Record<string, ComputedParam>>,
+  computedAt: string,
+): GlobalFile {
   return {
-    label: server.label,
-    iso3: server.countryIso3 ?? null,
-    snapshotAt,
-    instanceId: snapshot.instanceId,
-    platformVersion: snapshot.platformVersion,
-    modulesGitRef: snapshot.modulesGitRef,
-    stored: snapshot.stored,
-    effective: snapshot.effective,
+    version: 1,
+    computedAt,
+    countries: [...countries].sort(),
+    parameters: Object.fromEntries(
+      Object.entries(computed).map(([mod, byKey]) => [
+        mod,
+        Object.fromEntries(
+          Object.entries(byKey).map(([key, c]) => [
+            key,
+            { value: c.value, agreeing: c.agreeing, counted: c.counted },
+          ]),
+        ),
+      ]),
+    ),
   };
-}
-
-function parseBaselineFile(data: unknown): BaselineFile {
-  const d = data as { version?: unknown; countries?: unknown };
-  if (d?.version !== 1 || typeof d.countries !== "object" || !d.countries) {
-    throw new Error("baseline file is not version 1");
-  }
-  return data as BaselineFile;
-}
-
-// The writer's read: through the contents API (no CDN lag), with the sha the
-// commit must name. null file = none committed yet.
-export async function readBaselineFileForWrite(
-  token: string,
-): Promise<{ file: BaselineFile | null; sha: string | undefined }> {
-  const octokit = new Octokit({ auth: token });
-  try {
-    const { data } = await octokit.rest.repos.getContent({
-      owner: RESOURCE_HUB_OWNER,
-      repo: RESOURCE_HUB_REPO,
-      path: BASELINE_PATH,
-    });
-    if (Array.isArray(data) || data.type !== "file") {
-      throw new Error(`${BASELINE_PATH} is not a file`);
-    }
-    const binary = atob(data.content.replace(/\n/g, ""));
-    const text = new TextDecoder().decode(
-      Uint8Array.from(binary, (ch) => ch.charCodeAt(0)),
-    );
-    return { file: parseBaselineFile(JSON.parse(text)), sha: data.sha };
-  } catch (error) {
-    if ((error as { status?: number }).status === 404) {
-      return { file: null, sha: undefined };
-    }
-    throw error;
-  }
-}
-
-// Commit the whole file. Naming the sha that was read makes a concurrent
-// writer fail this commit rather than be overwritten by it.
-export async function commitBaselineFile(
-  file: BaselineFile,
-  sha: string | undefined,
-  message: string,
-  token: string,
-): Promise<string> {
-  const octokit = new Octokit({ auth: token });
-  const bytes = new TextEncoder().encode(JSON.stringify(file, null, 2) + "\n");
-  let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  const { data } = await octokit.rest.repos.createOrUpdateFileContents({
-    owner: RESOURCE_HUB_OWNER,
-    repo: RESOURCE_HUB_REPO,
-    path: BASELINE_PATH,
-    message,
-    content: btoa(binary),
-    sha,
-  });
-  return data.commit.html_url ?? data.commit.sha ?? "";
 }

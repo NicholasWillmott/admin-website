@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Compute the fleet's global module parameter defaults (the most common value
+# per parameter across v2 countries) and write module_defaults_global.json
+# for you to commit to the fastr-resource-hub repo. Prints the result; writes
+# only with --out. Refuses to write when a file is already published unless
+# --replace, because the published file is frozen.
+#
+# Usage:
+#   STATUS_API_KEY=... ./compute_module_defaults_global
+#   STATUS_API_KEY=... ./compute_module_defaults_global --out ~/Work/fastr-resource-hub/module_defaults_global.json
+#
+# The production key is on every instance container:
+#   STATUS_API_KEY="$(ssh root@159.223.167.134 'docker exec ghana printenv STATUS_API_KEY')"
+
+set -e
+args=()
+for a in "$@"; do
+  case "$a" in
+    --out=*) args+=("--out=$(realpath -m "${a#--out=}")") ;;
+    *) args+=("$a") ;;
+  esac
+done
+# A bare `--out <path>` is resolved here too, before the cd below.
+for i in "${!args[@]}"; do
+  if [ "${args[$i]}" = "--out" ] && [ -n "${args[$((i + 1))]:-}" ]; then
+    args[$((i + 1))]="$(realpath -m "${args[$((i + 1))]}")"
+  fi
+done
+cd "$(dirname "$0")/src/backend"
+exec deno run --allow-net --allow-env --allow-read --allow-write -c deno.json compute_module_defaults_global.ts "${args[@]}"

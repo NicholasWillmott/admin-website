@@ -1,22 +1,26 @@
-import type { ModuleDefaultsCountry, ModuleDefaultsSnapshot } from '../../types.ts';
+import type {
+  ModuleDefaultsCountry,
+  ModuleDefaultsGlobalFile,
+  ModuleDefaultsSnapshot,
+} from '../../types.ts';
 
-// The fleet matrix's rows (ModuleDefaultsView). A cell's baseline value
-// follows the platform editor's rule: the baseline's pinned value, else the
-// definition default it follows today, so a highlighted cell is exactly one
-// the editor marks "Changed from baseline".
+// The fleet matrix's rows (ModuleDefaultsView). Parameters are compared with
+// the fleet's global default, the frozen most-common value; a highlighted
+// cell is exactly one the platform editor marks "Differs from global
+// default". Default families and pre-selected modules are each country's own
+// choice, so they are shown but never compared.
 
 export interface Cell {
   text: string;
-  baselineText?: string;
-  drift: boolean;
-  differsFromDefinition: boolean;
+  differsFromGlobal: boolean;
 }
 
 export interface Row {
   key: string;
   label: string;
   sublabel?: string;
-  definitionText: string;
+  globalText: string;
+  globalNote?: string;
   cells: Record<string, Cell | undefined>;
 }
 
@@ -38,7 +42,10 @@ export function shortRef(ref: string): string {
   return ref.length > 10 ? ref.slice(0, 7) : ref;
 }
 
-export function buildSections(countries: ModuleDefaultsCountry[]): Section[] {
+export function buildSections(
+  countries: ModuleDefaultsCountry[],
+  global: ModuleDefaultsGlobalFile | null,
+): Section[] {
   const live = countries.filter((c) => c.state === 'ok' && c.snapshot);
   if (live.length === 0) return [];
 
@@ -50,35 +57,28 @@ export function buildSections(countries: ModuleDefaultsCountry[]): Section[] {
     for (const m of c.snapshot!.modules) if (!modules.has(m.id)) modules.set(m.id, m);
   }
 
-  const familyRows: Row[] = FAMILIES.map((f) => {
+  const uncompared = (read: (s: ModuleDefaultsSnapshot) => boolean) => {
     const cells: Record<string, Cell | undefined> = {};
     for (const c of live) {
-      const current = c.snapshot!.stored.step1?.[f.key] === true;
-      const baseline = c.baseline ? c.baseline.stored.step1?.[f.key] === true : undefined;
-      cells[c.id] = {
-        text: yesNo(current),
-        baselineText: baseline === undefined ? undefined : yesNo(baseline),
-        drift: baseline !== undefined && baseline !== current,
-        differsFromDefinition: false,
-      };
+      cells[c.id] = { text: yesNo(read(c.snapshot!)), differsFromGlobal: false };
     }
-    return { key: `family|${f.key}`, label: f.label, definitionText: '—', cells };
-  });
+    return cells;
+  };
 
-  const selectionRows: Row[] = [...modules.values()].map((m) => {
-    const cells: Record<string, Cell | undefined> = {};
-    for (const c of live) {
-      const current = c.snapshot!.stored.moduleIds.includes(m.id);
-      const baseline = c.baseline ? c.baseline.stored.moduleIds.includes(m.id) : undefined;
-      cells[c.id] = {
-        text: yesNo(current),
-        baselineText: baseline === undefined ? undefined : yesNo(baseline),
-        drift: baseline !== undefined && baseline !== current,
-        differsFromDefinition: false,
-      };
-    }
-    return { key: `selected|${m.id}`, label: m.label, sublabel: m.id, definitionText: '—', cells };
-  });
+  const familyRows: Row[] = FAMILIES.map((f) => ({
+    key: `family|${f.key}`,
+    label: f.label,
+    globalText: '—',
+    cells: uncompared((s) => s.stored.step1?.[f.key] === true),
+  }));
+
+  const selectionRows: Row[] = [...modules.values()].map((m) => ({
+    key: `selected|${m.id}`,
+    label: m.label,
+    sublabel: m.id,
+    globalText: '—',
+    cells: uncompared((s) => s.stored.moduleIds.includes(m.id)),
+  }));
 
   const paramSections: Section[] = [...modules.values()]
     .filter((m) => m.parameters.length > 0)
@@ -86,39 +86,32 @@ export function buildSections(countries: ModuleDefaultsCountry[]): Section[] {
       key: `params|${m.id}`,
       label: `${m.label} (${m.id})`,
       rows: m.parameters.map((param) => {
+        const g = global?.parameters[m.id]?.[param.replacementString];
         const cells: Record<string, Cell | undefined> = {};
         for (const c of live) {
-          const own = c.snapshot!.modules.find((x) => x.id === m.id);
-          const ownParam = own?.parameters.find((x) => x.replacementString === param.replacementString);
           const current = c.snapshot!.effective[m.id]?.[param.replacementString];
-          if (current === undefined || ownParam === undefined) {
-            cells[c.id] = undefined;
-            continue;
-          }
-          const baseline = c.baseline
-            ? c.baseline.stored.parameterSelections[m.id]?.[param.replacementString] ??
-              ownParam.defaultValue
-            : undefined;
-          cells[c.id] = {
+          cells[c.id] = current === undefined ? undefined : {
             text: current,
-            baselineText: baseline,
-            drift: baseline !== undefined && baseline !== current,
-            differsFromDefinition: current !== ownParam.defaultValue,
+            differsFromGlobal: g !== undefined && current !== g.value,
           };
         }
         return {
           key: `param|${m.id}|${param.replacementString}`,
           label: param.description,
           sublabel: param.replacementString,
-          definitionText: param.defaultValue,
+          globalText: g?.value ?? '—',
+          globalNote: g
+            ? `${g.agreeing}/${g.counted} countries` +
+              (g.value !== param.defaultValue ? ` · definition ${param.defaultValue}` : '')
+            : undefined,
           cells,
         };
       }),
     }));
 
   return [
-    { key: 'families', label: 'Default data families', rows: familyRows },
-    { key: 'selected', label: 'Pre-selected modules', rows: selectionRows },
+    { key: 'families', label: 'Default data families (per country, not compared)', rows: familyRows },
+    { key: 'selected', label: 'Pre-selected modules (per country, not compared)', rows: selectionRows },
     ...paramSections,
   ];
 }

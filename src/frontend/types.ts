@@ -353,8 +353,9 @@ export interface SentEmailSummary {
   instanceId?: string;
 }
 
-// Country module-defaults baselines: mirrors src/backend/routes/moduleDefaults.ts
-// (contract in src/backend/lib/module_defaults.ts).
+// Fleet global module parameter defaults: mirrors
+// src/backend/routes/moduleDefaults.ts (contract in
+// src/backend/lib/module_defaults.ts).
 export interface StoredModuleDefaults {
   step1: { hmis: boolean; hfa: boolean; iceh: boolean } | null;
   moduleIds: string[];
@@ -374,14 +375,11 @@ export interface ModuleDefaultsSnapshot {
   }[];
 }
 
-export interface ModuleDefaultsBaselineEntry {
-  label: string;
-  iso3: string | null;
-  snapshotAt: string;
-  platformVersion: string;
-  modulesGitRef: string;
-  stored: StoredModuleDefaults;
-  effective: Record<string, Record<string, string>>;
+export interface ModuleDefaultsGlobalFile {
+  version: 1;
+  computedAt: string;
+  countries: string[];
+  parameters: Record<string, Record<string, { value: string; agreeing: number; counted: number }>>;
 }
 
 export interface ModuleDefaultsCountry {
@@ -393,10 +391,10 @@ export interface ModuleDefaultsCountry {
   state: "ok" | "not_v2" | "unreachable";
   error?: string;
   snapshot?: ModuleDefaultsSnapshot;
-  baseline: ModuleDefaultsBaselineEntry | null;
 }
 
 export interface ModuleDefaultsResponse {
   countries: ModuleDefaultsCountry[];
-  baselineError?: string;
+  global: ModuleDefaultsGlobalFile | null;
+  globalError?: string;
 }

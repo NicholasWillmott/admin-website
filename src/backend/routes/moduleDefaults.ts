@@ -1,14 +1,13 @@
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
 import {
-  type BaselineEntry,
-  type BaselineFile,
-  fetchBaselineFile,
+  fetchGlobalFile,
   fetchRegistry,
   fetchSnapshot,
+  type GlobalFile,
   isCountryInstance,
   isV2,
-  type ModuleDefaultsSnapshotResponse,
+  type ModuleDefaultsSnapshot,
 } from "../lib/module_defaults.ts";
 import { mapConcurrent } from "../mcp/tools/helpers.ts";
 
@@ -22,12 +21,12 @@ export interface ModuleDefaultsCountry {
   french?: boolean;
   state: "ok" | "not_v2" | "unreachable";
   error?: string;
-  snapshot?: ModuleDefaultsSnapshotResponse;
-  baseline: BaselineEntry | null;
+  snapshot?: ModuleDefaultsSnapshot;
 }
 
-// Every country's live module defaults beside its frozen baseline, for the
-// fleet matrix (contract in lib/module_defaults.ts). Read-only.
+// Every country's live module defaults beside the fleet's global parameter
+// defaults, for the fleet matrix (contract in lib/module_defaults.ts).
+// Read-only.
 router.get("/", async (c) => {
   const authError = await requireAdmin(c);
   if (authError) return authError;
@@ -37,12 +36,12 @@ router.get("/", async (c) => {
     return c.json({ error: "STATUS_API_KEY is not configured" }, 500);
   }
 
-  let baselineFile: BaselineFile | null = null;
-  let baselineError: string | undefined;
+  let global: GlobalFile | null = null;
+  let globalError: string | undefined;
   try {
-    baselineFile = await fetchBaselineFile();
+    global = await fetchGlobalFile();
   } catch (error) {
-    baselineError = String(error);
+    globalError = String(error);
   }
 
   const countries = (await fetchRegistry()).filter(isCountryInstance);
@@ -56,7 +55,6 @@ router.get("/", async (c) => {
         iso3: server.countryIso3 ?? null,
         serverVersion: server.serverVersion,
         french: server.french,
-        baseline: baselineFile?.countries[server.id] ?? null,
       };
       if (!isV2(server)) return { ...base, state: "not_v2" };
       try {
@@ -73,7 +71,8 @@ router.get("/", async (c) => {
 
   return c.json({
     countries: rows.sort((a, b) => a.label.localeCompare(b.label)),
-    baselineError,
+    global,
+    globalError,
   });
 });
 
