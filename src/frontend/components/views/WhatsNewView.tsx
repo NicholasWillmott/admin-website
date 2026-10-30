@@ -18,6 +18,8 @@ import { DeleteWhatsNewPostModal } from '../modals/DeleteWhatsNewPostModal.tsx';
 import { WhatsNewStatsModal } from '../modals/WhatsNewStatsModal.tsx';
 import type { WhatsNewFleetAverages } from '../modals/WhatsNewStatsModal.tsx';
 import { PostEngagement, funnelCounts } from './WhatsNewEngagement.tsx';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 import { WhatsNewPreview } from './WhatsNewPreview.tsx';
 
 interface WhatsNewViewProps {
@@ -537,8 +539,8 @@ export function WhatsNewView(props: WhatsNewViewProps) {
         <div class="volume-usage-header">
           <h2 class="volume-usage-title">What's New</h2>
           <div style="display: flex; gap: 12px">
-            <button class="system-btn" onClick={refetch}>Refresh</button>
-            <button class="system-btn snapshot" onClick={newPost}>New Post</button>
+            <Button icon="refresh" onClick={refetch}>Refresh</Button>
+            <Button variant="primary" icon="plus" onClick={newPost}>New post</Button>
           </div>
         </div>
 
@@ -601,15 +603,16 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                             return `Seen ${s.seen} · Skipped ${s.skipped} · Completed ${s.completed}`;
                           })()}
                         </span>
-                        <button
+                        <Button
                           type="button"
-                          class="wn-stats-btn"
+                          size="sm"
+                          icon="chart"
                           title="View engagement stats"
                           onClick={(e) => {
                             e.stopPropagation();
                             setStatsPostId(post.id);
                           }}
-                        >Stats</button>
+                        >Stats</Button>
                       </div>
                     </div>
                   );
@@ -660,7 +663,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                           class="whats-new-version-toggle"
                           title="Version suggestions"
                           onClick={() => setVersionMenuOpen(o => !o)}
-                        >▾</button>
+                        ><Icon name="chevronDown" /></button>
                         <Show when={versionMenuOpen()}>
                           <div class="whats-new-version-menu">
                             <For each={versionSuggestions()}>
@@ -718,7 +721,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                             onClick={() => setEditLang(lang.value)}
                           >
                             {lang.label}
-                            {langHasContent(lang.value) ? ' ✓' : ''}
+                            <Show when={langHasContent(lang.value)}>{' '}<Icon name="check" /></Show>
                           </button>
                         )}
                       </For>
@@ -769,9 +772,9 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                             {/* Structural changes are locked during an upload — the in-flight
                                 upload targets a page index that a move/delete would invalidate */}
                             <div class="whats-new-page-actions">
-                              <button class="system-btn whats-new-btn-sm" title="Move this page earlier" disabled={activePage() === 0 || uploadingPage() !== null} onClick={() => movePage(activePage(), -1)}>Move ◀</button>
-                              <button class="system-btn whats-new-btn-sm" title="Move this page later" disabled={activePage() === d().pages.length - 1 || uploadingPage() !== null} onClick={() => movePage(activePage(), 1)}>Move ▶</button>
-                              <button class="system-btn" disabled={d().pages.length === 1 || uploadingPage() !== null} onClick={() => removePage(activePage())}>Delete page</button>
+                              <Button size="sm" icon="back" title="Move this page earlier" disabled={activePage() === 0 || uploadingPage() !== null} onClick={() => movePage(activePage(), -1)}>Move</Button>
+                              <Button size="sm" icon="chevronRight" title="Move this page later" disabled={activePage() === d().pages.length - 1 || uploadingPage() !== null} onClick={() => movePage(activePage(), 1)}>Move</Button>
+                              <Button icon="trash" disabled={d().pages.length === 1 || uploadingPage() !== null} onClick={() => removePage(activePage())}>Delete page</Button>
                             </div>
                           </div>
                           <div class="whats-new-page-inputs">
@@ -867,7 +870,7 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                           e.currentTarget.value = '';
                                         }}
                                       />
-                                      <button class="system-btn" onClick={openImagePicker}>Choose existing</button>
+                                      <Button onClick={openImagePicker}>Choose existing</Button>
                                       <input
                                         class="modal-input whats-new-youtube-input"
                                         type="text"
@@ -903,10 +906,9 @@ export function WhatsNewView(props: WhatsNewViewProps) {
                                         <video class="whats-new-thumb" src={pg().imageUrl} muted preload="metadata" />
                                       </Show>
                                     </Show>
-                                    <button
-                                      class="system-btn"
+                                    <Button
                                       onClick={() => updatePage(activePage(), { imageUrl: undefined })}
-                                    >Remove</button>
+                                    >Remove</Button>
                                   </div>
                                   {/* Cover fills the whole region, so scaling is meaningless there */}
                                   <Show when={!WHATS_NEW_LAYOUTS[pg().layoutPreset].cover && !isWhatsNewYouTube(pg().imageUrl)}>
@@ -991,19 +993,20 @@ export function WhatsNewView(props: WhatsNewViewProps) {
 
                   <div class="whats-new-editor-footer">
                     <Show when={selectedId() !== 'new'}>
-                      <button class="system-btn" onClick={duplicatePost}>Duplicate</button>
-                      <button class="action-btn danger" style="margin: 0" onClick={() => setDeleteModalOpen(true)}>Delete post</button>
+                      <Button icon="copy" onClick={duplicatePost}>Duplicate</Button>
+                      <Button variant="danger" icon="trash" onClick={() => setDeleteModalOpen(true)}>Delete post</Button>
                     </Show>
                     <div style="flex: 1"></div>
-                    <button class="system-btn" onClick={closeEditor}>Close</button>
-                    <button
-                      class="system-btn snapshot"
+                    <Button onClick={closeEditor}>Close</Button>
+                    <Button
+                      variant="primary"
+                      icon="save"
                       classList={{ 'whats-new-save-dirty': isDirty() }}
                       disabled={saving()}
                       onClick={handleSave}
                     >
                       {saving() ? 'Saving…' : isDirty() ? 'Save •' : 'Save'}
-                    </button>
+                    </Button>
                   </div>
 
                   <Show when={deleteModalOpen()}>

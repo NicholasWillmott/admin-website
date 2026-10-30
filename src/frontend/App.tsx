@@ -4,6 +4,8 @@ import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, u
 import { ModuleEditorContent } from './components/views/ModuleDefinitions/ModuleEditorContent.tsx';
 import { ServersView } from './components/views/Servers/ServersView.tsx';
 import { Sidebar, viewLabel } from './components/Sidebar.tsx';
+import { Button } from './components/ui/Button.tsx';
+import { Icon } from './components/ui/Icon.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { AiUsageView } from './components/views/AiUsageView.tsx';
@@ -420,9 +422,7 @@ function App() {
       <div class="sticky-header">
         <div class="header-brand">
           <span class="header-logo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3 12h4l2-5 4 10 2-5h6" />
-            </svg>
+            <Icon name="pulse" />
           </span>
           <h1>FASTR Status</h1>
           <SignedIn>
@@ -437,20 +437,22 @@ function App() {
             <div class="button-container">
               <div class="nav-right">
                 <Show when={activeView() === "servers"}>
-                  <button
+                  {/* Primary tint while select mode is on, so the mode is visible */}
+                  <Button
                     type="button"
-                    class={`multi-select-toggle ${multiSelectMode() ? 'active' : ''}`}
+                    variant={multiSelectMode() ? 'primary' : 'neutral'}
+                    aria-pressed={multiSelectMode()}
                     onClick={() => {
                       if (multiSelectMode()) setMultiSelectedServerIds([]);
                       setMultiSelectMode(m => !m);
                     }}
                   >
                     {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select servers'}
-                  </button>
+                  </Button>
                   <Show when={multiSelectMode()}>
-                    <button
+                    <Button
                       type="button"
-                      class="multi-select-toggle active"
+                      loading={lockedServersResource.loading}
                       disabled={lockedServersResource.loading}
                       onClick={() => {
                         // Busy servers (results package generating, import running) can't take bulk actions
@@ -461,26 +463,25 @@ function App() {
                         }));
                       }}
                     >
-                      {lockedServersResource.loading ? 'Loading...' : 'Select all'}
-                    </button>
+                      Select all
+                    </Button>
                   </Show>
-                  <button
+                  <Button
                     type="button"
+                    icon="settings"
                     onClick={() => setCreateCategoryModalOpen(true)}
                   >
                     Configure categories
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    class="header-primary"
+                    variant="primary"
+                    icon="plus"
                     aria-label="Create server"
                     onClick={() => setCreateServerModalOpen(true)}
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
-                      <path d="M12 5v14M5 12h14" />
-                    </svg>
                     <span class="header-primary-label">Create server</span>
-                  </button>
+                  </Button>
                 </Show>
                 {/* Add toolbar buttons for other views here using <Show when={activeView() === "viewName"}> */}
               </div>

@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "color-no-hex": true,
+    "color-named": "never",
+    "declaration-property-value-disallowed-list": {
+      "/^background/": ["/gradient\\(\\s*\\d+deg/", "/radial-gradient/"],
+      "transition": ["/\\ball\\b/"]
+    }
+  },
+  "overrides": [
+    {
+      "files": ["src/frontend/css/tokens.css"],
+      "rules": { "color-no-hex": null }
+    },
+    {
+      "files": ["src/frontend/css/App.css", "src/frontend/css/index.css"],
+      "rules": {
+        "color-no-hex": [true, { "severity": "warning" }],
+        "color-named": ["never", { "severity": "warning" }],
+        "declaration-property-value-disallowed-list": [
+          {
+            "/^background/": ["/gradient\\(\\s*\\d+deg/", "/radial-gradient/"],
+            "transition": ["/\\ball\\b/"]
+          },
+          { "severity": "warning" }
+        ]
+      }
+    }
+  ]
+}

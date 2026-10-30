@@ -1,5 +1,7 @@
 import { createSignal, createMemo, For, Show } from 'solid-js';
 import type { ClerkUser, ClerkSession, Server, HealthCheckResponse } from '../../types.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface CountryActivityModalProps {
     users: ClerkUser[] | undefined;
@@ -195,12 +197,12 @@ function ServerChart(p: { server: Server; counts: number[] }) {
                         peak {peak()} · {total()} total sessions
                     </span>
                 </div>
-                <button
+                <Button
                     type="button"
-                    class="activity-btn"
-                    style="font-size: 11px; padding: 3px 8px"
+                    size="sm"
+                    icon="download"
                     onClick={() => downloadSvg(p.server.label, p.counts)}
-                >Download SVG</button>
+                >Download SVG</Button>
             </div>
             <svg viewBox={`0 0 ${DW} ${DH}`} width="100%" style="display: block">
                 <For each={yTicks()}>
@@ -341,28 +343,28 @@ export function CountryActivityModal(p: CountryActivityModalProps) {
                             Unique sign-ins per day (Clerk sessions) · {fromLabel} – {toLabel}
                         </p>
                     </div>
-                    <button class="modal-close" onClick={p.onClose}>✕</button>
+                    <button class="modal-close" onClick={p.onClose}><Icon name="x" /></button>
                 </div>
                 <div class="modal-body">
                     <div style="display: flex; flex-direction: column; gap: 16px">
 
                         <Show when={loadState() === 'idle'}>
                             <div style="display: flex; gap: 8px">
-                                <button
+                                <Button
                                     type="button"
-                                    class="action-btn"
-                                    style="flex: 1"
+                                    block
                                     onClick={p.onClose}
-                                >Cancel</button>
-                                <button
+                                >Cancel</Button>
+                                <Button
                                     type="button"
-                                    class="action-btn"
-                                    style="flex: 1"
+                                    variant="primary"
+                                    icon="chart"
+                                    block
                                     disabled={targetServers().length === 0}
                                     onClick={fetchData}
                                 >
-                                    Load Charts ({targetServers().length} servers)
-                                </button>
+                                    Load charts ({targetServers().length} servers)
+                                </Button>
                             </div>
                         </Show>
 
@@ -380,21 +382,23 @@ export function CountryActivityModal(p: CountryActivityModalProps) {
 
                         <Show when={loadState() === 'done'}>
                             <div style="display: flex; justify-content: flex-end; gap: 8px">
-                                <button
+                                <Button
                                     type="button"
-                                    class="activity-btn"
+                                    size="sm"
                                     onClick={() => { setLoadState('idle'); setCharts([]); }}
-                                >Reset</button>
-                                <button
+                                >Reset</Button>
+                                <Button
                                     type="button"
-                                    class="activity-btn"
+                                    size="sm"
+                                    icon="download"
                                     onClick={downloadAll}
-                                >Download All SVGs</button>
-                                <button
+                                >Download all SVGs</Button>
+                                <Button
                                     type="button"
-                                    class="activity-btn"
+                                    size="sm"
+                                    icon="download"
                                     onClick={downloadCsv}
-                                >Download CSV</button>
+                                >Download CSV</Button>
                             </div>
                             <For each={charts()}>
                                 {({ server, counts }) => (

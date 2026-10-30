@@ -1,12 +1,12 @@
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #070f10;
+  background-color: var(--bg-base);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -16,11 +16,11 @@
 
 a {
   font-weight: 500;
-  color: #0d9488;
+  color: var(--teal-500);
   text-decoration: inherit;
 }
 a:hover {
-  color: #14b8a6;
+  color: var(--teal-400);
 }
 
 body {
@@ -43,12 +43,12 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #0d1f20;
+  background-color: var(--bg-chrome);
   cursor: pointer;
   transition: border-color 0.25s;
 }
 button:hover {
-  border-color: #0d9488;
+  border-color: var(--teal-500);
 }
 button:focus,
 button:focus-visible {

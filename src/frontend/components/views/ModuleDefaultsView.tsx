@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
 import { fetchModuleDefaults } from '../../services.ts';
 import { buildSections, shortRef } from './moduleDefaultsMatrix.ts';
+import { Button } from '../ui/Button.tsx';
 
 interface ModuleDefaultsViewProps {
   getToken: () => Promise<string | null>;
@@ -75,9 +76,9 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
               <input type="checkbox" checked={onlyDiffering()} onChange={(e) => setOnlyDiffering(e.currentTarget.checked)} />
               Only differing from global
             </label>
-            <button class="mdd-button" onClick={() => refetch()} disabled={data.loading}>
+            <Button icon="refresh" onClick={() => refetch()} disabled={data.loading}>
               Refresh
-            </button>
+            </Button>
           </div>
         </div>
 

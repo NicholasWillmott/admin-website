@@ -1,5 +1,7 @@
 import { createSignal, For, Show, createEffect } from 'solid-js';
 import { formatDate } from '../../utils.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface Snapshot {
   id: string;
@@ -82,20 +84,15 @@ export function SnapshotsView(props: SnapshotsViewProps) {
       <div class="snapshots-content">
         <div class="snapshots-header">
           <h2 class="snapshots-title">Volume Snapshots</h2>
-          <button
-            class="system-btn snapshot"
+          <Button
+            variant="primary"
+            icon="backup"
+            loading={props.snappingVolume}
             onClick={() => setPickerOpen(true)}
             disabled={props.snappingVolume || props.volumes.length === 0}
           >
-            {props.snappingVolume ? (
-              <>
-                <span class="button-spinner"></span>
-                Creating Volume Snapshot...
-              </>
-            ) : (
-              'Create Volume Snapshot'
-            )}
-          </button>
+            {props.snappingVolume ? 'Creating volume snapshot…' : 'Create volume snapshot'}
+          </Button>
         </div>
 
         {props.loading ? (
@@ -135,13 +132,15 @@ export function SnapshotsView(props: SnapshotsViewProps) {
                       <td class="snapshot-date">{formatDate(snapshot.created_at)}</td>
                       <td class="snapshot-size">{snapshot.size_gigabytes} GB</td>
                       <td class="snapshot-actions">
-                        <button
+                        <Button
                           type="button"
-                          class="delete-btn"
+                          variant="danger"
+                          size="sm"
+                          icon="trash"
                           onClick={() => setConfirmDelete(snapshot)}
                         >
                           Delete
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   )}
@@ -162,7 +161,7 @@ export function SnapshotsView(props: SnapshotsViewProps) {
                 onClick={() => setPickerOpen(false)}
                 disabled={props.snappingVolume}
               >
-                ✕
+                <Icon name="x" />
               </button>
             </div>
             <div class="modal-body">
@@ -196,21 +195,16 @@ export function SnapshotsView(props: SnapshotsViewProps) {
                     </div>
                   )}
                 </Show>
-                <button
+                <Button
                   type="button"
-                  class="action-btn docker-pull"
+                  variant="primary"
+                  icon="backup"
+                  loading={props.snappingVolume}
                   onClick={() => props.onCreateSnapshot(selectedVolume(), snapshotName().trim())}
                   disabled={!selectedVolume() || !snapshotName().trim() || !!reservedSubstring() || props.snappingVolume}
                 >
-                  {props.snappingVolume ? (
-                    <>
-                      <span class="button-spinner"></span>
-                      Creating Snapshot...
-                    </>
-                  ) : (
-                    'Create Snapshot'
-                  )}
-                </button>
+                  {props.snappingVolume ? 'Creating snapshot…' : 'Create snapshot'}
+                </Button>
               </div>
             </div>
           </div>
@@ -223,7 +217,7 @@ export function SnapshotsView(props: SnapshotsViewProps) {
             <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 420px">
               <div class="modal-header">
                 <h2>Delete Snapshot</h2>
-                <button class="modal-close" onClick={() => setConfirmDelete(null)}>✕</button>
+                <button class="modal-close" onClick={() => setConfirmDelete(null)}><Icon name="x" /></button>
               </div>
               <div class="modal-body">
                 <div class="docker-pull-form">
@@ -231,25 +225,25 @@ export function SnapshotsView(props: SnapshotsViewProps) {
                     This will permanently delete the snapshot <strong>{snapshot().name}</strong> ({snapshot().size_gigabytes} GB, created {formatDate(snapshot().created_at)}). This cannot be undone.
                   </p>
                   <div style="display: flex; gap: 8px; margin-top: 16px">
-                    <button
+                    <Button
                       type="button"
-                      class="action-btn"
-                      style="flex: 1; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); color: #cbd5e1"
+                      block
                       onClick={() => setConfirmDelete(null)}
                     >
                       Cancel
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
-                      class="action-btn danger"
-                      style="flex: 1"
+                      variant="danger"
+                      icon="trash"
+                      block
                       onClick={() => {
                         props.onDeleteSnapshot(snapshot().id);
                         setConfirmDelete(null);
                       }}
                     >
-                      Delete Snapshot
-                    </button>
+                      Delete snapshot
+                    </Button>
                   </div>
                 </div>
               </div>

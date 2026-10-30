@@ -1,5 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { Server, AiUsageLog, ServerAiUsageLogs, ModelPricing, AllServerWeeklyUsage, ServerAiLimitHits } from '../../types.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface AiUsageViewProps {
   servers: Server[] | undefined;
@@ -173,7 +175,7 @@ export function AiUsageView(props: AiUsageViewProps) {
             <input type="date" class="server-filter-input" value={dateFrom()} onChange={(e) => setDateFrom(e.currentTarget.value)} />
             <span class="ai-usage-filter-sep">to</span>
             <input type="date" class="server-filter-input" value={dateTo()} onChange={(e) => setDateTo(e.currentTarget.value)} />
-            <button class="system-btn" onClick={() => props.onRefetch()}>Refresh</button>
+            <Button icon="refresh" onClick={() => props.onRefetch()}>Refresh</Button>
           </div>
         </div>
 
@@ -216,7 +218,7 @@ export function AiUsageView(props: AiUsageViewProps) {
                           onClick={() => canExpand() && toggleExpanded(row.server.id)}
                         >
                           <td class="ai-usage-instance">
-                            <span class={`ai-usage-chevron ${isOpen() ? 'open' : ''} ${canExpand() ? '' : 'hidden'}`}>▶</span>
+                            <span class={`ai-usage-chevron ${isOpen() ? 'open' : ''} ${canExpand() ? '' : 'hidden'}`}><Icon name="chevronRight" /></span>
                             {row.server.label}
                           </td>
                           <td class="ai-usage-num">{row.requests.toLocaleString()}</td>

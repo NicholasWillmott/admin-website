@@ -1,5 +1,7 @@
 import { createSignal, createMemo, For, Show } from 'solid-js';
 import type { ClerkUser, ClerkSession, Server, HealthCheckResponse } from '../../types.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface ClerkSessionsExportModalProps {
     users: ClerkUser[] | undefined;
@@ -201,7 +203,7 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
             <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 560px">
                 <div class="modal-header">
                     <h2>Export Active Users (Clerk Sessions)</h2>
-                    <button class="modal-close" onClick={p.onClose}>✕</button>
+                    <button class="modal-close" onClick={p.onClose}><Icon name="x" /></button>
                 </div>
                 <div class="modal-body">
                     <div style="display: flex; flex-direction: column; gap: 20px">
@@ -233,18 +235,18 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
                                 <p style="font-weight: 600; color: #fff">Instances</p>
                                 <div style="display: flex; gap: 8px">
-                                    <button
+                                    <Button
                                         type="button"
-                                        class="activity-btn"
+                                        size="sm"
                                         onClick={() => setSelectedInstances(new Set((p.servers ?? []).map(s => s.id)))}
                                         disabled={loadState() === 'loading'}
-                                    >All</button>
-                                    <button
+                                    >All</Button>
+                                    <Button
                                         type="button"
-                                        class="activity-btn"
+                                        size="sm"
                                         onClick={() => setSelectedInstances(new Set())}
                                         disabled={loadState() === 'loading'}
-                                    >None</button>
+                                    >None</Button>
                                 </div>
                             </div>
                             <div style="max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
@@ -279,22 +281,22 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                                 </div>
                             </Show>
                             <div style="display: flex; gap: 8px">
-                                <button
+                                <Button
                                     type="button"
-                                    class="action-btn"
-                                    style="flex: 1"
+                                    block
                                     onClick={p.onClose}
                                     disabled={loadState() === 'loading'}
-                                >Cancel</button>
-                                <button
+                                >Cancel</Button>
+                                <Button
                                     type="button"
-                                    class="action-btn"
-                                    style="flex: 1"
+                                    variant="primary"
+                                    block
+                                    loading={loadState() === 'loading'}
                                     onClick={fetchData}
                                     disabled={loadState() === 'loading' || selectedInstances().size === 0}
                                 >
-                                    {loadState() === 'loading' ? 'Loading…' : 'Fetch Active Users'}
-                                </button>
+                                    {loadState() === 'loading' ? 'Loading…' : 'Fetch active users'}
+                                </Button>
                             </div>
                         </Show>
 
@@ -308,7 +310,7 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                                             ({activeUsers().length} found — uncheck to exclude)
                                         </span>
                                     </p>
-                                    <button type="button" class="activity-btn" onClick={reset}>Reset</button>
+                                    <Button type="button" size="sm" onClick={reset}>Reset</Button>
                                 </div>
                                 <div style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
                                     {activeUsers().length === 0
@@ -335,21 +337,21 @@ export function ClerkSessionsExportModal(p: ClerkSessionsExportModalProps) {
                                 </div>
                             </div>
                             <div style="display: flex; gap: 8px; margin-top: 4px">
-                                <button
+                                <Button
                                     type="button"
-                                    class="action-btn"
-                                    style="flex: 1"
+                                    block
                                     onClick={p.onClose}
-                                >Cancel</button>
-                                <button
+                                >Cancel</Button>
+                                <Button
                                     type="button"
-                                    class="action-btn"
-                                    style="flex: 1"
+                                    variant="primary"
+                                    icon="download"
+                                    block
                                     disabled={exportCount() === 0}
                                     onClick={handleExport}
                                 >
-                                    Export {exportCount()} User{exportCount() !== 1 ? 's' : ''}
-                                </button>
+                                    Export {exportCount()} user{exportCount() !== 1 ? 's' : ''}
+                                </Button>
                             </div>
                         </Show>
 

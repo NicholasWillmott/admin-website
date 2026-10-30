@@ -1,5 +1,6 @@
 import { createMemo, For, Show } from 'solid-js';
 import type { Server, ServerStatuses } from '../../types.ts';
+import { Icon } from '../ui/Icon.tsx';
 
 interface AllServersActivityModalProps {
     servers: Server[] | undefined;
@@ -59,7 +60,7 @@ export function AllServersActivityModal(p: AllServersActivityModalProps) {
             <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 560px">
                 <div class="modal-header">
                     <h2>Server Activity</h2>
-                    <button class="modal-close" onClick={p.onClose}>✕</button>
+                    <button class="modal-close" onClick={p.onClose}><Icon name="x" /></button>
                 </div>
                 <div class="modal-body">
                     <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px">

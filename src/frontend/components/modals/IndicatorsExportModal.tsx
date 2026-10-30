@@ -1,6 +1,8 @@
 import { createSignal, For } from 'solid-js';
 import type { Server } from '../../types.ts';
 import { exportIndicatorsCsvApi } from '../../services.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface IndicatorsExportModalProps {
   servers: Server[];
@@ -33,24 +35,24 @@ export function IndicatorsExportModal(props: IndicatorsExportModalProps) {
       <div class="modal-content" style={{ width: '480px', 'max-height': '80vh', display: 'flex', 'flex-direction': 'column' }} onClick={(e) => e.stopPropagation()}>
         <div class="modal-header">
           <h2>Export Indicators CSV</h2>
-          <button class="modal-close" onClick={props.onClose}>✕</button>
+          <button class="modal-close" onClick={props.onClose}><Icon name="x" /></button>
         </div>
         <div class="modal-body" style={{ flex: '1', overflow: 'hidden', display: 'flex', 'flex-direction': 'column', gap: '16px' }}>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button
+            <Button
               type="button"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: '#cbd5e1', 'border-radius': '6px', padding: '4px 10px', 'font-size': '12px', cursor: 'pointer' }}
+              size="sm"
               onClick={() => setSelectedIds(allIds())}
             >
               All
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: '#cbd5e1', 'border-radius': '6px', padding: '4px 10px', 'font-size': '12px', cursor: 'pointer' }}
+              size="sm"
               onClick={() => setSelectedIds([])}
             >
               None
-            </button>
+            </Button>
             <span style={{ color: '#94a3b8', 'font-size': '13px', 'margin-left': 'auto', 'align-self': 'center' }}>
               {selectedIds().length} / {props.servers.length} selected
             </span>
@@ -85,15 +87,16 @@ export function IndicatorsExportModal(props: IndicatorsExportModalProps) {
               }}
             </For>
           </div>
-          <button
+          <Button
             type="button"
-            class="action-btn"
-            style={{ background: 'linear-gradient(135deg, #0d9488 0%, #065f59 100%)', color: 'white', border: 'none', opacity: (loading() || selectedIds().length === 0) ? '0.5' : '1', cursor: (loading() || selectedIds().length === 0) ? 'not-allowed' : 'pointer' }}
+            variant="primary"
+            icon="download"
+            loading={loading()}
             disabled={loading() || selectedIds().length === 0}
             onClick={handleExport}
           >
-            {loading() ? 'Downloading...' : 'Download CSV'}
-          </button>
+            {loading() ? 'Downloading…' : 'Download CSV'}
+          </Button>
         </div>
       </div>
     </div>

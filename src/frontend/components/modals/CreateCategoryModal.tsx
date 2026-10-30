@@ -2,6 +2,8 @@ import { createSignal, For, Show } from 'solid-js';
 import { addToast } from '../../stores/toastStore.ts';
 import { createCategoryApi, renameCategoryApi, deleteCategoryApi } from '../../services.ts';
 import type { ServerCategory } from '../../services.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface ConfigureCategoriesModalProps {
   onClose: () => void;
@@ -74,7 +76,7 @@ export function ConfigureCategoriesModal(props: ConfigureCategoriesModalProps) {
       <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 450px">
         <div class="modal-header">
           <h2>Configure Categories</h2>
-          <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+          <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
         </div>
         <div style="display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px">
           <button
@@ -103,19 +105,19 @@ export function ConfigureCategoriesModal(props: ConfigureCategoriesModalProps) {
                 autofocus
               />
               <div style="display: flex; gap: 8px; margin-top: 16px">
-                <button
+                <Button
                   type="button"
-                  class="action-btn"
-                  style="flex: 1"
+                  block
                   onClick={() => props.onClose()}
-                >Cancel</button>
-                <button
+                >Cancel</Button>
+                <Button
                   type="button"
-                  class="action-btn docker-pull"
-                  style="flex: 1"
+                  variant="primary"
+                  icon="plus"
+                  block
                   onClick={handleCreate}
                   disabled={!name().trim() || creating()}
-                >{creating() ? 'Creating…' : 'Create'}</button>
+                >{creating() ? 'Creating…' : 'Create'}</Button>
               </div>
             </div>
           </Show>
@@ -132,19 +134,20 @@ export function ConfigureCategoriesModal(props: ConfigureCategoriesModalProps) {
                       <>
                         <span style="flex: 1; font-weight: 500; color: #e2e8f0">{cat.name}</span>
                         <span style="color: #94a3b8; font-size: 12px">{cat.servers.length} server{cat.servers.length !== 1 ? 's' : ''}</span>
-                        <button
+                        <Button
                           type="button"
-                          class="action-btn"
-                          style="padding: 4px 10px; margin: 0"
+                          size="sm"
+                          icon="edit"
                           onClick={() => { setEditingName(cat.name); setEditValue(cat.name); }}
-                        >Rename</button>
-                        <button
+                        >Rename</Button>
+                        <Button
                           type="button"
-                          class="action-btn danger"
-                          style="padding: 4px 10px; margin: 0"
+                          variant="danger"
+                          size="sm"
+                          icon="trash"
                           disabled={deletingName() === cat.name}
                           onClick={() => handleDelete(cat.name)}
-                        >{deletingName() === cat.name ? '…' : 'Delete'}</button>
+                        >{deletingName() === cat.name ? '…' : 'Delete'}</Button>
                       </>
                     }
                   >
@@ -160,19 +163,19 @@ export function ConfigureCategoriesModal(props: ConfigureCategoriesModalProps) {
                       }}
                       autofocus
                     />
-                    <button
+                    <Button
                       type="button"
-                      class="action-btn docker-pull"
-                      style="padding: 4px 10px; margin: 0"
+                      variant="primary"
+                      size="sm"
+                      icon="save"
                       disabled={savingName() === cat.name}
                       onClick={() => handleRename(cat.name)}
-                    >{savingName() === cat.name ? '…' : 'Save'}</button>
-                    <button
+                    >{savingName() === cat.name ? '…' : 'Save'}</Button>
+                    <Button
                       type="button"
-                      class="action-btn"
-                      style="padding: 4px 10px; margin: 0"
+                      size="sm"
                       onClick={() => setEditingName(null)}
-                    >Cancel</button>
+                    >Cancel</Button>
                   </Show>
                 </div>
               )}</For>

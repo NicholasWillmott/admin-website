@@ -1,6 +1,8 @@
 import { createSignal, For } from 'solid-js';
 import type { FiscalYear, Server } from '../../types.ts';
 import type { ServerCategory } from '../../services.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 type ConfigChanges = { french?: boolean; portuguese?: boolean; ethiopian?: boolean; fiscalYear?: FiscalYear; countryIso3?: string; openAccess?: boolean; label?: string; category?: string };
 
@@ -60,7 +62,7 @@ export function ConfigModal(props: ConfigModalProps) {
       <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 420px">
         <div class="modal-header">
           <h2>Configuration — {props.server.label}</h2>
-          <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+          <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
         </div>
         <div class="modal-body">
           <div class="config-rows">
@@ -198,15 +200,16 @@ export function ConfigModal(props: ConfigModalProps) {
 
           </div>
 
-          <button
+          <Button
             type="button"
-            class="action-btn docker-pull"
+            variant="primary"
+            icon="save"
             style="width: 100%; margin-top: 20px"
             disabled={!hasChanges() || props.sshOperationInProgress}
             onClick={handleSave}
           >
-            {props.sshOperationInProgress ? 'SSH Operation in Progress...' : 'Save'}
-          </button>
+            {props.sshOperationInProgress ? 'SSH operation in progress…' : 'Save'}
+          </Button>
         </div>
       </div>
     </div>

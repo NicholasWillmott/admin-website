@@ -1,5 +1,7 @@
 import { createSignal, For } from 'solid-js';
 import { addToast } from '../../stores/toastStore.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 import {
   stopServerApi,
   removeSslApi,
@@ -87,8 +89,8 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
   const statusIcon = (status: StepStatus) => {
     if (status === 'pending') return <span class="create-server-step-icon pending">·</span>;
     if (status === 'loading') return <span class="create-server-step-icon loading"><span class="create-server-spinner" /></span>;
-    if (status === 'done') return <span class="create-server-step-icon done">✓</span>;
-    return <span class="create-server-step-icon error">✗</span>;
+    if (status === 'done') return <span class="create-server-step-icon done"><Icon name="check" /></span>;
+    return <span class="create-server-step-icon error"><Icon name="x" /></span>;
   };
 
   return (
@@ -101,7 +103,7 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
             {phase() === 'progress' && 'Deleting Server'}
           </h2>
           {phase() === 'input' && (
-            <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+            <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
           )}
         </div>
         <div class="modal-body">
@@ -124,23 +126,23 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
                 autofocus
               />
               <div style="display: flex; gap: 8px; margin-top: 16px">
-                <button
+                <Button
                   type="button"
-                  class="action-btn"
-                  style="flex: 1"
+                  block
                   onClick={() => props.onClose()}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  class="action-btn danger"
-                  style="flex: 1"
+                  variant="danger"
+                  icon="trash"
+                  block
                   onClick={() => setPhase('confirm')}
                   disabled={inputValue() !== expectedText}
                 >
                   Delete
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -150,22 +152,22 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
                 This action is <strong>permanent</strong> and cannot be undone. The server, its DNS record, nginx config, and SSL certificate will all be removed.
               </p>
               <div style="display: flex; gap: 8px; margin-top: 8px">
-                <button
+                <Button
                   type="button"
-                  class="action-btn"
-                  style="flex: 1"
+                  block
                   onClick={() => setPhase('input')}
                 >
-                  Go Back
-                </button>
-                <button
+                  Go back
+                </Button>
+                <Button
                   type="button"
-                  class="action-btn danger"
-                  style="flex: 1"
+                  variant="danger"
+                  icon="trash"
+                  block
                   onClick={handleDelete}
                 >
-                  Yes, Delete Permanently
-                </button>
+                  Yes, delete permanently
+                </Button>
               </div>
             </div>
           )}
@@ -185,14 +187,14 @@ export function DeleteServerModal(props: DeleteServerModalProps) {
                 )}
               </For>
               {finished() && (
-                <button
+                <Button
                   type="button"
-                  class="action-btn docker-pull"
+                  variant="primary"
                   style="margin-top: 20px; width: 100%"
                   onClick={() => props.onClose()}
                 >
                   Close
-                </button>
+                </Button>
               )}
             </div>
           )}

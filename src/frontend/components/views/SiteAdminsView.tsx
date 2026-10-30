@@ -4,6 +4,7 @@ import { formatDate } from '../../utils.ts';
 import { revokeAdminApi, revokeAdminInviteApi } from '../../services.ts';
 import { addToast } from '../../stores/toastStore.ts';
 import { AddAdminModal } from '../modals/AddAdminModal.tsx';
+import { Button } from '../ui/Button.tsx';
 
 interface SiteAdminsViewProps {
   data: SiteAdminsData | null | undefined;
@@ -78,9 +79,9 @@ export function SiteAdminsView(props: SiteAdminsViewProps) {
         <div class="volume-usage-header">
           <h2 class="volume-usage-title">Site Admins</h2>
           <div style="display: flex; gap: 12px">
-            <button class="system-btn" onClick={() => props.onRefetch()}>Refresh</button>
+            <Button icon="refresh" onClick={() => props.onRefetch()}>Refresh</Button>
             <Show when={props.isSuperUser()}>
-              <button class="system-btn snapshot" onClick={() => setAddModalOpen(true)}>Add Person</button>
+              <Button variant="primary" icon="userPlus" onClick={() => setAddModalOpen(true)}>Add person</Button>
             </Show>
           </div>
         </div>
@@ -136,13 +137,15 @@ export function SiteAdminsView(props: SiteAdminsViewProps) {
                     <Show when={props.isSuperUser()}>
                       <td style="text-align: right">
                         <Show when={!isOwner(user)}>
-                          <button
+                          <Button
                             type="button"
-                            class="action-btn danger"
-                            style="padding: 6px 14px; margin: 0"
+                            variant="danger"
+                            size="sm"
+                            icon="trash"
+                            loading={revokingUserId() === user.id}
                             disabled={revokingUserId() === user.id}
                             onClick={() => handleRevoke(user)}
-                          >{revokingUserId() === user.id ? 'Removing…' : 'Remove'}</button>
+                          >{revokingUserId() === user.id ? 'Removing…' : 'Remove'}</Button>
                         </Show>
                       </td>
                     </Show>
@@ -174,13 +177,15 @@ export function SiteAdminsView(props: SiteAdminsViewProps) {
                       <td class="access-log-time">{formatDate(new Date(invitation.created_at).toISOString())}</td>
                       <Show when={props.isSuperUser()}>
                         <td style="text-align: right">
-                          <button
+                          <Button
                             type="button"
-                            class="action-btn danger"
-                            style="padding: 6px 14px; margin: 0"
+                            variant="danger"
+                            size="sm"
+                            icon="trash"
+                            loading={revokingInviteId() === invitation.id}
                             disabled={revokingInviteId() === invitation.id}
                             onClick={() => handleRevokeInvite(invitation)}
-                          >{revokingInviteId() === invitation.id ? 'Revoking…' : 'Revoke'}</button>
+                          >{revokingInviteId() === invitation.id ? 'Revoking…' : 'Revoke'}</Button>
                         </td>
                       </Show>
                     </tr>

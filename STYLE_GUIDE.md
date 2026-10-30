@@ -2,6 +2,8 @@
 
 This document defines the visual conventions used throughout the app. **Always refer to this before writing or editing any CSS, SVG, or inline styles.**
 
+**Tokens:** every colour, radius and type size below exists as a CSS variable in `src/frontend/css/tokens.css` (e.g. `#94a3b8` is `var(--text-muted)`). Use the variable, never the raw hex. **Components:** buttons are `<Button>` and icons are `<Icon>` (`src/frontend/components/ui/`), styled in `src/frontend/css/ui.css`. `npm run lint:css` enforces the no-hex and no-gradient rules.
+
 ---
 
 ## Colour Palette
@@ -178,44 +180,26 @@ color: #94a3b8;
 
 ## Buttons
 
-### Primary
-```css
-background: linear-gradient(135deg, #0d9488 0%, #065f59 100%);
-color: white;
-border: none;
-```
+Always use `<Button>` (`components/ui/Button.tsx`); never write a styled `<button>` or a new button class. Buttons are **tinted by intent**: a soft fill, a matching 1px border and light text. Hover deepens the tint. Nothing moves, scales, glows or uses a gradient.
 
-### Header primary
-Use this for the one main action in the top header (e.g. "Create server"). It's solid rather than a gradient, and uses `#0f766e` because white on `#0d9488` only reaches ~3.7:1.
-```css
-background: #0f766e;
-border: 1px solid #0f766e;
-color: white;
-font-weight: 600;
-```
-Hover: `background: #0d9488`.
+| Variant | Use for | Fill / border / text |
+|---|---|---|
+| `primary` | The main or confirming action, at most one per panel or dialog | `rgba(13,148,136,0.2)` / `rgba(45,212,191,0.35)` / `--teal-300` |
+| `neutral` (default) | Everything else: view, refresh, cancel, configure | `rgba(255,255,255,0.05)` / `--border` / `--text` |
+| `caution` | Disruptive but recoverable: restart, stop | `rgba(245,158,11,0.12)` / `rgba(245,158,11,0.35)` / `--amber-300` |
+| `danger` | Destructive: delete, remove, revoke | `rgba(239,68,68,0.12)` / `rgba(248,113,113,0.35)` / `--red-300` |
 
-### Secondary (default action)
-```css
-background: rgba(255, 255, 255, 0.06);
-border: 1px solid rgba(255, 255, 255, 0.15);
-color: #cbd5e1;
-border-radius: 8px;
-```
-Hover: `border-color: #0d9488; color: #5eead4;`
+- **Size:** 36px tall, 13px/500 text, 8px radius. `size="sm"` gives 28px, 12px text, 6px radius, for table rows and dense toolbars.
+- **Icons:** pass `icon="restart"` and so on. The icon sits before the label. Cancel and Go back have no icon.
+- **Loading:** `loading` swaps the icon for a spinner. It doesn't disable the button, so keep `disabled` as well.
+- **Modal footers:** two `block` buttons, Cancel (neutral) then the confirming action (primary or danger).
+- **Disabled:** 45% opacity, `not-allowed` cursor.
+- **Central servers:** inside `.server-card.central` and `.modal-content.central-mode`, primary turns gold automatically.
+- **Labels:** sentence case ("Back up server"), with "…" for in-progress text ("Restarting…").
 
-### Danger
-```css
-background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-color: white;
-border: none;
-```
+## Icons
 
-### Disabled
-```css
-opacity: 0.5;
-cursor: not-allowed;
-```
+Always use `<Icon name="…">` (`components/ui/Icon.tsx`), never emoji or text glyphs (✕ ✓ ▶ ▾ 👤). Icons are 24×24 stroke paths in `currentColor`, sized 1em by default. To add one, add its path to `PATHS`.
 
 ---
 
@@ -375,12 +359,13 @@ height: 10px;
 ## Badges & Tags
 
 ```css
-/* Default teal badge */
-background: linear-gradient(135deg, #0d9488 0%, #065f59 100%);
-color: white;
-border-radius: 20px;
-padding: 6px 12px;
-font-size: 12px;
+/* Default teal badge: a quiet tinted chip, never a gradient */
+background: rgba(13, 148, 136, 0.15);
+border: 1px solid rgba(13, 148, 136, 0.4);
+color: var(--teal-300);
+border-radius: 6px;
+padding: 4px 10px;
+font-size: 11px;
 font-weight: 600;
 ```
 

@@ -1,5 +1,6 @@
 import { For, Show } from 'solid-js';
 import type { Server, VolumeUsage } from '../../types.ts';
+import { Button } from '../ui/Button.tsx';
 
 interface VolumeUsageViewProps {
   servers: Server[] | undefined;
@@ -47,9 +48,9 @@ export function VolumeUsageView(props: VolumeUsageViewProps) {
       <div class="volume-usage-content">
         <div class="volume-usage-header">
           <h2 class="volume-usage-title">Volume Usage</h2>
-          <button class="system-btn" onClick={() => props.onRefetch()}>
+          <Button icon="refresh" onClick={() => props.onRefetch()}>
             Refresh
-          </button>
+          </Button>
         </div>
 
         <Show when={props.loading}>

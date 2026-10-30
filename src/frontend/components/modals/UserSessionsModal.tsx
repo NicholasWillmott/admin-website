@@ -1,5 +1,6 @@
 import { createResource, For } from 'solid-js';
 import type { ClerkUser } from '../../types.ts';
+import { Icon } from '../ui/Icon.tsx';
 
 interface UserSessionsModalProps {
     user: ClerkUser;
@@ -87,7 +88,7 @@ export function UserSessionsModal(p: UserSessionsModalProps) {
                             <span class="sessions-modal-email">{getPrimaryEmail(p.user)}</span>
                         </div>
                     </div>
-                    <button class="modal-close" onClick={p.onClose}>×</button>
+                    <button class="modal-close" onClick={p.onClose}><Icon name="x" /></button>
                 </div>
 
                 <div class="modal-body">

@@ -2,6 +2,7 @@ import { For, Show, createResource, createSignal } from 'solid-js';
 import type { Server, PgStatStatementsOrderBy, PgStatStatement } from '../../types.ts';
 import { fetchServerPgStatStatements, resetServerPgStatStatements } from '../../services.ts';
 import { addToast } from '../../stores/toastStore.ts';
+import { Button } from '../ui/Button.tsx';
 
 interface PgStatStatementsViewProps {
   servers: Server[] | undefined;
@@ -123,11 +124,11 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
               onInput={(e) => setSearch(e.currentTarget.value)}
               placeholder="Search queries…"
             />
-            <button class="system-btn" disabled={!serverId() || data.loading} onClick={() => refetch()}>
+            <Button icon="refresh" disabled={!serverId() || data.loading} onClick={() => refetch()}>
               {data.loading ? 'Loading…' : 'Refresh'}
-            </button>
-            <button
-              class="system-btn system-btn--danger"
+            </Button>
+            <Button
+              variant="danger"
               disabled={!serverId() || resetting()}
               onClick={async () => {
                 if (!confirm('Reset pg_stat_statements for this server? This clears all accumulated query stats.')) return;
@@ -143,8 +144,8 @@ export function PgStatStatementsView(props: PgStatStatementsViewProps) {
                 }
               }}
             >
-              {resetting() ? 'Resetting…' : 'Reset Stats'}
-            </button>
+              {resetting() ? 'Resetting…' : 'Reset stats'}
+            </Button>
           </div>
         </div>
 

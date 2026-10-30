@@ -1,3 +1,4 @@
+import { Icon } from '../ui/Icon.tsx';
 import { Show } from 'solid-js';
 import type { WhatsNewPost } from '../../types.ts';
 import type { WhatsNewEventRow } from '../../services.ts';
@@ -35,7 +36,7 @@ export function WhatsNewStatsModal(props: WhatsNewStatsModalProps) {
       <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 860px">
         <div class="modal-header">
           <h2>Post Engagement</h2>
-          <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+          <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
         </div>
         <div class="modal-body">
           <div class="wn-stats-post-line">

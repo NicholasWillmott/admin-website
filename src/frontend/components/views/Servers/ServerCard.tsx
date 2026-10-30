@@ -2,6 +2,8 @@ import { createSignal, For, Show } from 'solid-js';
 import type { Server, HealthCheckResponse, ServerRestartStatus } from '../../../types.ts';
 import { filterAdhocVersions, filterVersionsForServer, formatUptime, parseVersion, timeAgo } from '../../../utils.ts';
 import { describeBusy, type InstanceBusy } from '../../../instance_busy.ts';
+import { Button } from '../../ui/Button.tsx';
+import { Icon } from '../../ui/Icon.tsx';
 
 interface ServerCardProps {
   server: Server;
@@ -191,23 +193,22 @@ export function ServerCard(props: ServerCardProps) {
                 </Show>
               </select>
             </label>
-            <button
-              class="update-btn"
+            <Button
+              variant="primary"
+              icon="upload"
               onClick={() => props.onUpdate(props.server.id, selectedVersion())}
               disabled={props.isLocked || !!props.busy || props.updatingServerId === props.server.id || props.sshOperationInProgress}
+              loading={!props.isLocked && !props.busy && props.updatingServerId === props.server.id}
               title={props.busy ? `${describeBusy(props.busy)}. Updating restarts the server and would kill it.` : undefined}
             >
-              {props.isLocked ? 'Server Locked' : props.busy ? 'Server Busy' : props.updatingServerId === props.server.id ? (
-                <>
-                  <span class="button-spinner"></span>
-                  Updating...
-                </>
+              {props.isLocked ? 'Server locked' : props.busy ? 'Server busy' : props.updatingServerId === props.server.id ? (
+                'Updating…'
               ) : props.sshOperationInProgress ? (
-                'SSH Operation in Progress...'
+                'SSH operation in progress…'
               ) : (
-                'Update Version'
+                'Update version'
               )}
-            </button>
+            </Button>
           </div>
 
           {/* Analytics */}
@@ -236,7 +237,7 @@ export function ServerCard(props: ServerCardProps) {
               <For each={props.status?.adminUsers ?? []}>
                 {(email) => (
                   <div class="admin-user-card">
-                    <span class="user-icon">👤</span>
+                    <span class="user-icon"><Icon name="user" /></span>
                     <span class="user-email">{email}</span>
                   </div>
                 )}
@@ -252,7 +253,7 @@ export function ServerCard(props: ServerCardProps) {
                 <For each={props.status?.contactPersons ?? []}>
                   {(person) => (
                     <div class="admin-user-card">
-                      <span class="user-icon">👤</span>
+                      <span class="user-icon"><Icon name="user" /></span>
                       <span class="user-email">{person.email}</span>
                     </div>
                   )}
@@ -264,65 +265,59 @@ export function ServerCard(props: ServerCardProps) {
           {/* Actions */}
           <div class="actions-section">
             <h3>Actions</h3>
-            <button
-              class="action-btn restart"
+            <Button
+              variant="caution"
+              icon="restart"
               onClick={() => props.onRestart(props.server.id)}
               disabled={props.isLocked || !!props.busy || props.restartingServerId === props.server.id || props.sshOperationInProgress}
+              loading={!props.isLocked && !props.busy && props.restartingServerId === props.server.id}
               title={props.busy ? `${describeBusy(props.busy)}. A restart would kill it.` : undefined}
             >
-              {props.isLocked ? 'Server Locked' : props.busy ? 'Server Busy' : props.restartingServerId === props.server.id ? (
-                <>
-                  <span class="button-spinner"></span>
-                  Restarting...
-                </>
+              {props.isLocked ? 'Server locked' : props.busy ? 'Server busy' : props.restartingServerId === props.server.id ? (
+                'Restarting…'
               ) : props.sshOperationInProgress ? (
-                'SSH Operation in Progress...'
+                'SSH operation in progress…'
               ) : (
-                'Restart Server'
+                'Restart server'
               )}
-            </button>
-            <button
-              class="action-btn stop"
+            </Button>
+            <Button
+              variant="caution"
+              icon="stop"
               onClick={() => props.onStop(props.server.id)}
               disabled={props.isLocked || !!props.busy || props.stoppingServerId === props.server.id || props.sshOperationInProgress}
+              loading={!props.isLocked && !props.busy && props.stoppingServerId === props.server.id}
               title={props.busy ? `${describeBusy(props.busy)}. Stopping would kill it.` : undefined}
             >
-              {props.isLocked ? 'Server Locked' : props.busy ? 'Server Busy' : props.stoppingServerId === props.server.id ? (
-                <>
-                  <span class="button-spinner"></span>
-                  Stopping...
-                </>
+              {props.isLocked ? 'Server locked' : props.busy ? 'Server busy' : props.stoppingServerId === props.server.id ? (
+                'Stopping…'
               ) : props.sshOperationInProgress ? (
-                'SSH Operation in Progress...'
+                'SSH operation in progress…'
               ) : (
-                'Stop Server'
+                'Stop server'
               )}
-            </button>
-            <button
-              class="action-btn backup"
+            </Button>
+            <Button
+              variant="primary"
+              icon="backup"
               onClick={() => props.onBackup(props.server.id)}
               disabled={props.backingUpServerId === props.server.id}
+              loading={props.backingUpServerId === props.server.id}
             >
-              {props.backingUpServerId === props.server.id ? (
-                <>
-                  <span class="button-spinner"></span>
-                  Backing Up...
-                </>
-              ): (
-                'Back Up Server'
-              )}
-            </button>
-            <button class="action-btn" onClick={() => props.onViewBackups(props.server.id)}>View Backups</button>
-            <button class="action-btn" onClick={() => props.onViewLogs(props.server.id)}>View Logs</button>
-            <button class="action-btn" onClick={() => props.onConfig(props.server.id)}>Configuration</button>
-            <button
-              class="action-btn danger"
+              {props.backingUpServerId === props.server.id ? 'Backing up…' : 'Back up server'}
+            </Button>
+            <Button icon="folder" onClick={() => props.onViewBackups(props.server.id)}>View backups</Button>
+            <Button icon="logs" onClick={() => props.onViewLogs(props.server.id)}>View logs</Button>
+            <Button icon="settings" onClick={() => props.onConfig(props.server.id)}>Configuration</Button>
+            <Button
+              variant="danger"
+              icon="trash"
               onClick={() => props.onDelete(props.server.id)}
               disabled={props.isLocked || !!props.busy || props.sshOperationInProgress}
               title={props.busy ? `${describeBusy(props.busy)}. Deleting stops the server and would kill it.` : undefined}
             >
-              {props.isLocked ? 'Server Locked' : props.busy ? 'Server Busy' : props.sshOperationInProgress ? 'SSH Operation in Progress...' : 'Delete Server'}
-            </button>
+              {props.isLocked ? 'Server locked' : props.busy ? 'Server busy' : props.sshOperationInProgress ? 'SSH operation in progress…' : 'Delete server'}
+            </Button>
           </div>
         </div>
       </Show>

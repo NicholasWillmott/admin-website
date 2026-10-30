@@ -1,5 +1,7 @@
 import { createSignal, For } from 'solid-js';
 import type { Server } from '../../types.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface InstanceAdminEmailModalProps {
     servers: Server[] | undefined;
@@ -34,7 +36,7 @@ export function InstanceAdminEmailModal(p: InstanceAdminEmailModalProps) {
             <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 480px">
                 <div class="modal-header">
                     <h2>Send Instance Admin Reports</h2>
-                    <button class="modal-close" onClick={p.onClose}>✕</button>
+                    <button class="modal-close" onClick={p.onClose}><Icon name="x" /></button>
                 </div>
                 <div class="modal-body">
                     <div style="display: flex; flex-direction: column; gap: 16px">
@@ -51,16 +53,16 @@ export function InstanceAdminEmailModal(p: InstanceAdminEmailModalProps) {
                                     </span>
                                 </p>
                                 <div style="display: flex; gap: 8px">
-                                    <button
+                                    <Button
                                         type="button"
-                                        class="activity-btn"
+                                        size="sm"
                                         onClick={() => setExcluded(new Set())}
-                                    >All</button>
-                                    <button
+                                    >All</Button>
+                                    <Button
                                         type="button"
-                                        class="activity-btn"
+                                        size="sm"
                                         onClick={() => setExcluded(new Set(allIds()))}
-                                    >None</button>
+                                    >None</Button>
                                 </div>
                             </div>
                             <div style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
@@ -86,23 +88,24 @@ export function InstanceAdminEmailModal(p: InstanceAdminEmailModalProps) {
                         </div>
 
                         <div style="display: flex; gap: 8px; margin-top: 4px">
-                            <button
+                            <Button
                                 type="button"
-                                class="action-btn"
-                                style="flex: 1"
+                                block
                                 onClick={p.onClose}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
-                                class="action-btn"
-                                style="flex: 1"
+                                variant="primary"
+                                icon="send"
+                                block
+                                loading={p.sending}
                                 disabled={selectedIds().length === 0 || p.sending}
                                 onClick={handleSend}
                             >
-                                {p.sending ? 'Sending...' : `Send to ${selectedIds().length} Instance${selectedIds().length !== 1 ? 's' : ''}`}
-                            </button>
+                                {p.sending ? 'Sending…' : `Send to ${selectedIds().length} instance${selectedIds().length !== 1 ? 's' : ''}`}
+                            </Button>
                         </div>
                     </div>
                 </div>

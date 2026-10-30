@@ -2,6 +2,8 @@ import { For, Show, createMemo, createSignal } from 'solid-js';
 import { addToast } from '../../stores/toastStore.ts';
 import { grantAdminApi, inviteAdminApi } from '../../services.ts';
 import type { ClerkUser } from '../../types.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface AddAdminModalProps {
   onClose: () => void;
@@ -91,7 +93,7 @@ export function AddAdminModal(props: AddAdminModalProps) {
       <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 520px">
         <div class="modal-header">
           <h2>Add Person</h2>
-          <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+          <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
         </div>
         <div style="display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 16px">
           <button
@@ -139,13 +141,16 @@ export function AddAdminModal(props: AddAdminModalProps) {
                     <div style="font-weight: 500; color: #e2e8f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{displayName(user)}</div>
                     <div style="color: #94a3b8; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{primaryEmail(user)}</div>
                   </div>
-                  <button
+                  <Button
                     type="button"
-                    class="action-btn docker-pull"
-                    style="padding: 6px 14px; margin: 0; flex-shrink: 0"
+                    variant="primary"
+                    size="sm"
+                    icon="userPlus"
+                    style="flex-shrink: 0"
+                    loading={grantingId() === user.id}
                     disabled={grantingId() === user.id}
                     onClick={() => handleGrant(user)}
-                  >{grantingId() === user.id ? 'Granting…' : 'Grant Access'}</button>
+                  >{grantingId() === user.id ? 'Granting…' : 'Grant access'}</Button>
                 </div>
               )}</For>
             </div>
@@ -175,13 +180,16 @@ export function AddAdminModal(props: AddAdminModalProps) {
                       : 'This email belongs to an existing account — grant it access directly.'}
                   </span>
                   <Show when={!props.adminIds.has(user().id)}>
-                    <button
+                    <Button
                       type="button"
-                      class="action-btn docker-pull"
-                      style="padding: 6px 14px; margin: 0; flex-shrink: 0"
+                      variant="primary"
+                      size="sm"
+                      icon="userPlus"
+                      style="flex-shrink: 0"
+                      loading={grantingId() === user().id}
                       disabled={grantingId() === user().id}
                       onClick={() => handleGrant(user())}
-                    >{grantingId() === user().id ? 'Granting…' : 'Grant Access'}</button>
+                    >{grantingId() === user().id ? 'Granting…' : 'Grant access'}</Button>
                   </Show>
                 </div>
               )}</Show>
@@ -191,19 +199,20 @@ export function AddAdminModal(props: AddAdminModalProps) {
                 </div>
               </Show>
               <div style="display: flex; gap: 8px; margin-top: 16px">
-                <button
+                <Button
                   type="button"
-                  class="action-btn"
-                  style="flex: 1"
+                  block
                   onClick={() => props.onClose()}
-                >Cancel</button>
-                <button
+                >Cancel</Button>
+                <Button
                   type="button"
-                  class="action-btn docker-pull"
-                  style="flex: 1"
+                  variant="primary"
+                  icon="send"
+                  block
+                  loading={inviting()}
                   onClick={handleInvite}
                   disabled={!canInvite()}
-                >{inviting() ? 'Sending…' : 'Send Invitation'}</button>
+                >{inviting() ? 'Sending…' : 'Send invitation'}</Button>
               </div>
             </div>
           </Show>

@@ -1,6 +1,8 @@
 import { createSignal, For } from 'solid-js';
 import type { BackupInfo } from '../../types.ts';
 import { formatBytes } from '../../utils.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface BackupsModalProps {
   serverId: string;
@@ -23,13 +25,13 @@ export function BackupsModal(props: BackupsModalProps) {
       <div class="modal-content backups-modal" onClick={(e) => e.stopPropagation()}>
         <div class="modal-header">
           <h2>Backups: {props.serverId}</h2>
-          <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+          <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
         </div>
         <div class="modal-body">
           {props.loading ? (
             <div class="logs-loading">
               <div class="spinner"></div>
-              <p>Loading backups...</p>
+              <p>Loading backups…</p>
             </div>
           ) : props.backups.length === 0 ? (
             <div class="no-backups">
@@ -47,19 +49,25 @@ export function BackupsModal(props: BackupsModalProps) {
                           {backup.backed_up_projects} projects • {formatBytes(backup.size)} • {backup.file_count} files
                         </span>
                       </div>
-                      <span class="backup-expand-icon">{expandedBackup() === backup.folder ? '▼' : '▶'}</span>
+                      <span
+                        class="backup-expand-icon"
+                        style={{ display: 'inline-flex', transform: expandedBackup() === backup.folder ? 'rotate(90deg)' : undefined }}
+                      >
+                        <Icon name="chevronRight" />
+                      </span>
                     </div>
 
                     {expandedBackup() === backup.folder && (
                       <div class="backup-files">
                         <div class="download-all-section">
-                          <button
+                          <Button
                             type="button"
-                            class="download-all-btn"
+                            icon="download"
+                            style="width: 100%"
                             onClick={() => props.onDownloadAll(props.serverId, backup.folder)}
                           >
-                            📥 Download Entire Backup ({formatBytes(backup.size)})
-                          </button>
+                            Download entire backup ({formatBytes(backup.size)})
+                          </Button>
                         </div>
 
                         <div class="backup-section-header">
@@ -69,7 +77,7 @@ export function BackupsModal(props: BackupsModalProps) {
                           {(file) => (
                             <div class="backup-file" onClick={() => props.onDownloadFile(props.serverId, backup.folder, file.name)}>
                               <span class="file-icon">
-                                {file.type === 'main' ? '📦' : file.type === 'metadata' ? '📄' : '📋'}
+                                <Icon name={file.type === 'main' ? 'database' : file.type === 'metadata' ? 'file' : 'logs'} />
                               </span>
                               <span class="file-name">{file.name}</span>
                               <span class="file-size">{formatBytes(file.size)}</span>
@@ -86,7 +94,7 @@ export function BackupsModal(props: BackupsModalProps) {
                         <For each={backup.files.filter(f => f.type === 'project')}>
                           {(file) => (
                             <div class="backup-file" onClick={() => props.onDownloadFile(props.serverId, backup.folder, file.name)}>
-                              <span class="file-icon">🗄️</span>
+                              <span class="file-icon"><Icon name="archive" /></span>
                               <span class="file-name">{file.name}</span>
                               <span class="file-size">{formatBytes(file.size)}</span>
                               <span class="file-type">Project Database</span>

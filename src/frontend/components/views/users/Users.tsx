@@ -16,6 +16,8 @@ import { EmailOptInChart } from './graphs/EmailOptInChart.tsx';
 import { UserRetentionChart } from './graphs/UserRetentionChart.tsx';
 import { RecentSignupsCard } from './graphs/RecentSignupsCard.tsx';
 import { InstanceActivityChart } from './graphs/InstanceActivityChart.tsx';
+import { Button } from '../../ui/Button.tsx';
+import { Icon } from '../../ui/Icon.tsx';
 
 interface UsersProps {
     users: ClerkUser[] | undefined;
@@ -292,7 +294,7 @@ export function Users(p: UsersProps) {
                                 </span>
                             )}
                             <div class="dropdown">
-                                <button type="button" class="activity-btn">Actions ▾</button>
+                                <Button type="button" size="sm">Actions <Icon name="chevronDown" /></Button>
                                 <div class="dropdown-menu">
                                     <button type="button" class="dropdown-item" onClick={() => setActiveUsersExportOpen(true)}>
                                         Export Active Users
@@ -425,13 +427,13 @@ export function Users(p: UsersProps) {
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    <button
+                                                    <Button
                                                         type="button"
-                                                        class="activity-btn"
+                                                        size="sm"
                                                         onClick={() => setSelectedUser(user)}
                                                     >
                                                         Activity
-                                                    </button>
+                                                    </Button>
                                                 </td>
                                             </tr>
                                         )}

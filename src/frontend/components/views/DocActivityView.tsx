@@ -1,5 +1,6 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { Server, ServerUserLogs, ServerUserLogsAggregate } from '../../types.ts';
+import { Button } from '../ui/Button.tsx';
 
 const SESSION_ENDPOINTS: Record<string, 'report' | 'deck'> = {
     reportEditSession: 'report',
@@ -176,9 +177,9 @@ export function DocActivityView(props: DocActivityViewProps) {
                             >Decks</button>
                         </div>
                     </div>
-                    <button class="doc-activity-export-btn" onClick={exportCsv}>
+                    <Button icon="download" onClick={exportCsv}>
                         Export CSV
-                    </button>
+                    </Button>
                 </div>
 
                 <p class="doc-activity-note">

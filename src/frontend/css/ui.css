@@ -1,0 +1,139 @@
+/* Shared UI primitives (components/ui/*). Values come from tokens.css only. */
+
+/* ===== Icon (components/ui/Icon.tsx) ===== */
+.icon {
+  flex-shrink: 0;
+  vertical-align: -0.125em;
+}
+
+/* ===== Button (components/ui/Button.tsx) =====
+   Tinted by intent: a soft fill, a matching border and light text. Hover
+   deepens the tint; nothing moves, scales or glows. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  margin: 0;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-base);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-strong);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--teal-400);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: rgba(13, 148, 136, 0.2);
+  border-color: rgba(45, 212, 191, 0.35);
+  color: var(--teal-300);
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: rgba(13, 148, 136, 0.32);
+  border-color: var(--teal-400);
+  color: var(--teal-200);
+}
+
+.btn-caution {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: var(--amber-300);
+}
+
+.btn-caution:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: var(--amber-500);
+  color: var(--amber-200);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: var(--red-300);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: var(--red-400);
+  color: var(--red-200);
+}
+
+.btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  gap: 5px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.btn-sm svg {
+  width: 13px;
+  height: 13px;
+}
+
+.btn-block {
+  flex: 1;
+}
+
+.btn-spinner {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  opacity: 0.8;
+  animation: spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* Central servers use gold in place of teal for their primary action */
+.server-card.central .btn-primary,
+.modal-content.central-mode .btn-primary {
+  background: rgba(184, 134, 11, 0.16);
+  border-color: rgba(184, 134, 11, 0.45);
+  color: var(--gold-300);
+}
+
+.server-card.central .btn-primary:hover:not(:disabled),
+.modal-content.central-mode .btn-primary:hover:not(:disabled) {
+  background: rgba(184, 134, 11, 0.28);
+  border-color: var(--gold-500);
+}

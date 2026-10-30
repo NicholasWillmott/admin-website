@@ -1,3 +1,4 @@
+import { Icon } from '../ui/Icon.tsx';
 import { For } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { Server } from '../../types.ts';
@@ -28,7 +29,7 @@ export function ServerVersionsModal(props: ServerVersionsModalProps) {
       <div class="modal-content server-versions-modal" onClick={(e) => e.stopPropagation()}>
         <div class="modal-header">
           <h2>Server Versions</h2>
-          <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+          <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
         </div>
         <div class="modal-body">
           <div class="server-versions-grid">

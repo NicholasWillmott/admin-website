@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { AccessLogEntry } from '../../types.ts';
 import { formatDate } from '../../utils.ts';
+import { Button } from '../ui/Button.tsx';
 
 interface AccessLogViewProps {
   entries: AccessLogEntry[] | undefined;
@@ -40,7 +41,7 @@ export function AccessLogView(props: AccessLogViewProps) {
       <div class="volume-usage-content">
         <div class="volume-usage-header">
           <h2 class="volume-usage-title">Site Access Log</h2>
-          <button class="system-btn" onClick={() => props.onRefetch()}>Refresh</button>
+          <Button icon="refresh" onClick={() => props.onRefetch()}>Refresh</Button>
         </div>
 
         <Show when={props.loading}>
@@ -97,13 +98,13 @@ export function AccessLogView(props: AccessLogViewProps) {
 
             <Show when={totalPages() > 1}>
               <div class="access-log-pagination">
-                <button class="system-btn" disabled={page() <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                <Button disabled={page() <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
                   Previous
-                </button>
+                </Button>
                 <span class="access-log-page-info">Page {page()} of {totalPages()}</span>
-                <button class="system-btn" disabled={page() >= totalPages()} onClick={() => setPage(p => Math.min(totalPages(), p + 1))}>
+                <Button disabled={page() >= totalPages()} onClick={() => setPage(p => Math.min(totalPages(), p + 1))}>
                   Next
-                </button>
+                </Button>
               </div>
             </Show>
           </Show>

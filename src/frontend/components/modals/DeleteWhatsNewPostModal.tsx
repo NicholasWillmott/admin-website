@@ -1,4 +1,6 @@
 import { Show, createSignal } from 'solid-js';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface DeleteWhatsNewPostModalProps {
   postTitle: string;
@@ -27,7 +29,7 @@ export function DeleteWhatsNewPostModal(props: DeleteWhatsNewPostModalProps) {
         <div class="modal-header">
           <h2>Are you sure?</h2>
           <Show when={!deleting()}>
-            <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+            <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
           </Show>
         </div>
         <div class="modal-body">
@@ -49,24 +51,24 @@ export function DeleteWhatsNewPostModal(props: DeleteWhatsNewPostModalProps) {
               </p>
             </Show>
             <div style="display: flex; gap: 8px; margin-top: 8px">
-              <button
+              <Button
                 type="button"
-                class="action-btn"
-                style="flex: 1"
+                block
                 disabled={deleting()}
                 onClick={() => props.onClose()}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                class="action-btn danger"
-                style="flex: 1"
+                variant="danger"
+                icon="trash"
+                block
                 disabled={deleting()}
                 onClick={handleConfirm}
               >
                 {deleting() ? 'Deleting…' : 'Yes, delete post'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

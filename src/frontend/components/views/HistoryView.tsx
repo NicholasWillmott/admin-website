@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { ChangelogVersion, SentEmailSummary } from '../../types.ts';
 import { SentEmailViewModal } from '../modals/SentEmailViewModal.tsx';
+import { Button } from '../ui/Button.tsx';
 
 type AudienceFilter = 'user' | 'admin' | 'emails';
 
@@ -152,13 +153,13 @@ export function HistoryView(props: HistoryViewProps) {
                 </For>
               </select>
               <Show when={dateFrom() || dateTo() || instanceFilter()}>
-                <button
+                <Button
                   type="button"
-                  class="email-history-clear-btn"
+                  size="sm"
                   onClick={() => { setDateFrom(''); setDateTo(''); setInstanceFilter(''); }}
                 >
                   Clear
-                </button>
+                </Button>
               </Show>
             </div>
           </Show>

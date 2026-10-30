@@ -1,6 +1,8 @@
 /* @refresh reload */
 import { render } from 'solid-js/web'
+import './css/tokens.css'
 import './css/index.css'
+import './css/ui.css'
 import App from '../frontend/App.tsx'
 import { ClerkProvider } from 'clerk-solidjs'
 

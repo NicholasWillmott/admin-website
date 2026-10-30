@@ -1,5 +1,7 @@
 import { createSignal, For, Show } from 'solid-js';
 import { addToast } from '../../stores/toastStore.ts';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 import {
   createDnsRecordApi,
   createServerApi,
@@ -220,8 +222,8 @@ export function CreateServerModal(props: CreateServerModalProps) {
   const statusIcon = (status: StepStatus) => {
     if (status === 'pending') return <span class="create-server-step-icon pending">·</span>;
     if (status === 'loading') return <span class="create-server-step-icon loading"><span class="create-server-spinner" /></span>;
-    if (status === 'done') return <span class="create-server-step-icon done">✓</span>;
-    return <span class="create-server-step-icon error">✗</span>;
+    if (status === 'done') return <span class="create-server-step-icon done"><Icon name="check" /></span>;
+    return <span class="create-server-step-icon error"><Icon name="x" /></span>;
   };
 
   const isCreateDisabled = () =>
@@ -240,7 +242,7 @@ export function CreateServerModal(props: CreateServerModalProps) {
         <div class="modal-header">
           <h2>{phase() === 'form' ? 'Create Server' : 'Creating Server'}</h2>
           {phase() === 'form' && (
-            <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+            <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
           )}
         </div>
         <div class="modal-body">
@@ -276,13 +278,13 @@ export function CreateServerModal(props: CreateServerModalProps) {
                 <For each={Object.entries(conflicts()!) as [keyof ServerConflicts, boolean][]}>
                   {([key, exists]) => (
                     <Show when={exists}>
-                      <p style="color: #dc3545; font-size: 12px; margin: 4px 0 0">✗ {CONFLICT_LABELS[key]}</p>
+                      <p style="color: #dc3545; font-size: 12px; margin: 4px 0 0"><Icon name="x" /> {CONFLICT_LABELS[key]}</p>
                     </Show>
                   )}
                 </For>
               </Show>
               <Show when={!checking() && conflicts() !== null && !hasConflicts()}>
-                <p style="color: #28a745; font-size: 12px; margin: 4px 0 0">✓ No conflicts found</p>
+                <p style="color: #28a745; font-size: 12px; margin: 4px 0 0"><Icon name="check" /> No conflicts found</p>
               </Show>
 
               <label for="cs-volume" style="margin-top: 12px">Volume</label>
@@ -349,23 +351,23 @@ export function CreateServerModal(props: CreateServerModalProps) {
               </div>
 
               <div style="display: flex; gap: 8px; margin-top: 16px">
-                <button
+                <Button
                   type="button"
-                  class="action-btn"
-                  style="flex: 1"
+                  block
                   onClick={() => props.onClose()}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  class="action-btn docker-pull"
-                  style="flex: 1"
+                  variant="primary"
+                  icon="plus"
+                  block
                   onClick={handleCreate}
                   disabled={isCreateDisabled()}
                 >
                   {checking() ? 'Checking…' : 'Create'}
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
@@ -384,14 +386,14 @@ export function CreateServerModal(props: CreateServerModalProps) {
                 )}
               </For>
               {finished() && (
-                <button
+                <Button
                   type="button"
-                  class="action-btn docker-pull"
+                  variant="primary"
                   style="margin-top: 20px; width: 100%"
                   onClick={() => props.onClose()}
                 >
                   Close
-                </button>
+                </Button>
               )}
             </div>
           )}

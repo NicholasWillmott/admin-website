@@ -1,3 +1,5 @@
+import { Icon } from '../ui/Icon.tsx';
+
 interface LogsModalProps {
   serverId: string;
   logs: string;
@@ -81,7 +83,7 @@ export function LogsModal(props: LogsModalProps) {
       <div class="modal-content" onClick={(e) => e.stopPropagation()}>
         <div class="modal-header">
           <h2>Server Logs: {props.serverId}</h2>
-          <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+          <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
         </div>
         <div class="modal-body">
           {props.loading ? (

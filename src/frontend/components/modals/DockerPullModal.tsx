@@ -1,4 +1,6 @@
 import { createSignal, For, Show } from 'solid-js';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 const HISTORY_KEY = 'docker-pull-history';
 const MAX_HISTORY = 5;
@@ -40,7 +42,7 @@ export function DockerPullModal(props: DockerPullModalProps) {
       <div class={`modal-content ${serverType() === 'central' ? 'central-mode' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div class="modal-header">
           <h2>Docker Pull</h2>
-          <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+          <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
         </div>
         <div class="modal-body">
           <div class="docker-pull-form">
@@ -88,14 +90,15 @@ export function DockerPullModal(props: DockerPullModalProps) {
                 </div>
               </div>
             </Show>
-            <button
+            <Button
               type="button"
-              class="action-btn docker-pull"
+              variant="primary"
+              icon="download"
               onClick={handlePull}
               disabled={!version().trim() || props.sshOperationInProgress}
             >
-              Pull Docker Image
-            </button>
+              Pull Docker image
+            </Button>
           </div>
         </div>
       </div>

@@ -1,4 +1,6 @@
 import { createSignal, For } from 'solid-js';
+import { Button } from '../ui/Button.tsx';
+import { Icon } from '../ui/Icon.tsx';
 
 interface SuperAdminEmailModalProps {
     emails: string[];
@@ -31,7 +33,7 @@ export function SuperAdminEmailModal(p: SuperAdminEmailModalProps) {
             <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 480px">
                 <div class="modal-header">
                     <h2>Send Weekly Report</h2>
-                    <button class="modal-close" onClick={p.onClose}>✕</button>
+                    <button class="modal-close" onClick={p.onClose}><Icon name="x" /></button>
                 </div>
                 <div class="modal-body">
                     <div style="display: flex; flex-direction: column; gap: 16px">
@@ -44,8 +46,8 @@ export function SuperAdminEmailModal(p: SuperAdminEmailModalProps) {
                                     </span>
                                 </p>
                                 <div style="display: flex; gap: 8px">
-                                    <button type="button" class="activity-btn" onClick={() => setExcluded(new Set())}>All</button>
-                                    <button type="button" class="activity-btn" onClick={() => setExcluded(new Set(p.emails))}>None</button>
+                                    <Button type="button" size="sm" onClick={() => setExcluded(new Set())}>All</Button>
+                                    <Button type="button" size="sm" onClick={() => setExcluded(new Set(p.emails))}>None</Button>
                                 </div>
                             </div>
                             <div style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px">
@@ -65,23 +67,24 @@ export function SuperAdminEmailModal(p: SuperAdminEmailModalProps) {
                         </div>
 
                         <div style="display: flex; gap: 8px; margin-top: 4px">
-                            <button
+                            <Button
                                 type="button"
-                                class="action-btn"
-                                style="flex: 1"
+                                block
                                 onClick={p.onClose}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="button"
-                                class="action-btn"
-                                style="flex: 1"
+                                variant="primary"
+                                icon="send"
+                                block
+                                loading={p.sending}
                                 disabled={selectedEmails().length === 0 || p.sending}
                                 onClick={handleSend}
                             >
-                                {p.sending ? 'Sending...' : `Send to ${selectedEmails().length} Admin${selectedEmails().length !== 1 ? 's' : ''}`}
-                            </button>
+                                {p.sending ? 'Sending…' : `Send to ${selectedEmails().length} admin${selectedEmails().length !== 1 ? 's' : ''}`}
+                            </Button>
                         </div>
                     </div>
                 </div>

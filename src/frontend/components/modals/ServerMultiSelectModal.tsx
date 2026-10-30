@@ -1,6 +1,7 @@
 import { createSignal } from 'solid-js';
 import { For, Show } from 'solid-js';
 import { filterAdhocVersions, parseVersion } from '../../utils.ts';
+import { Button } from '../ui/Button.tsx';
 
 type ConfirmAction = 'update' | 'restart' | 'stop' | null;
 
@@ -92,27 +93,30 @@ export function ServerMultiSelectModal(props: multiSelectProps) {
             >
               Ad-hoc
             </button>
-            <button
-              class="update-btn"
+            <Button
+              variant="primary"
+              icon="upload"
               onClick={() => setConfirmAction('update')}
               disabled={!selectedVersion() || props.sshOperationInProgress}
             >
-              Update All
-            </button>
-            <button
-              class="action-btn restart"
+              Update all
+            </Button>
+            <Button
+              variant="caution"
+              icon="restart"
               onClick={() => setConfirmAction('restart')}
               disabled={props.sshOperationInProgress}
             >
-              Restart All
-            </button>
-            <button
-              class="action-btn stop"
+              Restart all
+            </Button>
+            <Button
+              variant="caution"
+              icon="stop"
               onClick={() => setConfirmAction('stop')}
               disabled={props.sshOperationInProgress}
             >
-              Stop All
-            </button>
+              Stop all
+            </Button>
           </>
         }>
           <Show when={confirmAction() === 'update'}>
@@ -120,16 +124,17 @@ export function ServerMultiSelectModal(props: multiSelectProps) {
             <p>Update <strong>{count()} servers</strong> to version <strong>{selectedVersion()}</strong>?</p>
             <ServerListLabel ids={props.serverIds} />
             <div class="multi-select-confirm-actions">
-              <button
-                class="update-btn"
+              <Button
+                variant="primary"
+                icon="upload"
                 onClick={() => props.onUpdate(props.serverIds, selectedVersion())}
                 disabled={props.sshOperationInProgress}
               >
-                {props.sshOperationInProgress ? 'Updating...' : 'Confirm Update'}
-              </button>
-              <button class="action-btn" onClick={() => setConfirmAction(null)} disabled={props.sshOperationInProgress}>
-                Go Back
-              </button>
+                {props.sshOperationInProgress ? 'Updating…' : 'Confirm update'}
+              </Button>
+              <Button onClick={() => setConfirmAction(null)} disabled={props.sshOperationInProgress}>
+                Go back
+              </Button>
             </div>
           </Show>
           <Show when={confirmAction() === 'restart'}>
@@ -137,16 +142,17 @@ export function ServerMultiSelectModal(props: multiSelectProps) {
             <p>Restart <strong>{count()} servers</strong>?</p>
             <ServerListLabel ids={props.serverIds} />
             <div class="multi-select-confirm-actions">
-              <button
-                class="action-btn restart"
+              <Button
+                variant="caution"
+                icon="restart"
                 onClick={() => props.onRestart(props.serverIds)}
                 disabled={props.sshOperationInProgress}
               >
-                {props.sshOperationInProgress ? 'Restarting...' : 'Confirm Restart'}
-              </button>
-              <button class="action-btn" onClick={() => setConfirmAction(null)} disabled={props.sshOperationInProgress}>
-                Go Back
-              </button>
+                {props.sshOperationInProgress ? 'Restarting…' : 'Confirm restart'}
+              </Button>
+              <Button onClick={() => setConfirmAction(null)} disabled={props.sshOperationInProgress}>
+                Go back
+              </Button>
             </div>
           </Show>
           <Show when={confirmAction() === 'stop'}>
@@ -154,16 +160,17 @@ export function ServerMultiSelectModal(props: multiSelectProps) {
             <p>Stop <strong>{count()} servers</strong>?</p>
             <ServerListLabel ids={props.serverIds} />
             <div class="multi-select-confirm-actions">
-              <button
-                class="action-btn stop"
+              <Button
+                variant="caution"
+                icon="stop"
                 onClick={() => props.onStop(props.serverIds)}
                 disabled={props.sshOperationInProgress}
               >
-                {props.sshOperationInProgress ? 'Stopping...' : 'Confirm Stop'}
-              </button>
-              <button class="action-btn" onClick={() => setConfirmAction(null)} disabled={props.sshOperationInProgress}>
-                Go Back
-              </button>
+                {props.sshOperationInProgress ? 'Stopping…' : 'Confirm stop'}
+              </Button>
+              <Button onClick={() => setConfirmAction(null)} disabled={props.sshOperationInProgress}>
+                Go back
+              </Button>
             </div>
           </Show>
         </Show>

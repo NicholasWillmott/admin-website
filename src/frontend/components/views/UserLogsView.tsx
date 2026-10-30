@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { Server, ServerUserLogs, ServerUserLogsAggregate } from '../../types.ts';
 import { formatDate } from '../../utils.ts';
+import { Button } from '../ui/Button.tsx';
 
 interface UserLogsViewProps {
     servers: Server[] | undefined;
@@ -125,29 +126,35 @@ export function UserLogsView(props: UserLogsViewProps) {
     function Pagination(p: { page: () => number; totalPages: () => number; setPage: (n: number) => void; total: number }) {
         return (
             <div class="logs-pagination">
-                <button
-                    class="logs-page-btn"
+                <Button
+                    size="sm"
+                    aria-label="First page"
                     disabled={p.page() <= 1}
                     onClick={() => p.setPage(1)}
-                >⇤</button>
-                <button
-                    class="logs-page-btn"
+                >First</Button>
+                <Button
+                    size="sm"
+                    icon="back"
+                    aria-label="Previous page"
                     disabled={p.page() <= 1}
                     onClick={() => p.setPage(p.page() - 1)}
-                >←</button>
+                />
                 <span class="logs-page-info">
                     Page {p.page()} of {p.totalPages()} · {p.total.toLocaleString()} rows
                 </span>
-                <button
-                    class="logs-page-btn"
+                <Button
+                    size="sm"
+                    icon="chevronRight"
+                    aria-label="Next page"
                     disabled={p.page() >= p.totalPages()}
                     onClick={() => p.setPage(p.page() + 1)}
-                >→</button>
-                <button
-                    class="logs-page-btn"
+                />
+                <Button
+                    size="sm"
+                    aria-label="Last page"
                     disabled={p.page() >= p.totalPages()}
                     onClick={() => p.setPage(p.totalPages())}
-                >⇥</button>
+                >Last</Button>
             </div>
         );
     }

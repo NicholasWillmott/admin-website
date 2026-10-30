@@ -1,6 +1,7 @@
 import { For, Show } from 'solid-js';
 import { timeAgo } from '../../utils.ts';
 import type { UserLog } from '../../types.ts';
+import { Icon } from '../ui/Icon.tsx';
 
 interface ServerActivityModalProps {
   serverId: string;
@@ -31,7 +32,7 @@ export function ServerActivityModal(props: ServerActivityModalProps) {
       <div class="modal-content" onClick={(e) => e.stopPropagation()} style="max-width: 420px">
         <div class="modal-header">
           <h2>Recent Activity — {props.serverLabel}</h2>
-          <button class="modal-close" onClick={() => props.onClose()}>✕</button>
+          <button class="modal-close" onClick={() => props.onClose()}><Icon name="x" /></button>
         </div>
         <div class="modal-body">
           <Show when={props.loading}>
