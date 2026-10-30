@@ -4,7 +4,7 @@ html {
 }
 
 :root {
-  --header-height: 48px;
+  --header-height: 52px;
   --sidebar-width: 200px;
 }
 
@@ -46,33 +46,49 @@ h1 {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 3rem;
-  padding: 20px;
+  gap: 28px;
+  padding: 24px 28px;
   background: #243d2e;
 }
 
-/* Server Filter Bar */
+/* Server Filter Bar — filters on the left, "Active now" chips pushed right */
 .server-filter-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
-  margin-bottom: -1.5rem;
+}
+
+.server-filter-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.server-filter-search svg {
+  position: absolute;
+  left: 10px;
+  width: 15px;
+  height: 15px;
+  color: #94a3b8;
+  pointer-events: none;
 }
 
 .server-filter-input {
   background: rgba(255, 255, 255, 0.06);
   color: #cbd5e1;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 7px 10px 7px 32px;
   font-size: 13px;
+  font-family: inherit;
   outline: none;
-  width: 220px;
+  width: 240px;
   transition: border-color 0.3s, box-shadow 0.3s;
 }
 
 .server-filter-input::placeholder {
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .server-filter-input:focus {
@@ -83,10 +99,11 @@ h1 {
 .server-filter-select {
   background: rgba(255, 255, 255, 0.06);
   color: #cbd5e1;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 7px 10px;
   font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
   outline: none;
   transition: border-color 0.3s, box-shadow 0.3s;
@@ -107,38 +124,57 @@ h1 {
   width: 100%;
 }
 
-/* Category Header */
+/* Category Header — label, server count, then a hairline rule to the edge */
+.category-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px 0;
+}
+
 .category-header {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   color: #94a3b8;
-  margin: 0 0 1rem 0;
-  padding: 0 0 0 12px;
-  border-left: 3px solid #0d9488;
+  margin: 0;
   text-align: left;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.category-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+.category-rule {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* Grid */
 .servers-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 20px;
+  gap: 14px;
 }
 
-/* Card Styles - IMPROVED */
+/* Card — quiet when healthy; only unhealthy, busy and central cards get a
+   coloured border and tint (status rules below) */
 .server-card {
   position: relative;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  border-top: 3px solid #0d9488;
-  padding: 20px 22px;
+  padding: 14px 16px;
   background: rgba(255, 255, 255, 0.04);
   color: #cbd5e1;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.35);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   display: flex;
   flex-direction: column;
 }
@@ -147,35 +183,43 @@ h1 {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
-.activity-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+.central-tag {
   flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #e8c66a;
+  background: rgba(184, 134, 11, 0.16);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-.activity-dot.active {
-  background-color: #22c55e;
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
-}
-
-.activity-dot.inactive {
-  background-color: #64748b;
+.lock-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 6px;
 }
 
 .lock-icon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   cursor: pointer;
-  fill: #64748b;
+  fill: #94a3b8;
   transition: fill 0.2s ease;
 }
 
 .lock-icon:hover {
-  fill: #94a3b8;
+  fill: #cbd5e1;
 }
 
 .lock-icon.locked {
@@ -186,37 +230,63 @@ h1 {
   fill: #ef4444;
 }
 
-.server-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.45);
-  border-top-color: #14b8a6;
+.card-chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
 }
 
-.server-card.selected {
-  border: 2px solid #0d9488;
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.2);
+.card-chevron.open {
+  transform: rotate(90deg);
+}
+
+/* Who's on the instance: green "Active" label when used in the last 30 min
+   (or busy), a muted icon otherwise. Always clickable: opens the activity modal */
+.activity-indicator {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(148, 163, 184, 0.7);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.activity-indicator svg {
+  width: 13px;
+  height: 13px;
+}
+
+.activity-indicator:hover {
+  color: #cbd5e1;
+}
+
+.activity-indicator.active {
+  color: #86efac;
+}
+
+.server-card:hover {
+  border-color: #0d9488;
 }
 
 .server-card.central,
 .server-card.central.expanded {
-  background: rgba(10, 8, 0, 0.35);
-  border-top-color: #b8860b;
+  background: rgba(10, 8, 0, 0.25);
+  border-color: rgba(184, 134, 11, 0.45);
 }
 
 .server-card.central:hover {
-  border-top-color: #d4a017;
-}
-
-.server-card.central.selected {
   border-color: #b8860b;
-  box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.2);
 }
 
 /* Central cards use a gold accent in place of the standard teal so the
    platform's central servers read as distinct in the grid. These rules
    recolour the remaining teal accents inside a central card to gold;
    semantic status colours (online/offline/warning) are left untouched. */
-.server-card.central .expand-icon,
+.server-card.central .card-chevron,
 .server-card.central .card-header a:hover,
 .server-card.central .card-header a:hover h2 {
   color: #b8860b;
@@ -263,35 +333,19 @@ h1 {
   color: #e8c66a;
 }
 
-/* Status-driven top accent — the card colour reflects live server status,
-   so unhealthy servers stand out when scanning the grid. Placed after the
+/* Status-driven border and tint — healthy online cards stay neutral, so the
+   unhealthy and busy ones stand out when scanning the grid. Placed after the
    .central rules on purpose: status wins over the gold central accent. */
-.server-card.card-online {
-  border-top-color: #22c55e;
-}
 
-.server-card.card-online:hover {
-  border-top-color: #4ade80;
-}
-
-/* Central cards keep their gold top accent even when online, so the
-   online green never overrides the central identity colour. */
-.server-card.central.card-online {
-  border-top-color: #b8860b;
-}
-
-.server-card.central.card-online:hover {
-  border-top-color: #d4a017;
-}
-
-/* Generating a results package: blue accent and a pulsing blue glow. The
-   glow lives on ::after so the hover lift shadow on the card itself stays. */
+/* Generating a results package: blue border/tint and a pulsing blue glow.
+   The glow lives on ::after so it never fights the card's own box-shadow. */
 .server-card.card-generating {
-  border-top-color: #3b82f6;
+  border-color: rgba(96, 165, 250, 0.55);
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .server-card.card-generating:hover {
-  border-top-color: #60a5fa;
+  border-color: #60a5fa;
 }
 
 .server-card.card-generating::after {
@@ -316,25 +370,27 @@ h1 {
 }
 
 .server-card.card-pending {
-  border-top-color: #ffc107;
-}
-
-.server-card.card-loading {
-  border-top-color: #64748b;
+  border-color: rgba(255, 193, 7, 0.45);
 }
 
 .server-card.card-offline {
-  border-top-color: #f87171;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35), 0 0 10px rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.06);
 }
 
 .server-card.card-offline:hover {
-  border-top-color: #ef4444;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), 0 0 12px rgba(248, 113, 113, 0.2);
+  border-color: #f87171;
 }
 
-.server-card.card-offline.selected {
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.2);
+/* Selection wins over every status colour */
+.server-card.selected {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.35);
+}
+
+.server-card.central.selected {
+  border-color: #b8860b;
+  box-shadow: 0 0 0 2px rgba(184, 134, 11, 0.35);
 }
 
 .select-checkbox {
@@ -607,10 +663,9 @@ h1 {
 /* Card Header */
 .card-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 6px;
   cursor: pointer;
-  margin-bottom: 2px;
 }
 
 .card-header.has-checkbox {
@@ -620,25 +675,30 @@ h1 {
 .card-header a {
   text-decoration: none;
   color: inherit;
-  transition: all 0.3s ease;
+  transition: color 0.15s ease;
   display: inline-block;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .card-header a:hover {
-  color: #0d9488;
+  color: #5eead4;
   text-decoration: underline;
-  transform: scale(1.02);
 }
 
 .card-header h2 {
   margin: 0;
   color: #e2e8f0;
-  font-size: 20px;
-  transition: color 0.3s ease;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s ease;
 }
 
 .card-header a:hover h2 {
-  color: #0d9488;
+  color: #5eead4;
 }
 
 .expand-icon {
@@ -658,13 +718,32 @@ h1 {
   color: #e2e8f0;
 }
 
+/* Card footer: server id on the left, flags on the right, pinned to the bottom */
+.card-footer {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
 /* Badges */
 .flags {
   display: flex;
-  gap: 8px;
-  margin-top: auto;
+  gap: 4px;
   flex-wrap: wrap;
-  padding: 8px 0 0 0;
+}
+
+/* Flags sit inside a small card, so they're tighter and borderless there */
+.server-card .flags .badge {
+  padding: 1px 7px;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 /* Quiet tinted chip — used for server-card flags and Users role badges */
@@ -932,31 +1011,28 @@ h1 {
   color: #cbd5e1;
 }
 
-/* Collapsed-card status row: pill on the left, version chip on the right */
+/* Collapsed-card status row: pill and version on the left, activity on the right */
 .card-status-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  margin: 10px 0 6px 0;
+  margin: 8px 0 12px 0;
 }
 
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 2px 9px 2px 7px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .status-pill-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: currentColor;
   flex-shrink: 0;
@@ -964,22 +1040,20 @@ h1 {
 
 .status-pill.status-online {
   background: rgba(34, 197, 94, 0.12);
-  color: #22c55e;
+  color: #4ade80;
 }
 
 .status-pill.status-offline {
-  background: rgba(239, 68, 68, 0.08);
-  color: #f87171;
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
 }
 
 .status-pill.status-generating {
-  background: rgba(59, 130, 246, 0.14);
-  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
   /* Long label: one line where it fits (the version chip wraps below); on a
      narrow card it wraps inside the pill instead of overflowing the card */
   max-width: 100%;
-  font-size: 10px;
-  letter-spacing: 0.03em;
   line-height: 1.3;
   border-radius: 10px;
 }
@@ -991,21 +1065,18 @@ h1 {
 
 .status-pill.status-loading {
   background: rgba(255, 255, 255, 0.06);
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .version-chip {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   font-size: 12px;
   color: #5eead4;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 3px 8px;
-  border-radius: 6px;
 }
 
 .server-card .card-meta {
-  font-family: 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
   color: #94a3b8;
 }
 
@@ -1224,22 +1295,64 @@ button:disabled {
   right: 0;
   z-index: 1000;
   background: #0d1f20;
-  border-bottom: 1px solid rgba(13, 148, 136, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   /* Fixed height so the bar doesn't thin out on views without toolbar buttons */
   height: var(--header-height);
   box-sizing: border-box;
-  padding: 0 1.75rem;
+  padding: 0 20px;
   margin: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
+  gap: 12px;
+}
+
+/* Brand on the left: logo mark, product name, then the current view */
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.header-logo {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  background: #0f766e;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-logo svg {
+  width: 16px;
+  height: 16px;
 }
 
 .sticky-header h1 {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  pointer-events: none;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: left;
+  color: #e2e8f0;
+  opacity: 1;
+}
+
+.header-sep,
+.header-view {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.header-view {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sticky-header .button-container {
@@ -1264,7 +1377,7 @@ button:disabled {
   bottom: 0;
   width: var(--sidebar-width);
   background: #0d1f20;
-  border-right: 1px solid rgba(13, 148, 136, 0.35);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
   z-index: 900;
@@ -1276,22 +1389,22 @@ button:disabled {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 16px 8px;
+  gap: 20px;
+  padding: 14px 10px;
 }
 
 .sidebar-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .sidebar-group-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #64748b;
+  letter-spacing: 0.08em;
+  color: #8796ab;
   padding: 0 10px 6px;
   white-space: nowrap;
 }
@@ -1301,12 +1414,11 @@ button:disabled {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 7px 10px;
   background: transparent;
   color: #94a3b8;
   border: none;
-  border-left: 3px solid transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
@@ -1316,15 +1428,14 @@ button:disabled {
 }
 
 .sidebar-item:hover {
-  background: rgba(13, 148, 136, 0.12);
+  background: rgba(13, 148, 136, 0.1);
   color: #5eead4;
 }
 
 .sidebar-item.active {
-  background: rgba(13, 148, 136, 0.18);
-  color: #2dd4bf;
+  background: rgba(13, 148, 136, 0.16);
+  color: #5eead4;
   font-weight: 600;
-  border-left-color: #0d9488;
 }
 
 .sidebar-item-icon {
@@ -1345,7 +1456,7 @@ button:disabled {
   flex-shrink: 0;
   margin: 8px;
   width: auto;
-  color: #64748b;
+  color: #8796ab;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 0;
   padding-top: 12px;
@@ -1637,12 +1748,12 @@ h1 {
 
 /* Sticky Header Navigation Buttons */
 .sticky-header button {
-  padding: 6px 16px;
+  padding: 7px 14px;
   margin: 0;
-  background: transparent;
-  color: #94a3b8;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
@@ -1652,8 +1763,31 @@ h1 {
 .sticky-header button:hover {
   background: rgba(13, 148, 136, 0.1);
   color: #5eead4;
-  border-color: rgba(13, 148, 136, 0.4);
+  border-color: #0d9488;
   transform: none;
+}
+
+/* The header's one primary action. Solid #0f766e rather than #0d9488 so white
+   text passes contrast (5.5:1 vs 3.7:1) */
+.sticky-header button.header-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.sticky-header button.header-primary:hover {
+  background: #0d9488;
+  border-color: #0d9488;
+  color: #ffffff;
+}
+
+.sticky-header button.header-primary svg {
+  width: 14px;
+  height: 14px;
 }
 
 .sticky-header button[data-selected="true"] {
@@ -1867,7 +2001,7 @@ h1 {
 .snapshot-name {
   font-weight: 600;
   color: #5eead4;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
 }
 
 .snapshot-date {
@@ -1999,7 +2133,7 @@ h1 {
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   font-size: 14px;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   background: rgba(255, 255, 255, 0.06);
   color: #e2e8f0;
   transition: all 0.3s ease;
@@ -2061,7 +2195,7 @@ h1 {
   border: 1px solid rgba(13, 148, 136, 0.35);
   color: #5eead4;
   font-size: 12px;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   padding: 4px 10px;
   border-radius: 6px;
   cursor: pointer;
@@ -2404,7 +2538,7 @@ h1 {
 .user-email-cell {
   color: #94a3b8;
   font-size: 13px;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
 }
 
 .user-date {
@@ -2685,7 +2819,7 @@ h1 {
 .recent-signup-email {
   font-size: 11px;
   color: #94a3b8;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2946,7 +3080,7 @@ h1 {
   width: 100%;
   height: 100%;
   padding: 20px;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.5;
   border: none;
@@ -4081,7 +4215,7 @@ h1 {
   background: rgba(255, 255, 255, 0.06);
   border-radius: 4px;
   font-size: 12px;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   color: #94a3b8;
 }
 
@@ -4858,45 +4992,51 @@ h1 {
     /* style to taste */
 }
 /* Active Instances Bar */
+/* Lives at the right end of the server filter bar */
 .active-instances-bar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.6rem 1.25rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  margin-bottom: 1.25rem;
+  gap: 6px;
+  margin-left: auto;
 }
 
 .active-instances-label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
   color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-right: 0.25rem;
+  margin-right: 2px;
 }
 
 .active-instance-chip {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.7rem;
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.4);
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  background: rgba(34, 197, 94, 0.1);
   border-radius: 999px;
-  font-size: 0.8rem;
-  color: #4ade80;
+  font-size: 12px;
+  font-weight: 500;
+  color: #86efac;
   cursor: default;
+}
+
+.active-instance-chip::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
 }
 
 /* Results package generating or import running: same blue as the card's
    "Results package processing" pill */
 .active-instance-chip.processing {
   background: rgba(59, 130, 246, 0.14);
-  border-color: rgba(96, 165, 250, 0.5);
-  color: #60a5fa;
+  color: #93c5fd;
+}
+
+.active-instance-chip.processing::before {
+  background: #60a5fa;
 }
 
 .active-instances-loading {
@@ -4937,6 +5077,11 @@ h1 {
     margin: 0 3px;
   }
 
+  .header-sep,
+  .header-view {
+    display: none;
+  }
+
   .stats-grid {
     grid-template-columns: 1fr;
   }
@@ -4972,11 +5117,11 @@ h1 {
   }
 
   .sticky-header {
-    padding: 0.6rem 0;
+    padding: 0 10px;
   }
 
   .sticky-header h1 {
-    font-size: 1.2rem;
+    display: none;
   }
 
   .sticky-header .button-container {
@@ -5516,7 +5661,7 @@ h1 {
 .ai-usage-user-email {
   padding-left: 44px !important;
   color: #cbd5e1;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   font-size: 0.8125rem;
 }
 
@@ -5626,7 +5771,7 @@ h1 {
 }
 
 .pgss-warning code {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   color: #5eead4;
   background: rgba(255, 255, 255, 0.04);
   padding: 1px 6px;
@@ -5697,7 +5842,7 @@ h1 {
 
 .pgss-db {
   color: #5eead4;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   font-size: 0.8125rem;
 }
 
@@ -5714,7 +5859,7 @@ h1 {
 }
 
 .pgss-query {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   font-size: 0.8125rem;
   color: #cbd5e1;
 }
@@ -5832,7 +5977,7 @@ h1 {
   display: inline-block;
   font-size: 13px;
   font-weight: 600;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   color: #5eead4;
   background: rgba(255, 255, 255, 0.06);
   padding: 3px 10px;
@@ -6121,7 +6266,7 @@ h1 {
 .logs-td-endpoint {
   font-size: 0.8125rem;
   color: #94a3b8;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
 }
 
 .logs-internal-toggle {
@@ -6180,7 +6325,7 @@ h1 {
 .logs-td-project {
   font-size: 0.8125rem;
   color: #64748b;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
 }
 
 .ai-usage-table th.th-sortable {
@@ -6408,7 +6553,7 @@ h1 {
 }
 
 .whats-new-version {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   color: #5eead4;
   font-size: 12px;
   flex-shrink: 0;
@@ -6481,7 +6626,7 @@ h1 {
 }
 
 .whats-new-version-input {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   color: #5eead4;
 }
 
@@ -6590,7 +6735,7 @@ h1 {
 }
 
 .wn-vnum {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   color: #5eead4;
   font-size: 13px;
 }
@@ -6826,7 +6971,7 @@ h1 {
   width: 100%;
   resize: vertical;
   min-height: 140px;
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -7211,7 +7356,7 @@ h1 {
 }
 
 .wn-md code {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   background: #f2f2f2;
   border-radius: 0.25rem;
   padding: 0.2em 0.4em;
@@ -7517,7 +7662,7 @@ h1 {
 }
 
 .wn-funnel-count {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   font-size: 12px;
   color: #e2e8f0;
 }
@@ -7667,7 +7812,7 @@ h1 {
 }
 
 .whats-new-thumb-yt span {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   color: #5eead4;
   font-size: 10px;
   letter-spacing: 0;
@@ -7938,7 +8083,7 @@ h1 {
 }
 
 .mdd-country-ref {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   color: #5eead4;
   font-size: 10px;
 }
@@ -7968,7 +8113,7 @@ h1 {
 }
 
 .mdd-row-sublabel {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   color: #94a3b8;
   font-size: 11px;
   margin-top: 2px;
@@ -7976,7 +8121,7 @@ h1 {
 
 .mdd-mono,
 .mdd-cell {
-  font-family: 'Monaco', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
   font-size: 12px;
   overflow-wrap: anywhere;
 }

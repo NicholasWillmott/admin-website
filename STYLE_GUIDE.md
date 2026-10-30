@@ -30,6 +30,8 @@ This document defines the visual conventions used throughout the app. **Always r
 | Pending / inactive | `#64748b` | Pending step labels, disabled states |
 
 > **Rule:** `#64748b` is reserved for uppercase table column headers. Everything else uses `#94a3b8` or brighter.
+>
+> **Contrast:** `#64748b` only reaches ~2.3:1 on the green page background and ~3.4:1 on the `#0d1f20` header/sidebar, so it fails for small text on both. Small labels on `#0d1f20` use `#8796ab`; on the page background use `#94a3b8`.
 
 ### Borders
 | Role | Value |
@@ -62,6 +64,12 @@ This document defines the visual conventions used throughout the app. **Always r
 
 ## Typography
 
+### Font families
+- UI text: `Inter` (loaded from Google Fonts in `index.html`), falling back to `system-ui`.
+- Numbers use `font-variant-numeric: tabular-nums` (set on `:root`) so columns of figures line up.
+- Monospace: `'JetBrains Mono', 'Monaco', 'Courier New', monospace`.
+- Button and control labels are sentence case ("Create server", not "Create Server").
+
 ### View / Page Titles
 ```css
 font-size: 1rem;
@@ -92,9 +100,18 @@ color: #94a3b8;
 
 ### Monospace (paths, IDs, versions)
 ```css
-font-family: 'Monaco', 'Courier New', monospace;
+font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace;
 color: #5eead4;
 ```
+
+---
+
+## Header & Sidebar
+
+Both sit on `#0d1f20`, separated from the page by a hairline `rgba(255, 255, 255, 0.06)` border (no teal borders).
+
+- **Header (52px):** brand on the left: a 26px `#0f766e` logo mark, "FASTR Status" (14px, 600, `#e2e8f0`), then `/` and the current view's name in `#94a3b8`. View toolbar buttons sit on the right as secondary buttons, with at most one header primary.
+- **Sidebar:** group labels are 11px, 600, uppercase, `0.08em`, `#8796ab`. Items are 13px `#94a3b8` with an 8px radius. The active item is a filled pill, `rgba(13, 148, 136, 0.16)` with `#5eead4` text and weight 600, with no left bar.
 
 ---
 
@@ -108,6 +125,24 @@ padding: 20px 24px;
 ```
 
 Hover or expanded state — use `rgba(255, 255, 255, 0.06)`.
+
+### Server cards
+Server cards are quiet when healthy. Status is carried by the 1px border and a faint tint, never a coloured top bar, and there's no hover lift.
+
+| State | Border | Background |
+|---|---|---|
+| Online | `rgba(255, 255, 255, 0.08)` | `rgba(255, 255, 255, 0.04)` |
+| Offline | `rgba(248, 113, 113, 0.45)` | `rgba(248, 113, 113, 0.06)` |
+| Generating results | `rgba(96, 165, 250, 0.55)` (plus pulse) | `rgba(59, 130, 246, 0.06)` |
+| Pending restart | `rgba(255, 193, 7, 0.45)` | default |
+| Central | `rgba(184, 134, 11, 0.45)` | `rgba(10, 8, 0, 0.25)` |
+| Hover | `#0d9488` (central: `#b8860b`) | unchanged |
+| Selected | `#0d9488` with a `0 0 0 2px rgba(13, 148, 136, 0.35)` ring | unchanged |
+
+Status pills are sentence case, 12px, weight 500. Flags inside a card are borderless 4px-radius chips.
+
+### Category headers
+Each category header is a row: the label (12px, 600, uppercase, `0.1em`, `#94a3b8`), a count chip (`rgba(255, 255, 255, 0.08)` background), then a 1px `rgba(255, 255, 255, 0.08)` rule out to the right edge.
 
 ---
 
@@ -149,6 +184,16 @@ background: linear-gradient(135deg, #0d9488 0%, #065f59 100%);
 color: white;
 border: none;
 ```
+
+### Header primary
+Use this for the one main action in the top header (e.g. "Create server"). It's solid rather than a gradient, and uses `#0f766e` because white on `#0d9488` only reaches ~3.7:1.
+```css
+background: #0f766e;
+border: 1px solid #0f766e;
+color: white;
+font-weight: 600;
+```
+Hover: `background: #0d9488`.
 
 ### Secondary (default action)
 ```css

@@ -72,6 +72,10 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+// Display name of a view, for the header breadcrumb
+export const viewLabel = (id: ViewType): string =>
+  NAV_GROUPS.flatMap(group => group.items).find(item => item.id === id)?.label ?? '';
+
 export function Sidebar(props: SidebarProps) {
   const [collapsed, setCollapsed] = createSignal(localStorage.getItem('sidebarCollapsed') === 'true');
 

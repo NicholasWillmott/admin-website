@@ -85,39 +85,30 @@ export function ServerCard(props: ServerCardProps) {
           <a href={`https://${props.server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
             <h2>{props.server.label}</h2>
           </a>
-          {(() => {
-            const log = props.status?.lastUserLog;
-            const recentUser = log
-              ? Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000
-              : false;
-            const busy = props.busy;
-            const isActive = recentUser || !!busy;
-            const title = busy
-              ? `${describeBusy(busy)}${log ? ` — last user: ${log.userEmail} (${timeAgo(log.timestamp)})` : ''}`
-              : log
-                ? `Last activity: ${log.userEmail} — ${timeAgo(log.timestamp)}`
-                : 'No activity recorded';
-            return <div class={`activity-dot ${isActive ? 'active' : 'inactive'}`} title={title} onClick={(e) => { e.stopPropagation(); props.onActivityDotClick(props.server.id); }} style="cursor: pointer" />;
-          })()}
-          <span
-            class="lock-icon-wrapper"
-            title={props.isLocked ? 'Locked — click to unlock' : 'Unlocked — click to lock'}
-            onClick={(e) => { e.stopPropagation(); props.onToggleLock(props.server.id); }}
-          >
-            <svg
-              class={`lock-icon ${props.isLocked ? 'locked' : 'unlocked'}`}
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              aria-label={props.isLocked ? 'Locked' : 'Unlocked'}
-            >
-              <path d={props.isLocked
-                ? "M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3.1-9H8.9V6a3.1 3.1 0 0 1 6.2 0v2z"
-                : "M18 8h-1V6A5 5 0 0 0 7 6h2a3 3 0 0 1 6 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"
-              } />
-            </svg>
-          </span>
+          <Show when={props.server.mode === 'central'}>
+            <span class="central-tag">Central</span>
+          </Show>
         </div>
-        <span class="expand-icon">{props.isExpanded ? '▼' : '▶'}</span>
+        <span
+          class="lock-icon-wrapper"
+          title={props.isLocked ? 'Locked — click to unlock' : 'Unlocked — click to lock'}
+          onClick={(e) => { e.stopPropagation(); props.onToggleLock(props.server.id); }}
+        >
+          <svg
+            class={`lock-icon ${props.isLocked ? 'locked' : 'unlocked'}`}
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            aria-label={props.isLocked ? 'Locked' : 'Unlocked'}
+          >
+            <path d={props.isLocked
+              ? "M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm3.1-9H8.9V6a3.1 3.1 0 0 1 6.2 0v2z"
+              : "M18 8h-1V6A5 5 0 0 0 7 6h2a3 3 0 0 1 6 0v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-6 9a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"
+            } />
+          </svg>
+        </span>
+        <svg class={`card-chevron ${props.isExpanded ? 'open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 6l6 6-6 6" />
+        </svg>
       </div>
       <div class="card-status-row">
         <span
@@ -128,16 +119,40 @@ export function ServerCard(props: ServerCardProps) {
           {statusLabel()}
         </span>
         <span class="version-chip">v{props.server.serverVersion}</span>
+        {(() => {
+          const log = props.status?.lastUserLog;
+          const recentUser = log
+            ? Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000
+            : false;
+          const busy = props.busy;
+          const isActive = recentUser || !!busy;
+          const title = busy
+            ? `${describeBusy(busy)}${log ? ` — last user: ${log.userEmail} (${timeAgo(log.timestamp)})` : ''}`
+            : log
+              ? `Last activity: ${log.userEmail} — ${timeAgo(log.timestamp)}`
+              : 'No activity recorded';
+          // Always rendered, even when idle: it's the click target for the activity modal
+          return (
+            <span class={`activity-indicator ${isActive ? 'active' : ''}`} title={title} onClick={(e) => { e.stopPropagation(); props.onActivityDotClick(props.server.id); }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M16 19v-1a4 4 0 0 0-8 0v1M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7" />
+              </svg>
+              {isActive && 'Active'}
+            </span>
+          );
+        })()}
       </div>
-      <p class="card-meta">
-        {props.server.id}
-        {props.server.adminVersion && <span class="card-meta-sep"> · admin {props.server.adminVersion}</span>}
-      </p>
-      <div class="flags">
-        {props.server.french && <span class="badge">French</span>}
-        {props.server.portuguese && <span class="badge">Portuguese</span>}
-        {props.server.ethiopian && <span class="badge calendar">Ethiopian</span>}
-        {props.server.openAccess && <span class="badge access">Open Access</span>}
+      <div class="card-footer">
+        <span class="card-meta">
+          {props.server.id}
+          {props.server.adminVersion && <span class="card-meta-sep"> · admin {props.server.adminVersion}</span>}
+        </span>
+        <div class="flags">
+          {props.server.french && <span class="badge">French</span>}
+          {props.server.portuguese && <span class="badge">Portuguese</span>}
+          {props.server.ethiopian && <span class="badge calendar">Ethiopian</span>}
+          {props.server.openAccess && <span class="badge access">Open Access</span>}
+        </div>
       </div>
 
       {/* Expanded view */}

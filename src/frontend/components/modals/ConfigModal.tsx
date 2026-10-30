@@ -157,7 +157,7 @@ export function ConfigModal(props: ConfigModalProps) {
                   setCountryIso3(cleaned);
                 }}
                 class="modal-input"
-                style="width: 170px; text-align: center; font-family: 'Monaco', 'Courier New', monospace"
+                style="width: 170px; text-align: center; font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace"
               />
             </div>
 

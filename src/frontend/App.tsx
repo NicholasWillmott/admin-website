@@ -3,7 +3,7 @@ import './css/App.css'
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser, useAuth } from 'clerk-solidjs'
 import { ModuleEditorContent } from './components/views/ModuleDefinitions/ModuleEditorContent.tsx';
 import { ServersView } from './components/views/Servers/ServersView.tsx';
-import { Sidebar } from './components/Sidebar.tsx';
+import { Sidebar, viewLabel } from './components/Sidebar.tsx';
 import { SnapshotsView } from './components/views/SnapshotsView.tsx';
 import { VolumeUsageView } from './components/views/VolumeUsageView.tsx';
 import { AiUsageView } from './components/views/AiUsageView.tsx';
@@ -418,7 +418,20 @@ function App() {
     <>
       <ToastContainer />
       <div class="sticky-header">
-        <h1>STATUS</h1>
+        <div class="header-brand">
+          <span class="header-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 12h4l2-5 4 10 2-5h6" />
+            </svg>
+          </span>
+          <h1>FASTR Status</h1>
+          <SignedIn>
+            <Show when={isAdmin()}>
+              <span class="header-sep" aria-hidden="true">/</span>
+              <span class="header-view">{viewLabel(activeView())}</span>
+            </Show>
+          </SignedIn>
+        </div>
         <SignedIn>
           <Show when={isAdmin()}>
             <div class="button-container">
@@ -432,7 +445,7 @@ function App() {
                       setMultiSelectMode(m => !m);
                     }}
                   >
-                    {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select Servers'}
+                    {multiSelectMode() ? `Cancel (${multiSelectedServerIds()!.length} selected)` : 'Select servers'}
                   </button>
                   <Show when={multiSelectMode()}>
                     <button
@@ -455,13 +468,17 @@ function App() {
                     type="button"
                     onClick={() => setCreateCategoryModalOpen(true)}
                   >
-                    Configure Categories
+                    Configure categories
                   </button>
                   <button
                     type="button"
+                    class="header-primary"
                     onClick={() => setCreateServerModalOpen(true)}
                   >
-                    Create Server
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Create server
                   </button>
                 </Show>
                 {/* Add toolbar buttons for other views here using <Show when={activeView() === "viewName"}> */}

@@ -606,29 +606,34 @@ export function ServersView(props: ServersViewProps) {
       {props.serversError && <p>Error: {props.serversError.message}</p>}
       {props.servers() && props.categories() && (
         <div class="servers-container">
-          <ActiveInstancesBar instances={activeInstances()} statuses={props.statuses()} loading={props.statusesLoading} />
           <div class="server-filter-bar">
-            <input
-              class="server-filter-input"
-              type="text"
-              placeholder="Search by name or ID..."
-              value={searchQuery()}
-              onInput={(e) => setSearchQuery(e.currentTarget.value)}
-            />
+            <div class="server-filter-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4" />
+              </svg>
+              <input
+                class="server-filter-input"
+                type="text"
+                placeholder="Search by name or ID..."
+                value={searchQuery()}
+                onInput={(e) => setSearchQuery(e.currentTarget.value)}
+              />
+            </div>
             <select class="server-filter-select" value={statusFilter()} onChange={(e) => setStatusFilter(e.currentTarget.value as 'all' | 'online' | 'offline')}>
-              <option value="all">All Statuses</option>
+              <option value="all">All statuses</option>
               <option value="online">Online</option>
               <option value="offline">Offline</option>
             </select>
             <select class="server-filter-select" value={versionFilter()} onChange={(e) => setVersionFilter(e.currentTarget.value)}>
-              <option value="all">All Versions</option>
+              <option value="all">All versions</option>
               <For each={availableVersions()}>{(v) => <option value={v}>{v}</option>}</For>
             </select>
             <select class="server-filter-select" value={lockedFilter()} onChange={(e) => setLockedFilter(e.currentTarget.value as 'all' | 'locked' | 'unlocked')}>
-              <option value="all">All Lock States</option>
+              <option value="all">All lock states</option>
               <option value="locked">Locked</option>
               <option value="unlocked">Unlocked</option>
             </select>
+            <ActiveInstancesBar instances={activeInstances()} statuses={props.statuses()} loading={props.statusesLoading} />
           </div>
           <For each={(() => {
             const cats = props.categories() || [];
@@ -643,7 +648,11 @@ export function ServersView(props: ServersViewProps) {
               return (
                 <Show when={categoryServers().length > 0}>
                   <div class="category-section">
-                    <h2 class="category-header">{category.name}</h2>
+                    <div class="category-header-row">
+                      <h2 class="category-header">{category.name}</h2>
+                      <span class="category-count">{categoryServers().length}</span>
+                      <div class="category-rule" />
+                    </div>
                     <div class="servers-grid">
                       <For each={categoryServers()}>
                         {(server) => (
