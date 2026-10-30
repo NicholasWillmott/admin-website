@@ -76,8 +76,7 @@ export interface HealthCheckResponse {
   serverUsers?: string[];
   contactPersons: { email: string; firstName: string | null; lastName: string | null; organisation: string | null }[];
   projects: string[];
-  // v1 (1.76.x) reports only hasRunningModules; v2 reports busy. Read both through readBusy (instance_busy.ts)
-  hasRunningModules?: boolean;
+  // v2 only; read through readBusy (instance_busy.ts)
   busy?: { generatingRuns: number; runningImports: string[] };
   lastUserLog: { userEmail: string; endpoint: string; timestamp: string } | null;
   datasets: {

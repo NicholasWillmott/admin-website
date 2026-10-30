@@ -4,13 +4,11 @@
 /** Work in progress on an instance that a restart or stop would kill. */
 export type InstanceBusy = { generatingRuns: number; runningImports: string[] };
 
-// null = not busy. v2 /health_check reports `busy`; a v1 payload (1.76.x)
-// reports only `hasRunningModules`, which can show a generation but never an
-// import, so on v1 a running import is invisible. A payload with neither
-// field, or no payload at all, is not busy.
+// null = not busy. Only the v2 `busy` field is read: a payload without it
+// (pre-v2 instances), or no payload at all, is not busy.
 export function readBusy(payload: unknown): InstanceBusy | null {
   if (!payload || typeof payload !== "object") return null;
-  const p = payload as { busy?: unknown; hasRunningModules?: unknown };
+  const p = payload as { busy?: unknown };
   if (p.busy && typeof p.busy === "object") {
     const busy = p.busy as Partial<InstanceBusy>;
     const generatingRuns = typeof busy.generatingRuns === "number" ? busy.generatingRuns : 0;
@@ -20,9 +18,6 @@ export function readBusy(payload: unknown): InstanceBusy | null {
     return generatingRuns > 0 || runningImports.length > 0
       ? { generatingRuns, runningImports }
       : null;
-  }
-  if (p.hasRunningModules === true) {
-    return { generatingRuns: 1, runningImports: [] };
   }
   return null;
 }

@@ -75,9 +75,7 @@ interface HealthCheck {
   calendar: string;
   totalUsers: number;
   projects: string[];
-  // v1 (1.76.x) only; v2 reports `busy`. Read both through readBusy
-  hasRunningModules?: boolean;
-  busy?: unknown;
+  busy?: unknown; // v2 only; read through readBusy
   lastUserLog: { userEmail: string; endpoint: string; timestamp: string } | null;
 }
 
@@ -136,7 +134,7 @@ export function registerFleetTools(server: McpServer): void {
             calendar: h.calendar,
             totalUsers: h.totalUsers,
             projectCount: h.projects?.length ?? 0,
-            // null = not busy; else what a restart would kill (v1 can only report a generation)
+            // null = not busy (or a pre-v2 instance); else what a restart would kill
             busy: readBusy(h),
             lastUserLog: h.lastUserLog ?? null,
           }];

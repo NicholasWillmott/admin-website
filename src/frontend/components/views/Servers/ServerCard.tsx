@@ -85,11 +85,6 @@ export function ServerCard(props: ServerCardProps) {
           <a href={`https://${props.server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
             <h2>{props.server.label}</h2>
           </a>
-          <Show when={props.busy}>
-            {(busy) => (
-              <span class="busy-marker" title={`${describeBusy(busy())}. Do not restart.`} aria-label={`Busy: ${describeBusy(busy())}`}>*</span>
-            )}
-          </Show>
           {(() => {
             const log = props.status?.lastUserLog;
             const recentUser = log
@@ -125,7 +120,10 @@ export function ServerCard(props: ServerCardProps) {
         <span class="expand-icon">{props.isExpanded ? '▼' : '▶'}</span>
       </div>
       <div class="card-status-row">
-        <span class={`status-pill status-${statusKey()}`}>
+        <span
+          class={`status-pill status-${statusKey()}`}
+          title={props.busy ? `${describeBusy(props.busy)}. Do not restart.` : undefined}
+        >
           <span class="status-pill-dot" />
           {statusLabel()}
         </span>

@@ -149,17 +149,6 @@ h1 {
   gap: 8px;
 }
 
-/* After the name of an instance that must not be restarted (results package
-   generating or import running); the title says what is running */
-.busy-marker {
-  color: #fbbf24;
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1;
-  margin-left: -4px;
-  cursor: help;
-}
-
 .activity-dot {
   width: 10px;
   height: 10px;
