@@ -4,6 +4,8 @@ import * as z from "zod";
 import { getDropletIp, isSafeParam } from "../../lib/utils.ts";
 import { executeCommand, READ_TIMEOUT_MS } from "../../ssh.ts";
 import { readLocks } from "../../routes/servers.ts";
+import { fetchInstanceBusy } from "../../lib/instance_busy.ts";
+import { describeBusy } from "../../../frontend/instance_busy.ts";
 import {
   fetchServersJson,
   listImageVersions,
@@ -92,6 +94,21 @@ async function assertUnlocked(serverId: string): Promise<void> {
     throw new ToolFailure(
       `"${serverId}" is locked. A lock is a deliberate "do not touch" marker set by an admin — ` +
         `unlock it in the admin website (Servers → the lock icon on the server card) before restarting or updating. ` +
+        `Do not work around this.`,
+    );
+  }
+}
+
+// A restart or stop kills a generating results package or a running import
+// (the instance marks them failed at the next boot). Checked in the preview
+// too, like a lock, and before update_server touches the registry. An
+// instance that cannot answer is not busy.
+async function assertNotBusy(serverId: string): Promise<void> {
+  const busy = await fetchInstanceBusy(serverId);
+  if (busy) {
+    throw new ToolFailure(
+      `"${serverId}" is busy: ${describeBusy(busy)}. Restarting, stopping or updating it now would kill that work ` +
+        `and the user would have to start again. Wait for it to finish (watch get_server_status) and retry. ` +
         `Do not work around this.`,
     );
   }
@@ -219,7 +236,7 @@ export function registerServerOpsTools(server: McpServer): void {
     title: "Restart a server",
     description:
       "Restart one FASTR instance's container (wb restart; wb run-central for the central server), then verify it came back up. " +
-      "confirm:false (the default) previews and changes nothing. Refuses if the instance is locked in the admin website.",
+      "confirm:false (the default) previews and changes nothing. Refuses if the instance is locked in the admin website, or busy (a results package generating or an import running).",
     inputSchema: z.object({
       server_id: z.string().describe("Instance id from get_fleet_overview."),
       confirm: z.boolean().default(false).describe(
@@ -230,6 +247,7 @@ export function registerServerOpsTools(server: McpServer): void {
     runTool(async () => {
       const target = await resolveServer(server_id);
       await assertUnlocked(server_id);
+      await assertNotBusy(server_id);
       const command = restartCommandFor(target);
 
       if (!confirm) {
@@ -298,7 +316,7 @@ export function registerServerOpsTools(server: McpServer): void {
     title: "Stop a server",
     description:
       "Stop one FASTR instance's container (wb stop) and verify it went down. The instance stays OFFLINE for its users until start_server is called — this is not a restart. " +
-      "confirm:false (the default) previews and changes nothing. Refuses if the instance is locked in the admin website.",
+      "confirm:false (the default) previews and changes nothing. Refuses if the instance is locked in the admin website, or busy (a results package generating or an import running).",
     inputSchema: z.object({
       server_id: z.string().describe("Instance id from get_fleet_overview."),
       confirm: z.boolean().default(false).describe(
@@ -309,6 +327,7 @@ export function registerServerOpsTools(server: McpServer): void {
     runTool(async () => {
       const target = await resolveServer(server_id);
       await assertUnlocked(server_id);
+      await assertNotBusy(server_id);
       const command = stopCommandFor(target);
       const current = await inspectContainer(server_id);
 
@@ -337,7 +356,7 @@ export function registerServerOpsTools(server: McpServer): void {
     title: "Update a server's version",
     description:
       "Point one FASTR instance at a different image version and restart it so the change takes effect — the same two steps the admin website's Update button performs (the version change alone does nothing until the container cycles). " +
-      "confirm:false (the default) previews and changes nothing. Refuses if the instance is locked, or if the version is not on the droplet.",
+      "confirm:false (the default) previews and changes nothing. Refuses if the instance is locked, busy (a results package generating or an import running), or if the version is not on the droplet.",
     inputSchema: z.object({
       server_id: z.string().describe("Instance id from get_fleet_overview."),
       version: z.string().describe(
@@ -351,6 +370,7 @@ export function registerServerOpsTools(server: McpServer): void {
     runTool(async () => {
       const target = await resolveServer(server_id);
       await assertUnlocked(server_id);
+      await assertNotBusy(server_id);
       if (!isSafeParam(version)) {
         throw new ToolFailure(
           `Invalid version "${version}" — use a tag exactly as get_versions lists it.`,

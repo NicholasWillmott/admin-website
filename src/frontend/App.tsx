@@ -20,6 +20,7 @@ import { IndicatorsExportModal } from './components/modals/IndicatorsExportModal
 import { CurrentlyActiveUsersModal } from './components/modals/CurrentlyActiveUsersModal.tsx';
 import { AllServersActivityModal } from './components/modals/AllServersActivityModal.tsx';
 import type { ViewType } from './types.ts';
+import { readBusy } from './instance_busy.ts';
 import {
   fetchServerCardData,
   fetchServerStatus,
@@ -439,7 +440,8 @@ function App() {
                       class="multi-select-toggle active"
                       disabled={lockedServersResource.loading}
                       onClick={() => {
-                        const selectable = selectableServerIds().filter(id => !lockedServers().has(id));
+                        // Busy servers (results package generating, import running) can't take bulk actions
+                        const selectable = selectableServerIds().filter(id => !lockedServers().has(id) && !readBusy(statuses()?.[id]));
                         setMultiSelectedServerIds(selectable.filter(id => {
                           const s = (servers() ?? []).find(s => s.id === id);
                           return s?.mode !== 'central';

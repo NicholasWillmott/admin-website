@@ -35,6 +35,7 @@ import {
   assignServerCategoryApi,
 } from '../../../services.ts';
 import { addToast } from '../../../stores/toastStore.ts';
+import { describeBusy, readBusy } from '../../../instance_busy.ts';
 
 type StartupPollResult =
   | { status: 'online' }
@@ -171,9 +172,33 @@ export function ServersView(props: ServersViewProps) {
 
   const activeInstances = () => (props.servers() || []).filter(s => {
     const status = props.statuses()?.[s.id];
-    if (status?.hasRunningModules) return true;
+    if (readBusy(status)) return true;
     const log = status?.lastUserLog;
     return log && Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000;
+  });
+
+  // A restart, stop or update kills a busy instance's work (a results package
+  // generating, an import running), so those actions refuse it. The backend
+  // re-checks live; this is the last-polled state.
+  const busyOf = (serverId: string) => readBusy(props.statuses()?.[serverId]);
+  const refuseIfBusy = (serverIds: string[]): boolean => {
+    const busy = serverIds.flatMap(id => {
+      const b = busyOf(id);
+      return b ? [`${id} (${describeBusy(b).toLowerCase()})`] : [];
+    });
+    if (busy.length === 0) return false;
+    addToast(`Not done, busy: ${busy.join(', ')}. Wait for it to finish.`, "error");
+    return true;
+  };
+
+  // A selected server that turns busy on a later poll drops out of the selection
+  createEffect(() => {
+    const selected = props.multiSelectedServerIds();
+    if (!selected || selected.length === 0) return;
+    const dropped = selected.filter(id => busyOf(id));
+    if (dropped.length === 0) return;
+    props.setMultiSelectedServerIds(selected.filter(id => !dropped.includes(id)));
+    addToast(`Deselected ${dropped.join(', ')}: a results package is generating or an import is running.`, "info");
   });
 
   // toggle card
@@ -366,6 +391,7 @@ export function ServersView(props: ServersViewProps) {
       addToast('Another SSH operation is in progress. Please wait.', "info");
       return;
     }
+    if (refuseIfBusy([serverId])) return;
     props.setSshOperationInProgress(true);
     setUpdatingServerId(serverId);
     try {
@@ -399,6 +425,7 @@ export function ServersView(props: ServersViewProps) {
       addToast('Another SSH operation is in progress. Please wait.', "info");
       return;
     }
+    if (refuseIfBusy(serverIds)) return;
     props.setSshOperationInProgress(true);
     try {
       const token = await getToken();
@@ -429,6 +456,7 @@ export function ServersView(props: ServersViewProps) {
       addToast('Another SSH operation is in progress. Please wait.', "info");
       return;
     }
+    if (refuseIfBusy(serverIds)) return;
     props.setSshOperationInProgress(true);
     try {
       await bulkRestartServerInternal(serverIds);
@@ -443,6 +471,7 @@ export function ServersView(props: ServersViewProps) {
       addToast('Another SSH operation is in progress. Please wait.', "info");
       return;
     }
+    if (refuseIfBusy(serverIds)) return;
     props.setSshOperationInProgress(true);
     try {
       const token = await getToken();
@@ -466,6 +495,7 @@ export function ServersView(props: ServersViewProps) {
       addToast('Another SSH operation is in progress. Please wait.', "info");
       return;
     }
+    if (refuseIfBusy([serverId])) return;
     props.setSshOperationInProgress(true);
     try {
       await restartServerInternal(serverId);
@@ -480,6 +510,7 @@ export function ServersView(props: ServersViewProps) {
       addToast('Another SSH operation is in progress. Please wait.', "info");
       return;
     }
+    if (refuseIfBusy([serverId])) return;
     props.setSshOperationInProgress(true);
     setStoppingServerId(serverId);
     try {
@@ -639,13 +670,16 @@ export function ServersView(props: ServersViewProps) {
                             onToggleLock={toggleLock}
                             multiSelectMode={props.multiSelectMode()}
                             isSelected={props.multiSelectedServerIds()!.includes(server.id)}
+                            busy={busyOf(server.id)}
                             isSelectDisabled={(() => {
+                              if (busyOf(server.id)) return true;
                               const mode = selectionMode();
                               if (mode === null) return false;
                               const serverMode = server.mode ?? 'normal';
                               return serverMode !== mode;
                             })()}
                             onToggleSelect={(id) => {
+                              if (busyOf(id)) return;
                               const mode = selectionMode();
                               if (mode !== null && (server.mode ?? 'normal') !== mode) return;
                               props.setMultiSelectedServerIds(prev =>

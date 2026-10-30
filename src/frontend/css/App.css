@@ -149,6 +149,17 @@ h1 {
   gap: 8px;
 }
 
+/* After the name of an instance that must not be restarted (results package
+   generating or import running); the title says what is running */
+.busy-marker {
+  color: #fbbf24;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: -4px;
+  cursor: help;
+}
+
 .activity-dot {
   width: 10px;
   height: 10px;
@@ -282,6 +293,37 @@ h1 {
 
 .server-card.central.card-online:hover {
   border-top-color: #d4a017;
+}
+
+/* Generating a results package: blue accent and a pulsing blue glow. The
+   glow lives on ::after so the hover lift shadow on the card itself stays. */
+.server-card.card-generating {
+  border-top-color: #3b82f6;
+}
+
+.server-card.card-generating:hover {
+  border-top-color: #60a5fa;
+}
+
+.server-card.card-generating::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: card-generating-pulse 2s ease-in-out infinite;
+}
+
+@keyframes card-generating-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35), 0 0 6px rgba(59, 130, 246, 0.15); }
+  50%      { box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.8), 0 0 18px rgba(59, 130, 246, 0.45); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .server-card.card-generating::after {
+    animation: none;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.6);
+  }
 }
 
 .server-card.card-pending {
@@ -904,6 +946,7 @@ h1 {
 /* Collapsed-card status row: pill on the left, version chip on the right */
 .card-status-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -938,6 +981,18 @@ h1 {
 .status-pill.status-offline {
   background: rgba(239, 68, 68, 0.08);
   color: #f87171;
+}
+
+.status-pill.status-generating {
+  background: rgba(59, 130, 246, 0.14);
+  color: #60a5fa;
+  /* Long label: one line where it fits (the version chip wraps below); on a
+     narrow card it wraps inside the pill instead of overflowing the card */
+  max-width: 100%;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  line-height: 1.3;
+  border-radius: 10px;
 }
 
 .status-pill.status-pending {

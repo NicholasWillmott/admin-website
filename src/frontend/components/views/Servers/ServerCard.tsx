@@ -1,12 +1,15 @@
 import { createSignal, For, Show } from 'solid-js';
 import type { Server, HealthCheckResponse, ServerRestartStatus } from '../../../types.ts';
 import { filterAdhocVersions, filterVersionsForServer, formatUptime, parseVersion, timeAgo } from '../../../utils.ts';
+import { describeBusy, type InstanceBusy } from '../../../instance_busy.ts';
 
 interface ServerCardProps {
   server: Server;
   isExpanded: boolean;
   onToggle: () => void;
   status: HealthCheckResponse | null;
+  // null = free. Busy = a results package generating or an import running: Restart, Stop, Update and Delete are refused
+  busy: InstanceBusy | null;
   isLoading?: boolean;
   restartStatus: ServerRestartStatus;
   versions: string[];
@@ -53,10 +56,12 @@ export function ServerCard(props: ServerCardProps) {
   const statusKey = () => {
     if (props.restartStatus === 'pending') return 'pending';
     if (props.isLoading) return 'loading';
-    return props.status?.running ? 'online' : 'offline';
+    if (!props.status?.running) return 'offline';
+    // An import alone keeps the Online pill; the asterisk still marks it busy
+    return (props.busy?.generatingRuns ?? 0) > 0 ? 'generating' : 'online';
   };
   const statusLabel = () => {
-    const labels = { pending: 'Pending', loading: 'Loading…', online: 'Online', offline: 'Offline' };
+    const labels = { pending: 'Pending', loading: 'Loading…', online: 'Online', generating: 'Results package processing', offline: 'Offline' };
     return labels[statusKey()];
   };
 
@@ -80,15 +85,20 @@ export function ServerCard(props: ServerCardProps) {
           <a href={`https://${props.server.id}.fastr-analytics.org`} target="_blank" onClick={(e) => e.stopPropagation()}>
             <h2>{props.server.label}</h2>
           </a>
+          <Show when={props.busy}>
+            {(busy) => (
+              <span class="busy-marker" title={`${describeBusy(busy())}. Do not restart.`} aria-label={`Busy: ${describeBusy(busy())}`}>*</span>
+            )}
+          </Show>
           {(() => {
             const log = props.status?.lastUserLog;
             const recentUser = log
               ? Date.now() - new Date(log.timestamp).getTime() < 30 * 60 * 1000
               : false;
-            const modulesRunning = !!props.status?.hasRunningModules;
-            const isActive = recentUser || modulesRunning;
-            const title = modulesRunning
-              ? `Module processing in progress${log ? ` — last user: ${log.userEmail} (${timeAgo(log.timestamp)})` : ''}`
+            const busy = props.busy;
+            const isActive = recentUser || !!busy;
+            const title = busy
+              ? `${describeBusy(busy)}${log ? ` — last user: ${log.userEmail} (${timeAgo(log.timestamp)})` : ''}`
               : log
                 ? `Last activity: ${log.userEmail} — ${timeAgo(log.timestamp)}`
                 : 'No activity recorded';
@@ -171,9 +181,10 @@ export function ServerCard(props: ServerCardProps) {
             <button
               class="update-btn"
               onClick={() => props.onUpdate(props.server.id, selectedVersion())}
-              disabled={props.isLocked || props.updatingServerId === props.server.id || props.sshOperationInProgress}
+              disabled={props.isLocked || !!props.busy || props.updatingServerId === props.server.id || props.sshOperationInProgress}
+              title={props.busy ? `${describeBusy(props.busy)}. Updating restarts the server and would kill it.` : undefined}
             >
-              {props.isLocked ? 'Server Locked' : props.updatingServerId === props.server.id ? (
+              {props.isLocked ? 'Server Locked' : props.busy ? 'Server Busy' : props.updatingServerId === props.server.id ? (
                 <>
                   <span class="button-spinner"></span>
                   Updating...
@@ -243,9 +254,10 @@ export function ServerCard(props: ServerCardProps) {
             <button
               class="action-btn restart"
               onClick={() => props.onRestart(props.server.id)}
-              disabled={props.isLocked || props.restartingServerId === props.server.id || props.sshOperationInProgress}
+              disabled={props.isLocked || !!props.busy || props.restartingServerId === props.server.id || props.sshOperationInProgress}
+              title={props.busy ? `${describeBusy(props.busy)}. A restart would kill it.` : undefined}
             >
-              {props.isLocked ? 'Server Locked' : props.restartingServerId === props.server.id ? (
+              {props.isLocked ? 'Server Locked' : props.busy ? 'Server Busy' : props.restartingServerId === props.server.id ? (
                 <>
                   <span class="button-spinner"></span>
                   Restarting...
@@ -259,9 +271,10 @@ export function ServerCard(props: ServerCardProps) {
             <button
               class="action-btn stop"
               onClick={() => props.onStop(props.server.id)}
-              disabled={props.isLocked || props.stoppingServerId === props.server.id || props.sshOperationInProgress}
+              disabled={props.isLocked || !!props.busy || props.stoppingServerId === props.server.id || props.sshOperationInProgress}
+              title={props.busy ? `${describeBusy(props.busy)}. Stopping would kill it.` : undefined}
             >
-              {props.isLocked ? 'Server Locked' : props.stoppingServerId === props.server.id ? (
+              {props.isLocked ? 'Server Locked' : props.busy ? 'Server Busy' : props.stoppingServerId === props.server.id ? (
                 <>
                   <span class="button-spinner"></span>
                   Stopping...
@@ -292,9 +305,10 @@ export function ServerCard(props: ServerCardProps) {
             <button
               class="action-btn danger"
               onClick={() => props.onDelete(props.server.id)}
-              disabled={props.isLocked || props.sshOperationInProgress}
+              disabled={props.isLocked || !!props.busy || props.sshOperationInProgress}
+              title={props.busy ? `${describeBusy(props.busy)}. Deleting stops the server and would kill it.` : undefined}
             >
-              {props.isLocked ? 'Server Locked' : props.sshOperationInProgress ? 'SSH Operation in Progress...' : 'Delete Server'}
+              {props.isLocked ? 'Server Locked' : props.busy ? 'Server Busy' : props.sshOperationInProgress ? 'SSH Operation in Progress...' : 'Delete Server'}
             </button>
           </div>
         </div>

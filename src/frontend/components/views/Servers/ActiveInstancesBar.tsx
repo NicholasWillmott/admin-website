@@ -1,5 +1,6 @@
 import { For, Show } from 'solid-js';
 import type { Server, ServerStatuses } from '../../../types.ts';
+import { describeBusy, readBusy } from '../../../instance_busy.ts';
 
 interface ActiveInstancesBarProps {
   instances: Server[];
@@ -17,8 +18,9 @@ export function ActiveInstancesBar(props: ActiveInstancesBarProps) {
             {(server) => {
               const status = props.statuses?.[server.id];
               const log = status?.lastUserLog;
-              const title = status?.hasRunningModules
-                ? "Module processing in progress"
+              const busy = readBusy(status);
+              const title = busy
+                ? describeBusy(busy)
                 : log
                   ? `${log.userEmail} — ${new Date(log.timestamp).toLocaleTimeString()}`
                   : "";

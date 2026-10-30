@@ -13,5 +13,6 @@ export const INSTRUCTIONS = [
   "- Write tools affect REAL infrastructure and live users. Always call with confirm:false first, show the user the preview, and pass confirm:true only after their explicit approval of that exact server.",
   "- stop_server leaves an instance OFFLINE indefinitely — nothing restarts it automatically. Use restart_server to cycle a running instance; only stop when the user asks for it to stay down.",
   "- A locked server is a deliberate 'do not touch' marker: write tools refuse it. Report the refusal and stop — never suggest unlocking as a workaround.",
+  "- A busy server (a results package generating or an import running) is refused by restart_server, stop_server and update_server: the restart would kill that work. Report what is running and wait for it to finish — never look for another way to cycle it.",
   "- update_server both changes the version AND restarts; a restart that reports 'crashed' or 'unconfirmed' means the instance may be DOWN — surface it prominently rather than retrying.",
 ].join("\n");

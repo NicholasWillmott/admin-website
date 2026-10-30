@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
 import { isSafeParam, getServerInfo, getDropletIp } from "../lib/utils.ts";
 import { executeCommand, READ_TIMEOUT_MS } from "../ssh.ts";
+import { busyRefusal } from "../lib/instance_busy.ts";
 
 const router = new Hono();
 
@@ -95,6 +96,11 @@ router.post("/:id/restart", async (c) => {
         return c.json({ error: "Server not found" }, 404);
     }
 
+    // Refuse before any wb command: a restart or stop kills a generating
+    // results package or a running import
+    const refusal = await busyRefusal([serverId]);
+    if (refusal) return c.json({ success: false, ...refusal }, 409);
+
     const command = server.mode === "central" ? `wb run-central ${serverId}` : `wb restart ${serverId}`;
     console.log(command);
 
@@ -121,6 +127,11 @@ router.post("/bulk-restart", async (c) => {
     if (!ids.every(id => isSafeParam(id))) {
         return c.json({ error: "Invalid server ID" }, 400);
     }
+
+    // Refuse before any wb command: a restart or stop kills a generating
+    // results package or a running import
+    const refusal = await busyRefusal(ids);
+    if (refusal) return c.json({ success: false, ...refusal }, 409);
 
     const command = "wb restart " + ids.join(" ");
 
@@ -211,6 +222,11 @@ router.post("/:id/update", async (c) => {
         return c.json({ error: "Server not found" }, 404);
     }
 
+    // Refuse before any wb command: a restart or stop kills a generating
+    // results package or a running import
+    const refusal = await busyRefusal([serverId]);
+    if (refusal) return c.json({ success: false, ...refusal }, 409);
+
     const command = `wb c update ${serverId} --server ${version}`;
     console.log(command);
 
@@ -238,6 +254,11 @@ router.post("/bulk-update", async (c) => {
     if (!ids.every(id => isSafeParam(id)) || !isSafeParam(version)) {
         return c.json({ error: "Invalid server ID or version format" }, 400);
     }
+
+    // Refuse before any wb command: a restart or stop kills a generating
+    // results package or a running import
+    const refusal = await busyRefusal(ids);
+    if (refusal) return c.json({ success: false, ...refusal }, 409);
 
     const command = "wb c update " + ids.join(" ") + " --server " + version;
 
@@ -554,6 +575,11 @@ router.post("/bulk-stop", async (c) => {
         return c.json({ error: "Invalid server ID" }, 400);
     }
 
+    // Refuse before any wb command: a restart or stop kills a generating
+    // results package or a running import
+    const refusal = await busyRefusal(ids);
+    if (refusal) return c.json({ success: false, ...refusal }, 409);
+
     const command = "wb stop " + ids.join(" ");
 
     try {
@@ -575,6 +601,15 @@ router.post("/stop", async (c) => {
 
     const body = await c.req.json<{ serverId: string }>();
     const serverId = body.serverId;
+
+    if (!isSafeParam(serverId)) {
+        return c.json({ error: "Invalid server ID" }, 400);
+    }
+
+    // Refuse before any wb command: a restart or stop kills a generating
+    // results package or a running import
+    const refusal = await busyRefusal([serverId]);
+    if (refusal) return c.json({ success: false, ...refusal }, 409);
 
     const command = `wb stop ${serverId}`;
 

@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
 import { readCategoriesData } from "../../routes/create.ts";
 import { readLocks } from "../../routes/servers.ts";
+import { readBusy } from "../../../frontend/instance_busy.ts";
 import { H_USERS } from "../../h_users.ts";
 import { parseDfOutput, parseDuOutput } from "../../routes/volumes.ts";
 import { getDropletIp, isSafeParam } from "../../lib/utils.ts";
@@ -74,7 +75,9 @@ interface HealthCheck {
   calendar: string;
   totalUsers: number;
   projects: string[];
-  hasRunningModules: boolean;
+  // v1 (1.76.x) only; v2 reports `busy`. Read both through readBusy
+  hasRunningModules?: boolean;
+  busy?: unknown;
   lastUserLog: { userEmail: string; endpoint: string; timestamp: string } | null;
 }
 
@@ -112,7 +115,7 @@ export function registerFleetTools(server: McpServer): void {
   server.registerTool("get_fleet_status", {
     title: "Fleet status",
     description:
-      "Live health of every FASTR instance in one fan-out: running, version, user count, project count, uptime, last activity. An instance mapping to null was unreachable (not empty). For one instance's full health document use get_server_status.",
+      "Live health of every FASTR instance in one fan-out: running, version, user count, project count, uptime, last activity, and busy (a results package generating or an import running; null when free, and restart/stop/update refuse a busy instance). An instance mapping to null was unreachable (not empty). For one instance's full health document use get_server_status.",
     inputSchema: z.object({}),
     annotations: { readOnlyHint: true },
   }, () =>
@@ -133,7 +136,8 @@ export function registerFleetTools(server: McpServer): void {
             calendar: h.calendar,
             totalUsers: h.totalUsers,
             projectCount: h.projects?.length ?? 0,
-            hasRunningModules: h.hasRunningModules,
+            // null = not busy; else what a restart would kill (v1 can only report a generation)
+            busy: readBusy(h),
             lastUserLog: h.lastUserLog ?? null,
           }];
         }),
