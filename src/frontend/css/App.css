@@ -4891,6 +4891,14 @@ h1 {
   cursor: default;
 }
 
+/* Results package generating or import running: same blue as the card's
+   "Results package processing" pill */
+.active-instance-chip.processing {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(96, 165, 250, 0.5);
+  color: #60a5fa;
+}
+
 .active-instances-loading {
   font-size: 0.8rem;
   color: #94a3b8;

@@ -25,7 +25,7 @@ export function ActiveInstancesBar(props: ActiveInstancesBarProps) {
                   ? `${log.userEmail} — ${new Date(log.timestamp).toLocaleTimeString()}`
                   : "";
               return (
-                <span class="active-instance-chip" title={title}>
+                <span class={`active-instance-chip ${busy ? 'processing' : ''}`} title={title}>
                   {server.label}
                 </span>
               );
