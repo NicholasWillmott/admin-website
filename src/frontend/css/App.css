@@ -5053,6 +5053,48 @@ h1 {
 
 /* ===== Responsive / Mobile Styles ===== */
 
+/* Phones: the header primary collapses to its "+" icon, and the toolbar
+   scrolls sideways rather than running off-screen when select mode adds
+   its two extra buttons. Filters fill the width. */
+@media (max-width: 480px) {
+  .sticky-header .button-container {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .sticky-header .nav-right {
+    gap: 6px;
+  }
+
+  .sticky-header button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .header-primary-label {
+    display: none;
+  }
+
+  .servers-container {
+    padding: 16px 12px;
+    gap: 20px;
+  }
+
+  .server-filter-search,
+  .server-filter-input {
+    width: 100%;
+  }
+
+  .server-filter-select {
+    flex: 1 1 auto;
+  }
+
+  .active-instances-bar {
+    margin-left: 0;
+  }
+}
+
 @media (max-width: 1200px) {
   .servers-grid {
     grid-template-columns: repeat(4, 1fr);

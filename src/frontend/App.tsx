@@ -473,12 +473,13 @@ function App() {
                   <button
                     type="button"
                     class="header-primary"
+                    aria-label="Create server"
                     onClick={() => setCreateServerModalOpen(true)}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
                       <path d="M12 5v14M5 12h14" />
                     </svg>
-                    Create server
+                    <span class="header-primary-label">Create server</span>
                   </button>
                 </Show>
                 {/* Add toolbar buttons for other views here using <Show when={activeView() === "viewName"}> */}
