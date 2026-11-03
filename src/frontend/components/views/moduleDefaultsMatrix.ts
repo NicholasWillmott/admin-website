@@ -1,26 +1,25 @@
 import type {
   ModuleDefaultsCountry,
-  ModuleDefaultsGlobalFile,
   ModuleDefaultsSnapshot,
 } from '../../types.ts';
 
-// The fleet matrix's rows (ModuleDefaultsView). Parameters are compared with
-// the fleet's global default, the frozen most-common value; a highlighted
-// cell is exactly one the platform editor marks "Differs from global
-// default". Default families and pre-selected modules are each country's own
-// choice, so they are shown but never compared.
+// The fleet matrix's rows (ModuleDefaultsView). Each parameter is compared
+// with its definition default (the module's own defaultValue), read from that
+// country's own snapshot, so a highlighted cell is exactly one the platform
+// editor marks "Differs from default". Default families and pre-selected
+// modules have no shared default: they are shown but never compared.
 
 export interface Cell {
   text: string;
-  differsFromGlobal: boolean;
+  differsFromDefault: boolean;
 }
 
 export interface Row {
   key: string;
   label: string;
   sublabel?: string;
-  globalText: string;
-  globalNote?: string;
+  defaultText: string;
+  defaultNote?: string;
   cells: Record<string, Cell | undefined>;
 }
 
@@ -42,10 +41,7 @@ export function shortRef(ref: string): string {
   return ref.length > 10 ? ref.slice(0, 7) : ref;
 }
 
-export function buildSections(
-  countries: ModuleDefaultsCountry[],
-  global: ModuleDefaultsGlobalFile | null,
-): Section[] {
+export function buildSections(countries: ModuleDefaultsCountry[]): Section[] {
   const live = countries.filter((c) => c.state === 'ok' && c.snapshot);
   if (live.length === 0) return [];
 
@@ -60,7 +56,7 @@ export function buildSections(
   const uncompared = (read: (s: ModuleDefaultsSnapshot) => boolean) => {
     const cells: Record<string, Cell | undefined> = {};
     for (const c of live) {
-      cells[c.id] = { text: yesNo(read(c.snapshot!)), differsFromGlobal: false };
+      cells[c.id] = { text: yesNo(read(c.snapshot!)), differsFromDefault: false };
     }
     return cells;
   };
@@ -68,7 +64,7 @@ export function buildSections(
   const familyRows: Row[] = FAMILIES.map((f) => ({
     key: `family|${f.key}`,
     label: f.label,
-    globalText: '—',
+    defaultText: '—',
     cells: uncompared((s) => s.stored.step1?.[f.key] === true),
   }));
 
@@ -76,7 +72,7 @@ export function buildSections(
     key: `selected|${m.id}`,
     label: m.label,
     sublabel: m.id,
-    globalText: '—',
+    defaultText: '—',
     cells: uncompared((s) => s.stored.moduleIds.includes(m.id)),
   }));
 
@@ -86,23 +82,29 @@ export function buildSections(
       key: `params|${m.id}`,
       label: `${m.label} (${m.id})`,
       rows: m.parameters.map((param) => {
-        const g = global?.parameters[m.id]?.[param.replacementString];
         const cells: Record<string, Cell | undefined> = {};
+        const defaults = new Set<string>();
         for (const c of live) {
+          const own = c.snapshot!.modules
+            .find((x) => x.id === m.id)?.parameters
+            .find((x) => x.replacementString === param.replacementString);
           const current = c.snapshot!.effective[m.id]?.[param.replacementString];
-          cells[c.id] = current === undefined ? undefined : {
-            text: current,
-            differsFromGlobal: g !== undefined && current !== g.value,
-          };
+          if (own === undefined || current === undefined) {
+            cells[c.id] = undefined;
+            continue;
+          }
+          defaults.add(own.defaultValue);
+          cells[c.id] = { text: current, differsFromDefault: current !== own.defaultValue };
         }
         return {
           key: `param|${m.id}|${param.replacementString}`,
           label: param.description,
           sublabel: param.replacementString,
-          globalText: g?.value ?? '—',
-          globalNote: g
-            ? `${g.agreeing}/${g.counted} countries` +
-              (g.value !== param.defaultValue ? ` · definition ${param.defaultValue}` : '')
+          defaultText: param.defaultValue,
+          // Countries resolved different modules commits that disagree on
+          // this default: each cell is compared with its own country's.
+          defaultNote: defaults.size > 1
+            ? `varies by modules version: ${[...defaults].join(', ')}`
             : undefined,
           cells,
         };

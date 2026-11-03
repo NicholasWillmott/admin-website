@@ -1,10 +1,8 @@
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
 import {
-  fetchGlobalFile,
   fetchRegistry,
   fetchSnapshot,
-  type GlobalFile,
   isCountryInstance,
   isV2,
   type ModuleDefaultsSnapshot,
@@ -24,9 +22,8 @@ export interface ModuleDefaultsCountry {
   snapshot?: ModuleDefaultsSnapshot;
 }
 
-// Every country's live module defaults beside the fleet's global parameter
-// defaults, for the fleet matrix (contract in lib/module_defaults.ts).
-// Read-only.
+// Every country's live module defaults, for the fleet matrix (contract in
+// lib/module_defaults.ts). Read-only.
 router.get("/", async (c) => {
   const authError = await requireAdmin(c);
   if (authError) return authError;
@@ -34,14 +31,6 @@ router.get("/", async (c) => {
   const statusApiKey = Deno.env.get("STATUS_API_KEY");
   if (!statusApiKey) {
     return c.json({ error: "STATUS_API_KEY is not configured" }, 500);
-  }
-
-  let global: GlobalFile | null = null;
-  let globalError: string | undefined;
-  try {
-    global = await fetchGlobalFile();
-  } catch (error) {
-    globalError = String(error);
   }
 
   const countries = (await fetchRegistry()).filter(isCountryInstance);
@@ -71,8 +60,6 @@ router.get("/", async (c) => {
 
   return c.json({
     countries: rows.sort((a, b) => a.label.localeCompare(b.label)),
-    global,
-    globalError,
   });
 });
 

@@ -8,9 +8,9 @@ interface ModuleDefaultsViewProps {
 }
 
 // Fleet matrix of every country's module defaults (the platform's
-// `run_generation_defaults` store) against the fleet's global parameter
-// defaults in the resource hub. Read-only: resets happen in each instance's
-// own editor. Row model and comparison rule in moduleDefaultsMatrix.ts.
+// `run_generation_defaults` store) against each parameter's definition
+// default. Read-only: resets happen in each instance's own editor. Row model
+// and comparison rule in moduleDefaultsMatrix.ts.
 
 export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
   const [onlyDiffering, setOnlyDiffering] = createSignal(false);
@@ -22,14 +22,14 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
   });
 
   const countries = () => data()?.countries ?? [];
-  const sections = createMemo(() => buildSections(countries(), data()?.global ?? null));
+  const sections = createMemo(() => buildSections(countries()));
 
   const differingByCountry = createMemo(() => {
     const counts: Record<string, number> = {};
     for (const s of sections()) {
       for (const r of s.rows) {
         for (const [id, cell] of Object.entries(r.cells)) {
-          if (cell?.differsFromGlobal) counts[id] = (counts[id] ?? 0) + 1;
+          if (cell?.differsFromDefault) counts[id] = (counts[id] ?? 0) + 1;
         }
       }
     }
@@ -42,7 +42,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
       .map((s) => ({
         ...s,
         rows: s.rows.filter((r) =>
-          (!onlyDiffering() || Object.values(r.cells).some((cell) => cell?.differsFromGlobal)) &&
+          (!onlyDiffering() || Object.values(r.cells).some((cell) => cell?.differsFromDefault)) &&
           (!q ||
             r.label.toLowerCase().includes(q) ||
             (r.sublabel ?? '').toLowerCase().includes(q) ||
@@ -74,7 +74,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
             />
             <label class="mdd-toggle">
               <input type="checkbox" checked={onlyDiffering()} onChange={(e) => setOnlyDiffering(e.currentTarget.checked)} />
-              Only differing from global
+              Only differing from default
             </label>
             <Button icon="refresh" onClick={() => refetch()} disabled={data.loading}>
               Refresh
@@ -94,30 +94,15 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
         </Show>
 
         <Show when={!data.loading && data()}>
-          <Show when={data()?.globalError}>
-            <div class="mdd-alert mdd-alert-error">
-              Could not read the global defaults file: {data()?.globalError}
-            </div>
-          </Show>
-          <Show when={!data()?.global && !data()?.globalError}>
-            <div class="mdd-alert mdd-alert-warning">
-              Global defaults are not published yet. Run ./compute_module_defaults_global and commit
-              module_defaults_global.json to fastr-resource-hub.
-            </div>
-          </Show>
-
           <div class="mdd-meta">
             <span><strong>{summary().live}</strong> of {summary().all} countries read</span>
-            <Show when={data()?.global}>
-              {(g) => <span>Global defaults computed <strong>{g().computedAt.slice(0, 10)}</strong> from {g().countries.length} countries</span>}
-            </Show>
             <span class={summary().differing > 0 ? 'mdd-meta-warn' : ''}>
-              <strong>{summary().differing}</strong> countries differ from a global default
+              <strong>{summary().differing}</strong> countries differ from a definition default
             </span>
           </div>
 
           <div class="mdd-legend">
-            <span><span class="mdd-swatch mdd-swatch-drift" /> Differs from the global default (the value most countries had when it was computed)</span>
+            <span><span class="mdd-swatch mdd-swatch-drift" /> Differs from the module's definition default (its defaultValue in definition.json)</span>
           </div>
 
           <Show
@@ -129,7 +114,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
                 <thead>
                   <tr>
                     <th class="mdd-sticky mdd-col-label">Setting</th>
-                    <th class="mdd-sticky mdd-col-def">Global default</th>
+                    <th class="mdd-sticky mdd-col-def">Definition default</th>
                     <For each={countries()}>
                       {(c) => (
                         <th class="mdd-col-country" title={c.error ?? ''}>
@@ -168,9 +153,9 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
                                 </Show>
                               </td>
                               <td class="mdd-sticky mdd-col-def">
-                                <div class="mdd-mono">{row.globalText}</div>
-                                <Show when={row.globalNote}>
-                                  <div class="mdd-row-sublabel">{row.globalNote}</div>
+                                <div class="mdd-mono">{row.defaultText}</div>
+                                <Show when={row.defaultNote}>
+                                  <div class="mdd-row-sublabel">{row.defaultNote}</div>
                                 </Show>
                               </td>
                               <For each={countries()}>
@@ -178,8 +163,8 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
                                   const cell = () => row.cells[c.id];
                                   return (
                                     <td
-                                      class={`mdd-cell ${cell()?.differsFromGlobal ? 'mdd-cell-drift' : ''}`}
-                                      title={cell()?.differsFromGlobal ? `Global default: ${row.globalText}` : cell()?.text ?? ''}
+                                      class={`mdd-cell ${cell()?.differsFromDefault ? 'mdd-cell-drift' : ''}`}
+                                      title={cell()?.differsFromDefault ? `Definition default: ${row.defaultText}` : cell()?.text ?? ''}
                                     >
                                       {cell()?.text ?? '—'}
                                     </td>

@@ -354,9 +354,8 @@ export interface SentEmailSummary {
   instanceId?: string;
 }
 
-// Fleet global module parameter defaults: mirrors
-// src/backend/routes/moduleDefaults.ts (contract in
-// src/backend/lib/module_defaults.ts).
+// Fleet module defaults: mirrors src/backend/routes/moduleDefaults.ts
+// (contract in src/backend/lib/module_defaults.ts).
 export interface StoredModuleDefaults {
   step1: { hmis: boolean; hfa: boolean; iceh: boolean } | null;
   moduleIds: string[];
@@ -376,13 +375,6 @@ export interface ModuleDefaultsSnapshot {
   }[];
 }
 
-export interface ModuleDefaultsGlobalFile {
-  version: 1;
-  computedAt: string;
-  countries: string[];
-  parameters: Record<string, Record<string, { value: string; agreeing: number; counted: number }>>;
-}
-
 export interface ModuleDefaultsCountry {
   id: string;
   label: string;
@@ -396,6 +388,4 @@ export interface ModuleDefaultsCountry {
 
 export interface ModuleDefaultsResponse {
   countries: ModuleDefaultsCountry[];
-  global: ModuleDefaultsGlobalFile | null;
-  globalError?: string;
 }
