@@ -9,8 +9,10 @@ interface ModuleDefaultsViewProps {
 
 // Fleet matrix of every country's module defaults (the platform's
 // `run_generation_defaults` store) against each parameter's definition
-// default. Read-only: resets happen in each instance's own editor. Row model
-// and comparison rule in moduleDefaultsMatrix.ts.
+// default. Only countries with at least one differing parameter get a
+// column; countries that could not be read are listed above the table.
+// Read-only: resets happen in each instance's own editor. Row model and
+// comparison rule in moduleDefaultsMatrix.ts.
 
 export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
   const [onlyDiffering, setOnlyDiffering] = createSignal(false);
@@ -36,6 +38,15 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
     return counts;
   });
 
+  const differingCountries = createMemo(() =>
+    countries().filter((c) => (differingByCountry()[c.id] ?? 0) > 0)
+  );
+
+  const unread = () =>
+    countries()
+      .filter((c) => c.state !== 'ok')
+      .map((c) => (c.state === 'not_v2' ? `${c.label} (v${c.serverVersion})` : `${c.label} (unreachable)`));
+
   const visibleSections = createMemo(() => {
     const q = search().toLowerCase();
     return sections()
@@ -55,8 +66,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
   const summary = () => {
     const all = countries();
     const live = all.filter((c) => c.state === 'ok');
-    const differing = live.filter((c) => (differingByCountry()[c.id] ?? 0) > 0);
-    return { all: all.length, live: live.length, differing: differing.length };
+    return { all: all.length, live: live.length, differing: differingCountries().length };
   };
 
   return (
@@ -99,6 +109,9 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
             <span class={summary().differing > 0 ? 'mdd-meta-warn' : ''}>
               <strong>{summary().differing}</strong> countries differ from a definition default
             </span>
+            <Show when={unread().length > 0}>
+              <span>Not read: {unread().join(', ')}</span>
+            </Show>
           </div>
 
           <div class="mdd-legend">
@@ -109,77 +122,76 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
             when={sections().length > 0}
             fallback={<div class="mdd-empty">No v2 country answered.</div>}
           >
-            <div class="mdd-scroll">
-              <table class="mdd-table">
-                <thead>
-                  <tr>
-                    <th class="mdd-sticky mdd-col-label">Setting</th>
-                    <th class="mdd-sticky mdd-col-def">Definition default</th>
-                    <For each={countries()}>
-                      {(c) => (
-                        <th class="mdd-col-country" title={c.error ?? ''}>
-                          <div class="mdd-country-name">{c.label}</div>
-                          <div class="mdd-country-meta">
-                            {c.state === 'not_v2'
-                              ? `v${c.serverVersion}, not on v2`
-                              : c.state === 'unreachable'
-                              ? 'unreachable'
-                              : `${differingByCountry()[c.id] ?? 0} differ`}
-                          </div>
-                          <Show when={c.snapshot}>
-                            {(s) => <div class="mdd-country-ref">modules {shortRef(s().modulesGitRef)}</div>}
-                          </Show>
-                        </th>
+            <Show
+              when={differingCountries().length > 0}
+              fallback={<div class="mdd-empty">Every country matches the definition defaults.</div>}
+            >
+              <div class="mdd-scroll">
+                <table class="mdd-table">
+                  <thead>
+                    <tr>
+                      <th class="mdd-sticky mdd-col-label">Setting</th>
+                      <th class="mdd-sticky mdd-col-def">Definition default</th>
+                      <For each={differingCountries()}>
+                        {(c) => (
+                          <th class="mdd-col-country">
+                            <div class="mdd-country-name">{c.label}</div>
+                            <div class="mdd-country-meta">{differingByCountry()[c.id]} differ</div>
+                            <Show when={c.snapshot}>
+                              {(s) => <div class="mdd-country-ref">modules {shortRef(s().modulesGitRef)}</div>}
+                            </Show>
+                          </th>
+                        )}
+                      </For>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={visibleSections()}>
+                      {(section) => (
+                        <>
+                          <tr class="mdd-section-row">
+                            <td class="mdd-sticky mdd-col-label mdd-section-label">{section.label}</td>
+                            <td class="mdd-sticky mdd-col-def" />
+                            <td colSpan={differingCountries().length} />
+                          </tr>
+                          <For each={section.rows}>
+                            {(row) => (
+                              <tr class="mdd-row">
+                                <td class="mdd-sticky mdd-col-label">
+                                  <div class="mdd-row-label">{row.label}</div>
+                                  <Show when={row.sublabel}>
+                                    <div class="mdd-row-sublabel">{row.sublabel}</div>
+                                  </Show>
+                                </td>
+                                <td class="mdd-sticky mdd-col-def">
+                                  <div class="mdd-mono">{row.defaultText}</div>
+                                  <Show when={row.defaultNote}>
+                                    <div class="mdd-row-sublabel">{row.defaultNote}</div>
+                                  </Show>
+                                </td>
+                                <For each={differingCountries()}>
+                                  {(c) => {
+                                    const cell = () => row.cells[c.id];
+                                    return (
+                                      <td
+                                        class={`mdd-cell ${cell()?.differsFromDefault ? 'mdd-cell-drift' : ''}`}
+                                        title={cell()?.differsFromDefault ? `Definition default: ${row.defaultText}` : cell()?.text ?? ''}
+                                      >
+                                        {cell()?.text ?? '—'}
+                                      </td>
+                                    );
+                                  }}
+                                </For>
+                              </tr>
+                            )}
+                          </For>
+                        </>
                       )}
                     </For>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={visibleSections()}>
-                    {(section) => (
-                      <>
-                        <tr class="mdd-section-row">
-                          <td class="mdd-sticky mdd-col-label mdd-section-label">{section.label}</td>
-                          <td class="mdd-sticky mdd-col-def" />
-                          <td colSpan={countries().length} />
-                        </tr>
-                        <For each={section.rows}>
-                          {(row) => (
-                            <tr class="mdd-row">
-                              <td class="mdd-sticky mdd-col-label">
-                                <div class="mdd-row-label">{row.label}</div>
-                                <Show when={row.sublabel}>
-                                  <div class="mdd-row-sublabel">{row.sublabel}</div>
-                                </Show>
-                              </td>
-                              <td class="mdd-sticky mdd-col-def">
-                                <div class="mdd-mono">{row.defaultText}</div>
-                                <Show when={row.defaultNote}>
-                                  <div class="mdd-row-sublabel">{row.defaultNote}</div>
-                                </Show>
-                              </td>
-                              <For each={countries()}>
-                                {(c) => {
-                                  const cell = () => row.cells[c.id];
-                                  return (
-                                    <td
-                                      class={`mdd-cell ${cell()?.differsFromDefault ? 'mdd-cell-drift' : ''}`}
-                                      title={cell()?.differsFromDefault ? `Definition default: ${row.defaultText}` : cell()?.text ?? ''}
-                                    >
-                                      {cell()?.text ?? '—'}
-                                    </td>
-                                  );
-                                }}
-                              </For>
-                            </tr>
-                          )}
-                        </For>
-                      </>
-                    )}
-                  </For>
-                </tbody>
-              </table>
-            </div>
+                  </tbody>
+                </table>
+              </div>
+            </Show>
           </Show>
         </Show>
       </div>

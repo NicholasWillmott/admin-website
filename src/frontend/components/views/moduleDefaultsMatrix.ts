@@ -6,8 +6,9 @@ import type {
 // The fleet matrix's rows (ModuleDefaultsView). Each parameter is compared
 // with its definition default (the module's own defaultValue), read from that
 // country's own snapshot, so a highlighted cell is exactly one the platform
-// editor marks "Differs from default". Default families and pre-selected
-// modules have no shared default: they are shown but never compared.
+// editor marks "Differs from default". Parameters only: the generation wizard
+// turns on every data family and module, so the stored families and
+// pre-selected modules no longer do anything and are not shown.
 
 export interface Cell {
   text: string;
@@ -29,14 +30,6 @@ export interface Section {
   rows: Row[];
 }
 
-const FAMILIES = [
-  { key: 'hmis', label: 'HMIS data' },
-  { key: 'hfa', label: 'HFA data' },
-  { key: 'iceh', label: 'ICEH equity data' },
-] as const;
-
-const yesNo = (v: boolean) => (v ? 'Yes' : 'No');
-
 export function shortRef(ref: string): string {
   return ref.length > 10 ? ref.slice(0, 7) : ref;
 }
@@ -53,30 +46,7 @@ export function buildSections(countries: ModuleDefaultsCountry[]): Section[] {
     for (const m of c.snapshot!.modules) if (!modules.has(m.id)) modules.set(m.id, m);
   }
 
-  const uncompared = (read: (s: ModuleDefaultsSnapshot) => boolean) => {
-    const cells: Record<string, Cell | undefined> = {};
-    for (const c of live) {
-      cells[c.id] = { text: yesNo(read(c.snapshot!)), differsFromDefault: false };
-    }
-    return cells;
-  };
-
-  const familyRows: Row[] = FAMILIES.map((f) => ({
-    key: `family|${f.key}`,
-    label: f.label,
-    defaultText: '—',
-    cells: uncompared((s) => s.stored.step1?.[f.key] === true),
-  }));
-
-  const selectionRows: Row[] = [...modules.values()].map((m) => ({
-    key: `selected|${m.id}`,
-    label: m.label,
-    sublabel: m.id,
-    defaultText: '—',
-    cells: uncompared((s) => s.stored.moduleIds.includes(m.id)),
-  }));
-
-  const paramSections: Section[] = [...modules.values()]
+  return [...modules.values()]
     .filter((m) => m.parameters.length > 0)
     .map((m) => ({
       key: `params|${m.id}`,
@@ -110,10 +80,4 @@ export function buildSections(countries: ModuleDefaultsCountry[]): Section[] {
         };
       }),
     }));
-
-  return [
-    { key: 'families', label: 'Default data families (per country, not compared)', rows: familyRows },
-    { key: 'selected', label: 'Pre-selected modules (per country, not compared)', rows: selectionRows },
-    ...paramSections,
-  ];
 }
