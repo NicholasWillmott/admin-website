@@ -9,13 +9,14 @@ interface ModuleDefaultsViewProps {
 
 // Fleet matrix of every country's module defaults (the platform's
 // `run_generation_defaults` store) against each parameter's definition
-// default. Only countries with at least one differing parameter get a
-// column; countries that could not be read are listed above the table.
-// Read-only: resets happen in each instance's own editor. Row model and
+// default. "Only differing countries" narrows the columns to countries with
+// at least one differing parameter (unread countries are then listed above
+// the table). Read-only: resets happen in each instance's own editor. Row model and
 // comparison rule in moduleDefaultsMatrix.ts.
 
 export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
   const [onlyDiffering, setOnlyDiffering] = createSignal(false);
+  const [onlyDifferingCountries, setOnlyDifferingCountries] = createSignal(false);
   const [search, setSearch] = createSignal('');
 
   const [data, { refetch }] = createResource(async () => {
@@ -41,6 +42,8 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
   const differingCountries = createMemo(() =>
     countries().filter((c) => (differingByCountry()[c.id] ?? 0) > 0)
   );
+
+  const shownCountries = () => (onlyDifferingCountries() ? differingCountries() : countries());
 
   const unread = () =>
     countries()
@@ -86,6 +89,14 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
               <input type="checkbox" checked={onlyDiffering()} onChange={(e) => setOnlyDiffering(e.currentTarget.checked)} />
               Only differing from default
             </label>
+            <label class="mdd-toggle">
+              <input
+                type="checkbox"
+                checked={onlyDifferingCountries()}
+                onChange={(e) => setOnlyDifferingCountries(e.currentTarget.checked)}
+              />
+              Only differing countries
+            </label>
             <Button icon="refresh" onClick={() => refetch()} disabled={data.loading}>
               Refresh
             </Button>
@@ -109,7 +120,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
             <span class={summary().differing > 0 ? 'mdd-meta-warn' : ''}>
               <strong>{summary().differing}</strong> countries differ from a definition default
             </span>
-            <Show when={unread().length > 0}>
+            <Show when={onlyDifferingCountries() && unread().length > 0}>
               <span>Not read: {unread().join(', ')}</span>
             </Show>
           </div>
@@ -123,7 +134,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
             fallback={<div class="mdd-empty">No v2 country answered.</div>}
           >
             <Show
-              when={differingCountries().length > 0}
+              when={shownCountries().length > 0}
               fallback={<div class="mdd-empty">Every country matches the definition defaults.</div>}
             >
               <div class="mdd-scroll">
@@ -132,11 +143,17 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
                     <tr>
                       <th class="mdd-sticky mdd-col-label">Setting</th>
                       <th class="mdd-sticky mdd-col-def">Definition default</th>
-                      <For each={differingCountries()}>
+                      <For each={shownCountries()}>
                         {(c) => (
-                          <th class="mdd-col-country">
+                          <th class="mdd-col-country" title={c.error ?? ''}>
                             <div class="mdd-country-name">{c.label}</div>
-                            <div class="mdd-country-meta">{differingByCountry()[c.id]} differ</div>
+                            <div class="mdd-country-meta">
+                              {c.state === 'not_v2'
+                                ? `v${c.serverVersion}, not on v2`
+                                : c.state === 'unreachable'
+                                ? 'unreachable'
+                                : `${differingByCountry()[c.id] ?? 0} differ`}
+                            </div>
                             <Show when={c.snapshot}>
                               {(s) => <div class="mdd-country-ref">modules {shortRef(s().modulesGitRef)}</div>}
                             </Show>
@@ -152,7 +169,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
                           <tr class="mdd-section-row">
                             <td class="mdd-sticky mdd-col-label mdd-section-label">{section.label}</td>
                             <td class="mdd-sticky mdd-col-def" />
-                            <td colSpan={differingCountries().length} />
+                            <td colSpan={shownCountries().length} />
                           </tr>
                           <For each={section.rows}>
                             {(row) => (
@@ -169,7 +186,7 @@ export function ModuleDefaultsView(props: ModuleDefaultsViewProps) {
                                     <div class="mdd-row-sublabel">{row.defaultNote}</div>
                                   </Show>
                                 </td>
-                                <For each={differingCountries()}>
+                                <For each={shownCountries()}>
                                   {(c) => {
                                     const cell = () => row.cells[c.id];
                                     return (
