@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
 import { isSafeParam } from "../lib/utils.ts";
+import { instanceFetch } from "../lib/instance_fetch.ts";
 import ExcelJS from "exceljs";
 
 const router = new Hono();
@@ -52,8 +53,9 @@ router.post("/indicators/export", async (c) => {
 
     const results = await Promise.allSettled(
         servers.map(async (server) => {
-            const response = await fetch(
-                `https://${server.id}.fastr-analytics.org/dhis2-indicators-export`,
+            const response = await instanceFetch(
+                server.id,
+                "dhis2-indicators-export",
             );
             const data = await response.json();
             return { server, indicators: data.indicators as IndicatorRow[] };

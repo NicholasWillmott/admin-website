@@ -1,8 +1,10 @@
 // Shared by the frontend and the backend (routes + MCP). Same rules as
 // server-cli's src/utils/instance-busy.ts, which gates `wb restart` / `wb stop`.
 
-/** Work in progress on an instance that a restart or stop would kill. */
-export type InstanceBusy = { generatingRuns: number; runningImports: string[] };
+/** Work in progress on an instance that a restart or stop would kill.
+ *  keyRejected: the instance refused the status key, so its work is unknown
+ *  and it is treated as busy. */
+export type InstanceBusy = { generatingRuns: number; runningImports: string[]; keyRejected?: boolean };
 
 // null = not busy. Only the v2 `busy` field is read: a payload without it
 // (pre-v2 instances), or no payload at all, is not busy.
@@ -24,6 +26,9 @@ export function readBusy(payload: unknown): InstanceBusy | null {
 
 /** e.g. "Generating 1 results package; importing hmis" */
 export function describeBusy(busy: InstanceBusy): string {
+  if (busy.keyRejected) {
+    return "Status key rejected, so running work could not be checked (STATUS_API_KEY on the status site must match the instances')";
+  }
   const parts: string[] = [];
   if (busy.generatingRuns > 0) {
     parts.push(

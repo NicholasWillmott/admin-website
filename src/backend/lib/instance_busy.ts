@@ -1,14 +1,19 @@
 import { describeBusy, readBusy } from "../../frontend/instance_busy.ts";
 import type { InstanceBusy } from "../../frontend/instance_busy.ts";
+import { instanceFetch } from "./instance_fetch.ts";
 
 // null = not busy, or the instance cannot be asked (down, timed out, bad
 // response). A server that cannot answer is often the reason for the restart,
-// so it never blocks one.
+// so it never blocks one. A server that answers 401 is up but refused the
+// status key: its work is unknown, so it counts as busy (keyRejected) rather
+// than letting a restart kill a generating package.
 export async function fetchInstanceBusy(serverId: string): Promise<InstanceBusy | null> {
   try {
-    const response = await fetch(`https://${serverId}.fastr-analytics.org/health_check`, {
-      signal: AbortSignal.timeout(5000),
-    });
+    const response = await instanceFetch(serverId, "health_check", { timeoutMs: 5000 });
+    if (response.status === 401) {
+      await response.body?.cancel();
+      return { generatingRuns: 0, runningImports: [], keyRejected: true };
+    }
     if (!response.ok) {
       await response.body?.cancel();
       return null;

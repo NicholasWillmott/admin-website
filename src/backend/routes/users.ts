@@ -2,6 +2,7 @@
 import { Hono } from "hono";
 import { requireAdmin } from "../lib/auth.ts";
 import { H_USERS } from "../h_users.ts";
+import { instanceFetch } from "../lib/instance_fetch.ts";
 
 const router = new Hono();
 
@@ -103,7 +104,7 @@ router.post("/language-report", async (c) => {
     const queue = [...servers];
     async function fetchServer(s: ServerLangFlags) {
         try {
-            const r = await fetch(`https://${s.id}.fastr-analytics.org/health_check`, { signal: AbortSignal.timeout(15000) });
+            const r = await instanceFetch(s.id, "health_check", { timeoutMs: 15000 });
             if (!r.ok) return;
             const data = await r.json();
             const users = new Set<string>((data.serverUsers ?? []).map((u: string) => u.toLowerCase()));

@@ -4,6 +4,7 @@ import { requireAdmin } from "../lib/auth.ts";
 import { isSafeParam, getServerInfo, getDropletIp } from "../lib/utils.ts";
 import { executeCommand, READ_TIMEOUT_MS } from "../ssh.ts";
 import { busyRefusal } from "../lib/instance_busy.ts";
+import { instanceFetch } from "../lib/instance_fetch.ts";
 
 const router = new Hono();
 
@@ -66,7 +67,7 @@ router.get("/all/:endpoint", async (c) => {
 
         const entries = await Promise.all(servers.map(async (server) => {
             try {
-                const resp = await fetch(`https://${server.id}.fastr-analytics.org/${endpoint}`);
+                const resp = await instanceFetch(server.id, endpoint);
                 if (!resp.ok) return [server.id, null] as const;
                 return [server.id, await resp.json()] as const;
             } catch {
@@ -157,7 +158,7 @@ router.post("/:id/pg_stat_statements/reset", async (c) => {
     }
 
     try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/pg_stat_statements_reset`, { method: "POST" });
+        const response = await instanceFetch(serverId, "pg_stat_statements_reset", { method: "POST" });
         const data = await response.json();
         return c.json(data);
     } catch (error) {
@@ -186,7 +187,7 @@ function proxyRoute(route: string, targetPath: string, allowedQuery: string[] = 
         const tail = qs.toString() ? `?${qs.toString()}` : "";
 
         try {
-            const response = await fetch(`https://${serverId}.fastr-analytics.org/${targetPath}${tail}`);
+            const response = await instanceFetch(serverId, `${targetPath}${tail}`);
             const data = await response.json();
             return c.json(data);
         } catch (error) {

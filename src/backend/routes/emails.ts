@@ -2,6 +2,7 @@
 import { Hono } from "hono";
 import { requireAdminOrInternal } from "../lib/auth.ts";
 import { H_USERS } from "../h_users.ts";
+import { instanceFetch } from "../lib/instance_fetch.ts";
 import type { AiUsageLog, ModelPricing } from "../../frontend/types.ts";
 
 const router = new Hono();
@@ -186,7 +187,7 @@ async function fetchServerProjects(serverId: string): Promise<{ id: string; labe
 
 async function fetchServerHealth(serverId: string): Promise<{ online: boolean; version: string; userCount: number; adminUsers: string[] }> {
     try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/health_check`);
+        const response = await instanceFetch(serverId, "health_check");
         if (!response.ok) return { online: false, version: "", userCount: 0, adminUsers: [] };
         const data = await response.json();
         return { online: true, version: data.serverVersion ?? "", userCount: data.totalUsers ?? 0, adminUsers: data.adminUsers ?? [] };
@@ -254,7 +255,7 @@ function parseAutoChangelogSince(changelog: string, audience: "user" | "admin" |
 
 async function fetchServerUserLogs(serverId: string): Promise<UserLog[]> {
     try {
-        const response = await fetch(`https://${serverId}.fastr-analytics.org/user_logs`);
+        const response = await instanceFetch(serverId, "user_logs");
         if (!response.ok) return [];
         const data = await response.json();
         return data.logs ?? [];
@@ -276,10 +277,10 @@ async function fetchServerProjectActivity(serverId: string): Promise<{ project_i
 
 async function fetchServerAiUsageLogs(serverId: string, since?: string): Promise<AiUsageLog[]> {
     try {
-        const url = since
-            ? `https://${serverId}.fastr-analytics.org/ai_usage?since=${encodeURIComponent(since)}`
-            : `https://${serverId}.fastr-analytics.org/ai_usage`;
-        const response = await fetch(url);
+        const path = since
+            ? `ai_usage?since=${encodeURIComponent(since)}`
+            : "ai_usage";
+        const response = await instanceFetch(serverId, path);
         if (!response.ok) return [];
         const data = await response.json();
         return data.logs ?? [];
@@ -296,10 +297,10 @@ interface AiLimitHit {
 
 async function fetchServerAiLimitHits(serverId: string, since?: string): Promise<AiLimitHit[]> {
     try {
-        const url = since
-            ? `https://${serverId}.fastr-analytics.org/ai_limit_hits?since=${encodeURIComponent(since)}`
-            : `https://${serverId}.fastr-analytics.org/ai_limit_hits`;
-        const response = await fetch(url);
+        const path = since
+            ? `ai_limit_hits?since=${encodeURIComponent(since)}`
+            : "ai_limit_hits";
+        const response = await instanceFetch(serverId, path);
         if (!response.ok) return [];
         const data = await response.json();
         return data.hits ?? [];

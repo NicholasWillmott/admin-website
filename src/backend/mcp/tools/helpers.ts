@@ -2,6 +2,7 @@
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { getDropletIp, isSafeParam } from "../../lib/utils.ts";
 import { executeCommand, READ_TIMEOUT_MS } from "../../ssh.ts";
+import { instanceFetch } from "../../lib/instance_fetch.ts";
 
 // Shared plumbing for the MCP tools. The one-line fetches here deliberately
 // duplicate what the Hono route handlers do inline (routes/servers.ts etc.)
@@ -94,13 +95,17 @@ export async function fetchInstanceJson(
   const tail = qs.toString() ? `?${qs.toString()}` : "";
   let response: Response;
   try {
-    response = await fetch(
-      `https://${serverId}.fastr-analytics.org/${path}${tail}`,
-      { signal: AbortSignal.timeout(INSTANCE_TIMEOUT_MS) },
-    );
+    response = await instanceFetch(serverId, `${path}${tail}`, {
+      timeoutMs: INSTANCE_TIMEOUT_MS,
+    });
   } catch (error) {
     throw new ToolFailure(
       `Instance "${serverId}" unreachable (${String(error)}). It may be stopped — check get_fleet_status.`,
+    );
+  }
+  if (response.status === 401) {
+    throw new ToolFailure(
+      `Instance "${serverId}" rejected the status key for ${path}: STATUS_API_KEY on the status site does not match the instance's.`,
     );
   }
   if (!response.ok) {
@@ -120,10 +125,9 @@ export async function fetchFleetEndpoint(
   const servers = await fetchServersJson();
   const entries = await Promise.all(servers.map(async (server) => {
     try {
-      const resp = await fetch(
-        `https://${server.id}.fastr-analytics.org/${endpoint}`,
-        { signal: AbortSignal.timeout(INSTANCE_TIMEOUT_MS) },
-      );
+      const resp = await instanceFetch(server.id, endpoint, {
+        timeoutMs: INSTANCE_TIMEOUT_MS,
+      });
       if (!resp.ok) return [server.id, null] as const;
       return [server.id, await resp.json()] as const;
     } catch {
