@@ -35,3 +35,6 @@ dist-ssr
 *_rsa
 *_rsa.pub
 *.pem
+
+# Local deploy helper for backup-scripts/
+backup-script-sync
